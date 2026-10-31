@@ -1,0 +1,3 @@
+[submodule "client/ember"]
+	path = client/ember
+	url = https://github.com/brockventures/ember.git
