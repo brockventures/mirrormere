@@ -1,0 +1,38 @@
+---
+name: project_container_distribution_analysis
+description: "Analysis 2026-08-06 — should containers move from NasHost-01 to AppHost-02/.84? Real specs checked, recommendation given, awaiting Ryan's decision"
+category: engineering
+source: project_container_distribution_analysis.md
+updated: 2026-09-01
+---
+
+Ryan asked 2026-08-06 whether distributing containers across NasHost-01 and AppHost-02 (`.84`) would help, given `.84` currently runs no containers at all (NFS-only, for the Movies migration — see [[project_second_nas_ds1525]]).
+
+**Real specs checked before answering (don't assume, verify each time specs matter):**
+- NasHost-01 (.82): Intel Celeron J4125, 9.6GB RAM, ~4.9GB used/3.4GB available. Container CPU usage across the board is low (~2% top consumer) — **not CPU-bound**. The real pressure has been disk space (was 90% full before the Movies migration) and I/O contention (the whole SQLite-lock investigation this week).
+- AppHost-02 (.84): AMD Ryzen Embedded V1500B — actually a **stronger CPU** than NasHost-01's Celeron. 7.7GB RAM, only 598MB used — almost completely idle. **Container Manager/Docker is not installed there yet** — that's a real prerequisite before anything can move.
+
+**Recommendation given, then partly corrected same conversation — Ryan pushed back and was right.** Original claim: moving Posterizarr/Kometa to `.84` would meaningfully reduce the SQLite lock contention. **Wrong, walked back.** The confirmed mechanism (see [[project_arr_sqlite_noise]] / [[project_posterizarr]]) is Posterizarr/Kometa making a high volume of concurrent *API commands* to Sonarr/Radarr, which starves their thread pool and causes lock contention **inside Sonarr/Radarr's own process on `.82`** — that happens regardless of which physical box the caller runs on. Moving the caller doesn't reduce request concurrency; it just makes the network hop go over LAN instead of Docker's internal bridge, if anything adding latency. Don't repeat this reasoning — it conflates "physical disk I/O contention" with "SQLite lock contention from API command concurrency," which are different mechanisms.
+
+**What's still actually true, much smaller benefit:** Posterizarr/Kometa's own *local* I/O (image processing, temp files, logs, and Posterizarr's direct poster-file writes into folders) would move off `.82`'s physical disk if relocated. Movie poster writes specifically would become local to `.84` (movies live there now); TV show poster writes would just flip to the opposite network direction — no gain there. This is general disk-contention relief, not a fix for the documented lock mechanism. The real fix for that mechanism is still the Postgres migration (already P1) or actual API rate-limiting in front of Sonarr/Radarr (reverse-proxy option, previously declined for complexity — see [[project_arr_sqlite_noise]]).
+
+**Original candidate list below, minus the now-corrected SQLite-lock justification for Posterizarr/Kometa specifically** — the baseball-stack and monitoring moves are unaffected by this correction, they were never about the SQLite issue.
+- Posterizarr + Kometa — still reasonable to move for the smaller local-I/O-relief reason above and to use `.84`'s idle CPU, just not the "fixes the lock contention" reason originally given.
+- **Move: baseball stack** (3 shiny apps + baseball_db) — fully self-contained, own Postgres, zero coupling to NasHost-01's media files. Clean isolation, frees meaningful memory, separates Ryan's personal project from the media stack's blast radius.
+- **Move: monitoring** (Down Detector/Uptime Kuma) — better practice to watch from an independent box than co-located with what it monitors. **CORRECTED 2026-08-08: this container doesn't actually exist to move.** Checked `docker ps -a` on both NasHost-01 and `.84` — no `uptime-kuma` container anywhere, despite `recently_completed.md` recording "Down Detector / Uptime Kuma deployed on NAS" 2026-04-16. What's actually live is **UptimeRobot**, a cloud/SaaS service (see [[reference_uptimerobot]]) polled by the 30-min heartbeat and relayed to Discord under a "Down Detector" display name — there's no local container behind it, nothing to migrate. Either the original Uptime Kuma deployment was decommissioned at some point without a memory update, or it's elsewhere unaccounted for. Flagged to Ryan 2026-08-08 rather than guessing; don't repeat "move Uptime Kuma to .84" as an actionable recommendation until this is actually resolved with him.
+- **Leave alone: the core media stack** (Plex/Radarr/Sonarr/Bazarr/Prowlarr/Sabnzbd/Seerr) — already has one cross-NAS dependency (the Movies NFS mount); adding more without a concrete bottleneck to fix just adds fragility.
+- **Leave alone: Home Assistant/Matterserver/OTBR/Homebridge** — too latency/uptime-sensitive for a cross-NAS hop, given the substantial effort already invested in HA reliability (watchdog, hang protocol, etc. — see [[project_ha_watchdog]]).
+
+**Status as of 2026-08-06 ~12:38 AM PT: recommendation given, awaiting Ryan's decision on whether to proceed** — offered to scope out installing Docker on `.84` + moving Posterizarr/Kometa as the first concrete step, nothing started.
+
+**Update 2026-08-07: baseball stack + monitoring items both actioned, Posterizarr/Kometa not (yet) requested.**
+- Container Manager installed on `.84` (2026-08-06).
+- Baseball stack fully migrated — see [[project_baseball_stack_migration_84]].
+- Monitoring: Dockhand given its own independent instance on `.84` ([[project_dockhand]]) and Dozzle extended to cover `.84` via its built-in agent mode ([[project_dozzle_multihost]]) — Glances still not duplicated there, not yet requested.
+- Posterizarr/Kometa move — never revisited after the reasoning correction; not requested by Ryan, treat as parked, not planned.
+
+**Full container-list review 2026-08-08 — verdict: nothing meaningful left to move.** Ryan asked to review NasHost-01's current full list (22 containers) for further candidates. Checked live `docker stats`, confirmed the box still isn't CPU-bound overall (most containers near-idle; the few spikes seen — sonarr 96%, sabnzbd 29%, plex 30% — were momentary real work, not chronic pressure).
+- **Should stay, tightly coupled (new to this pass, not covered in the original analysis):** `prowlarr`/`sabnzbd` (constant handoff with Sonarr/Radarr's import pipeline), `tautulli`/`maintainerr` (need low-latency Plex API access; maintainerr also has schedule-collision history tying it to Kometa/Posterizarr's timing — see [[project_maintainerr_bug]]), `imagemaid` (needs direct access to Plex's actual media files, plus a prior silent-failure incident — see [[project_imagemaid_compose]] — don't add cross-NAS complexity on top of that track record), `homebridge` (bridges Nest to Home Assistant, which is deliberately staying put — same reliability logic applies).
+- **Should stay, latency/uptime-critical:** `adguard` — if it's the actual network DNS, every device depends on fast responses, and moving it means reconfiguring router DHCP too. Meaningfully higher blast radius than it looks; flagged the caveat rather than asserting it's definitely the primary DNS (not independently confirmed).
+- **Actually worth moving:** `glances` — the one with real value, completes the monitoring pattern already started with Dockhand+Dozzle. `homepage`/`speedtest` — trivial footprint (a few MB each), standalone, fine to move but purely cosmetic, won't move any needle.
+- **Recommended to Ryan: just `glances`.** Awaiting his answer on whether to set it up on `.84` (same pattern as Dockhand — needs its own instance, no multi-host mode).

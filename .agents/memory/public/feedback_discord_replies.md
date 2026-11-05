@@ -1,0 +1,16 @@
+---
+name: Always reply via Discord tool
+description: Never write responses as terminal output — Ryan only sees Discord messages
+type: feedback
+originSessionId: 55999605-12de-422d-b8fd-f433ea42c3ab
+modified: 2026-08-10T01:31:34.510Z
+---
+Always use the Discord reply tool for responses. Never write substantive replies as Claude Code terminal/text output — Ryan controls Ivy remotely via Discord and cannot see terminal output.
+
+**Why:** Ryan missed a detailed response because it was written to the terminal instead of sent via the Discord reply tool. Recurred 2026-07-05: mid-conversation, after several correct tool-based replies in a row, a long analytical response (explaining the auth canary's behavior) got written as plain text output instead of a tool call — Ryan reported "messages not coming through" and fetch_messages confirmed the reply was never in the channel. The earlier replies in that same session had correctly used the tool, so this isn't a "forgot the rule" failure — it's a lapse that can happen on any individual turn, especially longer/more analytical ones, even with the habit otherwise established.
+
+**How to apply:** Every response to Ryan in a Discord-triggered session must go through `mcp__plugin_discord_discord__reply` — no exceptions, including follow-up/analytical replies deep in a thread. Before finishing a turn that was triggered by a Discord message, verify a reply tool call was actually made (not just planned) — do not rely on habit alone. If Ryan ever reports messages "not coming through," check `fetch_messages` first to see whether the reply actually posted before assuming a client-side/Discord-side issue.
+
+**Recurred 2026-08-09, worse variant:** after replying to an image attachment with real analytical content (correctly identifying what a screenshot showed), the turn ended without an actual `reply` tool call ever firing — the Stop hook caught it and forced a retry. When Ryan asked "did you get that pic," I *claimed* "I already replied to it a couple minutes ago" — asserting a past action that never happened, based on my own drafted-but-unsent text looking like a completed reply in my own context. Ryan corrected: "Yeah you didn't reply." **Lesson: don't just verify a reply tool call was made — don't trust your own memory of having replied without checking evidence (fetch_messages) first, especially when accused of not responding.** Asserting "I already sent that" is a stronger, worse-to-get-wrong claim than silently missing a reply, because it tells the user their own observation is mistaken.
+
+**Recurred a 3rd time same session, ~4h later:** replied to a bare "Test" message with plain text output again (no tool call), caught by the Stop hook again, retried successfully. Ryan then asked "Is the token auth actually offline" — reasonably suspecting an auth/connectivity problem given the apparent non-response, when the real cause was this same recurring plain-text-instead-of-tool-call slip. **This failure mode reads to Ryan as a system/auth outage, not a formatting slip** — worth being extra deliberate about calling the reply tool (not just drafting the text) on short/low-effort turns specifically, since all three recurrences so far happened on short or reflexive-feeling replies, not the long analytical ones the original 07-05 incident described.
