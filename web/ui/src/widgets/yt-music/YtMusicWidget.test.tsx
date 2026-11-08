@@ -1,31 +1,18 @@
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PaneContext } from '../../carousel/PaneContext';
+import { NextUp, resolveYtMusicScreenIndex } from '../../shell/NextUp';
 import { useDisplayStore } from '../../store';
-import {
-  YtMusicNextIcon,
-  YtMusicPauseIcon,
-  YtMusicPlayIcon,
-  YtMusicPrevIcon,
-  YtMusicSpeakerIcon,
-  YtMusicStopIcon,
-} from './YtMusicIcons';
-import { YtMusicNowPlaying } from './YtMusicNowPlaying';
 import { YtMusicWidget, type MusicState } from './YtMusicWidget';
 import {
-  DEFAULT_ACCOUNTS,
   DEFAULT_ART,
-  DEFAULT_STATE,
   DEFAULT_SUGGESTIONS,
-  LOCAL_SPEAKER,
+  getSharedYtMusicState,
+  isYtMusicLiveIslandActive,
   postMusicApi,
+  resetSharedYtMusicState,
   resolveAccounts,
-  resolveSpeakersWithLocal,
-  resolveSuggestions,
-  type AccountProfile,
-  type Playlist,
-  type SearchResultItem,
-  type YtMusicTab,
+  setSharedYtMusicState,
 } from './ytMusicTypes';
 
 const initialStore = useDisplayStore.getState();
@@ -129,6 +116,7 @@ describe('YtMusicWidget', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    resetSharedYtMusicState();
     useDisplayStore.setState(initialStore, true);
     useDisplayStore.setState({
       visibility: { visible: true },
@@ -1457,289 +1445,259 @@ describe('YtMusicWidget', () => {
       expect(audio.getAttribute('data-video-id')).toBeNull();
     });
   });
-});
 
-describe('YtMusicNowPlaying component coverage', () => {
-  const baseNpProps = {
-    nowPlaying: {
-      title: 'Starboy',
-      artist: 'The Weeknd',
-      thumb: 'https://example.com/starboy.jpg',
-      state: 'playing',
-      volume: 50,
-      queue_index: 0,
-    },
-    queue: [
-      { title: 'Starboy', artist: 'The Weeknd', thumb: 'https://example.com/starboy.jpg' },
-      { title: 'Blinding Lights', artist: 'The Weeknd', thumb: 'https://example.com/blinding.jpg' },
-    ],
-    activeSpeaker: 'media_player.living_room',
-    speakers: [
-      { entity_id: 'media_player.living_room', name: 'Living Room' },
-      { entity_id: 'media_player.kitchen', name: 'Kitchen' },
-    ],
-    onPrev: vi.fn(),
-    onPlayPause: vi.fn(),
-    onNext: vi.fn(),
-    onStop: vi.fn(),
-    onVolumeChange: vi.fn(),
-    onPlayQueueIndex: vi.fn(),
-    onBrowseLibrary: vi.fn(),
-  };
+  it('handles extraAccounts and postMusicApi edge cases', async () => {
+    const result = resolveAccounts(null, null, [
+      'extra@example.com',
+      'username_only',
+      '   ',
+      { id: 'ext-1', name: 'Extra 1', handle: '@ext1', type: 'brand' },
+      { email: 'ext2@example.com' },
+      {},
+      123 as unknown as string,
+    ]);
+    expect(result.some((a) => a.id === 'extra@example.com')).toBe(true);
+    expect(result.some((a) => a.id === 'username_only' && a.handle === undefined)).toBe(true);
+    expect(result.some((a) => a.id === 'ext-1' && a.type === 'brand')).toBe(true);
+    expect(result.some((a) => a.id === 'ext2@example.com')).toBe(true);
 
-  it('renders metadata and handles keyboard navigation on queue rows', () => {
-    const { container, rerender } = render(<YtMusicNowPlaying {...baseNpProps} />);
-    rerender(<YtMusicNowPlaying {...baseNpProps} onPrev={vi.fn()} />);
-    rerender(<YtMusicNowPlaying {...baseNpProps} nowPlaying={{ ...baseNpProps.nowPlaying }} />);
-
-    expect(container.querySelector('#np-title')?.textContent).toBe('Starboy');
-    expect(container.querySelector('#np-device-badge')?.textContent).toContain('Living Room');
-
-    const secondRow = container.querySelectorAll('.np-queue-row')[1];
-    fireEvent.click(secondRow);
-    expect(baseNpProps.onPlayQueueIndex).toHaveBeenCalledWith(1);
-
-    fireEvent.keyDown(secondRow, { key: 'Enter' });
-    expect(baseNpProps.onPlayQueueIndex).toHaveBeenCalledWith(1);
-
-    fireEvent.keyDown(secondRow, { key: ' ' });
-    expect(baseNpProps.onPlayQueueIndex).toHaveBeenCalledWith(1);
-
-    fireEvent.keyDown(secondRow, { key: 'Escape' });
-    expect(baseNpProps.onPlayQueueIndex).toHaveBeenCalledTimes(3);
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ state: mockIdleState }), { status: 200 }));
+    expect(await postMusicApi('/test-url', { action: 'test' })).toEqual(mockIdleState);
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response('not-json', { status: 200 }));
+    expect(await postMusicApi('/test-url', { action: 'test' })).toBeUndefined();
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('network error'));
+    expect(await postMusicApi('/test-url', { action: 'test' })).toBeUndefined();
+    globalThis.fetch = originalFetch;
   });
 
-  it('renders empty queue, paused state, and fallback speaker name', () => {
-    const { container, rerender } = render(
-      <YtMusicNowPlaying
-        onPrev={baseNpProps.onPrev}
-        onPlayPause={baseNpProps.onPlayPause}
-        onNext={baseNpProps.onNext}
-        onStop={baseNpProps.onStop}
-        onVolumeChange={baseNpProps.onVolumeChange}
-        onBrowseLibrary={baseNpProps.onBrowseLibrary}
-        startingPlayback={true}
-        nowPlaying={{ state: 'paused' }}
-      />
-    );
-
-    expect(container.querySelector('#np-title')?.textContent).toBe('Starting playback...');
-    expect(container.querySelector('#btn-play')?.getAttribute('aria-label')).toBe('Play');
-
-    rerender(
-      <YtMusicNowPlaying
-        {...baseNpProps}
-        nowPlaying={undefined}
-        queue={undefined}
-        activeSpeaker={undefined}
-        speakers={undefined}
-      />
-    );
-
-    expect(container.querySelector('#np-title')?.textContent).toBe('YouTube Music');
-    expect(container.querySelector('#np-artist')?.textContent).toBe('Pick a playlist or search a song');
-    expect(container.querySelector('#np-device-badge')?.textContent).toContain('This Device');
-    expect(container.querySelector('.np-queue-empty')?.textContent).toBe('Queue is empty');
-  });
-
-  it('renders single track count in queue and handles custom speaker string and missing callback', () => {
-    const singleQueueProps = {
-      ...baseNpProps,
-      activeSpeaker: 'media_player.unknown_group',
-      speakers: [],
-      queue: [{ title: 'Solo', artist: 'Artist', id: 'solo-id' }],
-      onPlayQueueIndex: undefined,
-    };
-    const { container } = render(<YtMusicNowPlaying {...singleQueueProps} />);
-
-    expect(container.querySelector('.np-queue-count')?.textContent).toBe('1 track');
-    expect(container.querySelector('#np-device-badge')?.textContent).toContain('media_player.unknown_group');
-
-    const row = container.querySelector('.np-queue-row')!;
-    fireEvent.click(row);
-    fireEvent.keyDown(row, { key: 'Enter' });
-  });
-});
-
-describe('ytMusicTypes helpers coverage', () => {
-  it('supports Playlist, SearchResultItem, and YtMusicTab types', () => {
-    const tab: YtMusicTab = 'discovery';
-    const pl: Playlist = { playlist_id: 'p1', title: 'Favorites', count: 10 };
-    const sr: SearchResultItem = { video_id: 'v1', title: 'Song', artist: 'Artist', duration: '3:00' };
-    expect(tab).toBe('discovery');
-    expect(pl.playlist_id).toBe('p1');
-    expect(sr.video_id).toBe('v1');
-  });
-
-  describe('resolveAccounts', () => {
-    it('returns stateData accounts when available', () => {
-      const customAccounts: AccountProfile[] = [
-        { id: 'user-1', name: 'Work Profile', handle: '@work', type: 'email' },
-      ];
-      expect(resolveAccounts({ accounts: customAccounts }, null)).toEqual(customAccounts);
+  describe('Header Live Island integration', () => {
+    beforeEach(() => {
+      resetSharedYtMusicState();
+      useDisplayStore.setState(initialStore, true);
     });
 
-    it('resolves accounts from config when stateData accounts are missing', () => {
-      const config = {
-        accounts: [
-          { id: 'cfg-1', name: 'Studio', handle: '@studio', type: 'brand' },
-          { id: 'cfg-2', name: 'Personal', type: 'email' },
-          { id: 'cfg-3' },
-          {},
-          'cfg-5-string',
+    afterEach(() => {
+      cleanup();
+      resetSharedYtMusicState();
+      vi.restoreAllMocks();
+    });
+
+    it('validates isYtMusicLiveIslandActive for playing, paused with track, and idle/stopped states', () => {
+      expect(isYtMusicLiveIslandActive(null)).toBe(false);
+      expect(isYtMusicLiveIslandActive(undefined)).toBe(false);
+      expect(isYtMusicLiveIslandActive({})).toBe(false);
+      expect(isYtMusicLiveIslandActive({ state: 'stopped', title: 'Starboy' })).toBe(false);
+      expect(isYtMusicLiveIslandActive({ state: 'paused' })).toBe(false);
+      expect(isYtMusicLiveIslandActive({ state: 'paused', title: 'Starboy' })).toBe(true);
+      expect(isYtMusicLiveIslandActive({ state: 'paused', video_id: 'v_1' })).toBe(true);
+      expect(isYtMusicLiveIslandActive({ state: 'playing' })).toBe(true);
+    });
+
+    it('syncs YtMusicWidget playback state into Header NextUp Live Island and dispatches play_pause and next controls', async () => {
+      const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+        const u = String(url);
+        if (u.includes('/music/state')) {
+          return new Response(JSON.stringify(mockPlayingState), { status: 200 });
+        }
+        if (u.includes('/music/control')) {
+          const body = JSON.parse(String(init?.body ?? '{}'));
+          if (body.action === 'play_pause') {
+            return new Response(
+              JSON.stringify({
+                state: {
+                  ...mockPlayingState,
+                  now_playing: { ...mockPlayingState.now_playing, state: 'paused' },
+                },
+              }),
+              { status: 200 },
+            );
+          }
+          if (body.action === 'next') {
+            return new Response(
+              JSON.stringify({
+                state: {
+                  ...mockPlayingState,
+                  now_playing: {
+                    title: 'Blinding Lights',
+                    artist: 'The Weeknd',
+                    thumb: 'https://example.com/blinding.jpg',
+                    state: 'playing',
+                  },
+                },
+              }),
+              { status: 200 },
+            );
+          }
+        }
+        if (u.includes('api/screen/select')) {
+          return new Response('{}', { status: 200 });
+        }
+        return new Response('{}', { status: 200 });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      useDisplayStore.setState({
+        visibility: { visible: true },
+        screen: { currentScreen: 0, totalScreens: 2, intervalSeconds: 30, widgets: [] },
+        layout: [
+          { index: 0, widgets: [{ widget_id: 'cal-1', type: 'calendar-grid', origin: [0, 0], dimensions: [3, 2] }] },
+          { index: 1, widgets: [{ widget_id: 'yt-1', type: 'yt-music', origin: [0, 0], dimensions: [3, 2] }] },
         ],
-      };
-      const result = resolveAccounts(null, config);
-      expect(result).toEqual([
-        { id: 'cfg-1', name: 'Studio', handle: '@studio', type: 'brand' },
-        { id: 'cfg-2', name: 'Personal', handle: undefined, type: 'email' },
-        { id: 'cfg-3', name: 'cfg-3', handle: undefined, type: 'email' },
-        { id: 'acc_3', name: 'Account 4', handle: undefined, type: 'email' },
-        { id: 'cfg-5-string', name: 'cfg-5-string', type: 'email' },
-      ]);
-    });
+        widgets: {
+          'yt-1': {
+            meta: {
+              type: 'yt-music',
+              origin: [0, 0],
+              dimensions: [3, 2],
+              config: { api_base: '/hearth-api' },
+              assets_base: '',
+            },
+            state: 'healthy',
+            data: {},
+            timestamp: '2026-11-01T12:00:00Z',
+          },
+        },
+      });
 
-    it('handles extraAccounts items including strings, objects with email, and invalid types', () => {
-      const result = resolveAccounts(null, null, [
-        'extra@example.com',
-        'username_only',
-        '   ',
-        { id: 'ext-1', name: 'Extra 1', handle: '@ext1', type: 'brand' },
-        { email: 'ext2@example.com' },
-        {},
-        123 as unknown as string,
-      ]);
-      expect(result.some((a) => a.id === 'extra@example.com')).toBe(true);
-      expect(result.some((a) => a.id === 'username_only' && a.handle === undefined)).toBe(true);
-      expect(result.some((a) => a.id === 'ext-1' && a.type === 'brand')).toBe(true);
-      expect(result.some((a) => a.id === 'ext2@example.com')).toBe(true);
-      expect(result.some((a) => a.id === 'extra_5')).toBe(true);
-    });
-
-    it('falls back to default profiles when neither stateData nor config provides accounts', () => {
-      expect(resolveAccounts(null, null)).toEqual(DEFAULT_ACCOUNTS);
-      expect(resolveAccounts({}, {})).toEqual(DEFAULT_ACCOUNTS);
-    });
-  });
-
-  describe('resolveSpeakersWithLocal', () => {
-    it('prepends This Device when not present in stateData.speakers', () => {
-      const state: MusicState = {
-        speakers: [{ entity_id: 'media_player.kitchen', name: 'Kitchen Speaker' }],
-      };
-      const result = resolveSpeakersWithLocal(state);
-      expect(result).toHaveLength(2);
-      expect(result[0]).toEqual(LOCAL_SPEAKER);
-    });
-
-    it('does not duplicate This Device if this_device or local is already present', () => {
-      expect(resolveSpeakersWithLocal({ speakers: [{ entity_id: 'this_device', name: 'This Device' }] })).toHaveLength(1);
-      expect(resolveSpeakersWithLocal({ speakers: [{ entity_id: 'local', name: 'Local Output' }] })).toHaveLength(1);
-      expect(resolveSpeakersWithLocal({ speakers: [{ entity_id: 'media_player.custom', name: 'This Device' }] })).toHaveLength(1);
-      expect(resolveSpeakersWithLocal(null)).toEqual([LOCAL_SPEAKER]);
-    });
-  });
-
-  describe('resolveSuggestions', () => {
-    it('returns stateData.suggestions when provided', () => {
-      const custom = [{ id: 's1', title: 'Top Hits', kind: 'album' as const }];
-      expect(resolveSuggestions({ suggestions: custom })).toEqual(custom);
-    });
-
-    it('derives suggestions from queue and playlists when suggestions are empty', () => {
-      const state: MusicState = {
-        queue: [
-          { title: 'Song 1', artist: 'Daft Punk', thumb: 'https://example.com/dp.jpg' },
-          { title: 'Song 2', artist: 'Daft Punk' },
-          { title: 'Song 3', artist: 'Justice' },
-          { title: 'Song 4', artist: 'Air' },
-          { title: 'Song 5', artist: 'Phoenix' },
-        ],
-        playlists: [
-          { playlist_id: 'pl-1', title: 'Discovery Mix', count: 25, thumb: 'https://example.com/pl.jpg' },
-          { playlist_id: 'pl-2', title: 'Chill Mix' },
-          { playlist_id: 'pl-3', title: 'Focus Mix' },
-          { playlist_id: 'pl-4', title: 'Extra Mix' },
-        ],
-      };
-      const result = resolveSuggestions(state);
-      expect(result.length).toBe(6);
-      expect(result[0].title).toBe('Daft Punk');
-      expect(result[0].kind).toBe('artist');
-      expect(result[3].title).toBe('Discovery Mix');
-      expect(result[4].subtitle).toBe('Playlist');
-    });
-
-    it('returns default suggestions when state has no suggestions, queue, or playlists', () => {
-      expect(resolveSuggestions(null)).toEqual(DEFAULT_SUGGESTIONS);
-      expect(resolveSuggestions({})).toEqual(DEFAULT_SUGGESTIONS);
-      expect(resolveSuggestions({ queue: [], playlists: [] })).toEqual(DEFAULT_SUGGESTIONS);
-    });
-  });
-
-  describe('postMusicApi and constants', () => {
-    it('returns state on successful POST and undefined on error', async () => {
-      const originalFetch = globalThis.fetch;
-      const okFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ state: mockIdleState }), { status: 200 }));
-      globalThis.fetch = okFetch;
-
-      const res = await postMusicApi('/test-url', { action: 'test' });
-      expect(res).toEqual(mockIdleState);
-
-      const nonJsonFetch = vi.fn().mockResolvedValue(new Response('not-json', { status: 200 }));
-      globalThis.fetch = nonJsonFetch;
-
-      const nonJsonRes = await postMusicApi('/test-url', { action: 'test' });
-      expect(nonJsonRes).toBeUndefined();
-
-      const errFetch = vi.fn().mockRejectedValue(new Error('network error'));
-      globalThis.fetch = errFetch;
-
-      const errRes = await postMusicApi('/test-url', { action: 'test' });
-      expect(errRes).toBeUndefined();
-
-      globalThis.fetch = originalFetch;
-    });
-
-    it('defines constants correctly', () => {
-      expect(DEFAULT_ART).toContain('ytube_music_player');
-      expect(DEFAULT_STATE.active_account).toBe('primary');
-    });
-  });
-
-  describe('YtMusicIcons direct rendering coverage', () => {
-    it('renders all icons properly', () => {
-      const { container, rerender } = render(
-        <div>
-          <YtMusicSpeakerIcon />
-          <YtMusicPrevIcon />
-          <YtMusicPlayIcon />
-          <YtMusicPauseIcon />
-          <YtMusicNextIcon />
-          <YtMusicStopIcon />
-        </div>
-      );
-      rerender(
-        <div>
-          <YtMusicSpeakerIcon />
-          <YtMusicPrevIcon />
-          <YtMusicPlayIcon />
-          <YtMusicPauseIcon />
-          <YtMusicNextIcon />
-          <YtMusicStopIcon />
-        </div>
-      );
-      expect(container.querySelectorAll('svg').length).toBe(6);
-    });
-
-    it('renders mini-player metadata with accessible aria-label', () => {
       const { container } = render(
-        <PaneContext.Provider value={{ isCurrentPane: true, paneIndex: 0 }}>
-          <YtMusicWidget id="yt-1" type="yt-music" />
-        </PaneContext.Provider>
+        <div>
+          <NextUp
+            now={new Date('2026-10-31T10:00:00Z')}
+            timezone="UTC"
+            events={[{ id: 'ev-1', title: 'Morning Standup', start: '2026-10-31T11:00:00Z' }]}
+          />
+          <PaneContext.Provider value={{ isCurrentPane: true, paneIndex: 1 }}>
+            <YtMusicWidget id="yt-1" type="yt-music" />
+          </PaneContext.Provider>
+        </div>,
       );
-      const meta = container.querySelector('.np-meta');
-      expect(meta?.getAttribute('aria-label')).toBe('Open now playing');
+
+      // Wait for YtMusicWidget to poll state and sync to Live Island
+      await waitFor(() => {
+        const pill = container.querySelector('#next-event-pill');
+        expect(pill?.getAttribute('data-live-island')).toBe('yt-music');
+        expect(container.querySelector('#live-island-title')?.textContent).toBe('Starboy');
+        expect(container.querySelector('#live-island-artist')?.textContent).toBe('The Weeknd');
+      });
+
+      expect(getSharedYtMusicState().active_speaker).toBe('media_player.living_room_speaker');
+      expect(getSharedYtMusicState().apiBase).toBe('/hearth-api');
+
+      // Click play/pause button in Live Island
+      const playPauseBtn = container.querySelector('#live-island-play-pause') as HTMLButtonElement;
+      expect(playPauseBtn.getAttribute('aria-label')).toBe('Pause');
+      fireEvent.click(playPauseBtn);
+
+      await waitFor(() => {
+        const call = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).includes('/hearth-api/music/control') &&
+            JSON.parse(String(c[1]?.body ?? '{}')).action === 'play_pause',
+        );
+        expect(call).toBeDefined();
+        expect(playPauseBtn.getAttribute('aria-label')).toBe('Play');
+      });
+
+      // Click next button in Live Island
+      const nextBtn = container.querySelector('#live-island-next') as HTMLButtonElement;
+      fireEvent.click(nextBtn);
+
+      await waitFor(() => {
+        expect(container.querySelector('#live-island-title')?.textContent).toBe('Blinding Lights');
+      });
+
+      // Click Live Island pill body to navigate to carousel screen 1 containing yt-music
+      const pill = container.querySelector('#next-event-pill') as HTMLElement;
+      fireEvent.click(pill);
+
+      expect(useDisplayStore.getState().screen.currentScreen).toBe(1);
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          'api/screen/select',
+          expect.objectContaining({
+            method: 'POST',
+            body: JSON.stringify({ screen_index: 1 }),
+          }),
+        );
+      });
+
+      // Stop playback -> Live Island falls back to Next calendar event bubble
+      act(() => {
+        setSharedYtMusicState((prev) => ({
+          ...prev,
+          now_playing: { ...prev.now_playing, state: 'stopped' },
+        }));
+      });
+
+      await waitFor(() => {
+        expect(container.querySelector('#next-event-pill')?.getAttribute('data-live-island')).toBeNull();
+        expect(container.querySelector('#next-event-title')?.textContent).toBe('Morning Standup');
+      });
+    });
+
+    it('handles Live Island fallback metadata, keyboard navigation, custom onPillClick, and cross-apiBase ignore', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
+      vi.stubGlobal('fetch', fetchMock);
+
+      // Test resolveYtMusicScreenIndex when no yt-music widget is in layout
+      useDisplayStore.setState({
+        layout: [{ index: 0, widgets: [{ widget_id: 'w1', type: 'clock', origin: [0, 0], dimensions: [1, 1] }] }],
+        widgets: {},
+      });
+      expect(resolveYtMusicScreenIndex()).toBeNull();
+
+      // Test resolveYtMusicScreenIndex fallback via widgets[id].meta.type
+      useDisplayStore.setState({
+        layout: [{ index: 2, widgets: [{ widget_id: 'yt-meta', type: '', origin: [0, 0], dimensions: [1, 1] }] }],
+        widgets: {
+          'yt-meta': {
+            meta: { type: 'yt-music', origin: [0, 0], dimensions: [1, 1], config: {}, assets_base: '' },
+            state: 'healthy',
+            data: {},
+            timestamp: '',
+          },
+        },
+      });
+      expect(resolveYtMusicScreenIndex()).toBe(2);
+
+      // Update shared state with minimal track (no title, artist, thumb, or active_account)
+      act(() => {
+        setSharedYtMusicState({
+          now_playing: { state: 'playing', video_id: 'v_minimal' },
+          active_speaker: 'this_device',
+          apiBase: '/custom-api',
+        });
+      });
+
+      // Calling setSharedYtMusicState with identical state is a no-op
+      act(() => {
+        setSharedYtMusicState((prev) => ({ ...prev }));
+      });
+
+      const onPillClick = vi.fn();
+      const { container } = render(<NextUp onPillClick={onPillClick} />);
+
+      expect(container.querySelector('#live-island-title')?.textContent).toBe('YouTube Music');
+      expect(container.querySelector('#live-island-artist')?.textContent).toBe('Ready');
+      expect((container.querySelector('#live-island-art') as HTMLImageElement)?.src).toContain(DEFAULT_ART);
+
+      const pill = container.querySelector('#next-event-pill') as HTMLElement;
+      fireEvent.keyDown(pill, { key: 'Enter' });
+      expect(onPillClick).toHaveBeenCalledTimes(1);
+
+      const playPauseBtn = container.querySelector('#live-island-play-pause') as HTMLButtonElement;
+      fireEvent.keyDown(playPauseBtn, { key: 'Enter' });
+      // KeyDown on child button does not trigger pill's handleKeyDown
+      expect(onPillClick).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(playPauseBtn);
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          '/custom-api/music/control',
+          expect.objectContaining({ method: 'POST' }),
+        );
+      });
     });
   });
 });

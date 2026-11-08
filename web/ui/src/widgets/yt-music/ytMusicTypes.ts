@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 
 export interface Speaker {
   entity_id: string;
@@ -66,6 +66,13 @@ export interface MusicState {
   suggestions?: SuggestedItem[];
 }
 
+export interface SharedYtMusicState {
+  now_playing?: NowPlaying;
+  active_speaker: string;
+  active_account?: string;
+  apiBase: string;
+}
+
 export type YtMusicTab = 'discovery' | 'playlists' | 'queue' | 'search';
 
 export const DEFAULT_ART = 'https://brands.home-assistant.io/_/ytube_music_player/icon.png';
@@ -123,6 +130,61 @@ export const DEFAULT_STATE: MusicState = {
   active_account: 'primary',
   suggestions: DEFAULT_SUGGESTIONS,
 };
+
+const DEFAULT_SHARED_YTM_STATE: SharedYtMusicState = {
+  now_playing: undefined,
+  active_speaker: 'this_device',
+  active_account: undefined,
+  apiBase: '/hearth-api',
+};
+
+let sharedYtMusicState: SharedYtMusicState = DEFAULT_SHARED_YTM_STATE;
+const sharedYtMusicListeners = new Set<() => void>();
+
+export function getSharedYtMusicState(): SharedYtMusicState {
+  return sharedYtMusicState;
+}
+
+export function setSharedYtMusicState(
+  updater: SharedYtMusicState | ((prev: SharedYtMusicState) => SharedYtMusicState),
+): void {
+  const next = typeof updater === 'function' ? updater(sharedYtMusicState) : updater;
+  if (JSON.stringify(sharedYtMusicState) === JSON.stringify(next)) {
+    return;
+  }
+  sharedYtMusicState = next;
+  for (const listener of sharedYtMusicListeners) {
+    listener();
+  }
+}
+
+export function resetSharedYtMusicState(): void {
+  setSharedYtMusicState(DEFAULT_SHARED_YTM_STATE);
+}
+
+function subscribeSharedYtMusicState(listener: () => void): () => void {
+  sharedYtMusicListeners.add(listener);
+  return () => {
+    sharedYtMusicListeners.delete(listener);
+  };
+}
+
+export function useSharedYtMusicState(): SharedYtMusicState {
+  return useSyncExternalStore(
+    subscribeSharedYtMusicState,
+    getSharedYtMusicState,
+    getSharedYtMusicState,
+  );
+}
+
+export function isYtMusicLiveIslandActive(np?: NowPlaying | null): boolean {
+  if (!np) return false;
+  const st = (np.state ?? '').trim().toLowerCase();
+  const hasTrack = Boolean(np.title?.trim() || np.video_id?.trim());
+  if (st === 'playing') return true;
+  if (st === 'paused' && hasTrack) return true;
+  return false;
+}
 
 declare global {
   interface Window {
@@ -210,6 +272,29 @@ export function useMusicStatePolling(
 ): [MusicState, React.Dispatch<React.SetStateAction<MusicState>>] {
   'use no memo';
   const [stateData, setStateData] = useState<MusicState>(DEFAULT_STATE);
+
+  useEffect(() => {
+    const syncListener = () => {
+      const shared = getSharedYtMusicState();
+      if (shared.apiBase !== apiBase) return;
+      setStateData((prev) => {
+        const nextNp = shared.now_playing ?? prev.now_playing;
+        const nextSpk = shared.active_speaker || prev.active_speaker;
+        if (
+          JSON.stringify(prev.now_playing) === JSON.stringify(nextNp) &&
+          prev.active_speaker === nextSpk
+        ) {
+          return prev;
+        }
+        return {
+          ...prev,
+          now_playing: nextNp,
+          active_speaker: nextSpk,
+        };
+      });
+    };
+    return subscribeSharedYtMusicState(syncListener);
+  }, [apiBase]);
 
   useEffect(() => {
     if (!isActive) return;

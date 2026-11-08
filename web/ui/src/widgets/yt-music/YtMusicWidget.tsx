@@ -19,6 +19,7 @@ import {
   resolveAccounts,
   resolveSpeakersWithLocal,
   resolveSuggestions,
+  setSharedYtMusicState,
   useEmberAccounts,
   useMusicStatePolling,
   type AccountProfile,
@@ -229,6 +230,15 @@ export const YtMusicWidget = memo(function YtMusicWidget({ id }: WidgetComponent
   const accounts = resolveAccounts(stateData, config, emberAccounts);
   const currentActiveSpeaker = stateData.active_speaker && stateData.active_speaker.trim() !== '' ? stateData.active_speaker : (speakers[0]?.entity_id ?? 'this_device');
   const isLocalSpeaker = currentActiveSpeaker === 'this_device' || currentActiveSpeaker === 'local';
+
+  useEffect(() => {
+    setSharedYtMusicState({
+      now_playing: stateData.now_playing,
+      active_speaker: currentActiveSpeaker,
+      active_account: activeAccountId,
+      apiBase,
+    });
+  }, [stateData.now_playing, currentActiveSpeaker, activeAccountId, apiBase]);
 
   const postControl = async (action: string, extra: Record<string, unknown> = {}) => {
     const next = await postMusicApi(`${apiBase}/music/control`, {
