@@ -745,6 +745,71 @@ def get_yt_oauth_token():
             return None
 
 
+
+def fetch_yt_liked_songs():
+    key = "yt:liked_songs"
+    now = time.time()
+    with CACHE_LOCK:
+        if key in CACHE and now - CACHE[key][0] < 600:
+            return CACHE[key][1]
+    tok = get_yt_oauth_token()
+    if not tok:
+        return []
+    tracks = []
+    seen_vids = set()
+    page_token = ""
+    try:
+        for _ in range(3):
+            q = "part=snippet,contentDetails&myRating=like&maxResults=50"
+            if page_token:
+                q += f"&pageToken={urllib.parse.quote(page_token)}"
+            url = f"https://www.googleapis.com/youtube/v3/videos?{q}"
+            req = urllib.request.Request(url, headers={"Authorization": f"Bearer {tok}", "Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=8) as r:
+                data = json.loads(r.read().decode())
+            for item in data.get("items", []):
+                vid = item.get("id")
+                if not vid or vid in seen_vids:
+                    continue
+                snip = item.get("snippet") or {}
+                cat_id = str(snip.get("categoryId") or "")
+                ch_title = str(snip.get("channelTitle") or "")
+                title = str(snip.get("title") or "")
+                # Category 10 is Music; also include - Topic channels or VEVO/Official Audio
+                is_music = (
+                    cat_id == "10"
+                    or ch_title.endswith(" - Topic")
+                    or "vevo" in ch_title.lower()
+                    or "music" in ch_title.lower()
+                )
+                if not is_music:
+                    continue
+                seen_vids.add(vid)
+                thumbs = snip.get("thumbnails") or {}
+                thumb = (
+                    (thumbs.get("high") or {}).get("url")
+                    or (thumbs.get("medium") or {}).get("url")
+                    or (thumbs.get("default") or {}).get("url")
+                    or f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg"
+                )
+                tracks.append({
+                    "video_id": vid,
+                    "title": title or "Track",
+                    "artist": ch_title.replace(" - Topic", "") or "YouTube Music",
+                    "thumb": thumb,
+                })
+            page_token = data.get("nextPageToken") or ""
+            if not page_token or len(tracks) >= 60:
+                break
+        with CACHE_LOCK:
+            CACHE[key] = (now, tracks)
+    except Exception as e:
+        print(f"[HEARTH-Bridge] Liked songs fetch error: {e}", flush=True)
+        with CACHE_LOCK:
+            tracks = CACHE.get(key, (0, []))[1]
+    return tracks
+
+
 def fetch_yt_playlists():
     key = "yt:playlists"
     now = time.time()
@@ -776,6 +841,25 @@ def fetch_yt_playlists():
                 "count": count,
                 "thumb": thumb_url,
             })
+        liked = fetch_yt_liked_songs()
+        liked_thumb = liked[0]["thumb"] if liked else "https://www.gstatic.com/youtube/media/ytm/images/pbg/liked-music-@576.png"
+        supermix_thumb = (liked[1]["thumb"] if len(liked) > 1 else (out[0]["thumb"] if out else liked_thumb))
+        special = [
+            {
+                "playlist_id": "RDTMAK5uy_ksetItRFlDrQI5PqO6aoUZgleGC9iAYjk",
+                "title": "My Supermix",
+                "count": max(50, len(liked)),
+                "thumb": supermix_thumb,
+            },
+            {
+                "playlist_id": "LM",
+                "title": "Liked Songs",
+                "count": len(liked) if liked else 50,
+                "thumb": liked_thumb,
+            },
+        ]
+        existing_ids = {p.get("playlist_id") for p in special}
+        out = special + [p for p in out if p.get("playlist_id") not in existing_ids]
         with CACHE_LOCK:
             CACHE[key] = (now, out)
     except Exception as e:
@@ -788,6 +872,62 @@ def fetch_yt_playlists():
 def fetch_yt_playlist_tracks(playlist_id):
     if not playlist_id:
         return []
+    if playlist_id in ("LM", "LL", "FLLM"):
+        liked = fetch_yt_liked_songs()
+        if liked:
+            return list(liked)
+    if playlist_id.startswith("RDTMAK") or playlist_id in ("SUPERMIX", "DISCOVER_MIX"):
+        import random
+        liked = list(fetch_yt_liked_songs())
+        pool = list(liked)
+        # Also pull tracks from user's non-kids custom playlists to enrich Supermix
+        for pl in fetch_yt_playlists():
+            pid = pl.get("playlist_id", "")
+            ptitle = (pl.get("title") or "").lower()
+            if pid.startswith("PL") and "kids" not in ptitle and "grammie" not in ptitle:
+                pool.extend(fetch_yt_playlist_tracks(pid)[:15])
+        seen_vids = set()
+        dedup_pool = []
+        for t in pool:
+            vid = t.get("video_id")
+            if vid and vid not in seen_vids:
+                seen_vids.add(vid)
+                dedup_pool.append(t)
+        is_discover = "m-d_fG7e3v8P" in playlist_id or playlist_id == "DISCOVER_MIX"
+        radio_tracks = []
+        if dedup_pool:
+            seeds = random.sample(dedup_pool, min(2, len(dedup_pool)))
+            try:
+                import ytmusicapi
+                ytm = ytmusicapi.YTMusic()
+                for seed in seeds:
+                    watch = ytm.get_watch_playlist(videoId=seed["video_id"], radio=True, limit=25)
+                    for wt in (watch.get("tracks") or []):
+                        wvid = wt.get("videoId")
+                        if not wvid or (is_discover and wvid in seen_vids):
+                            continue
+                        warts = ", ".join(a.get("name", "") for a in (wt.get("artists") or []) if isinstance(a, dict) and a.get("name"))
+                        wthumbs = wt.get("thumbnail") or wt.get("thumbnails") or []
+                        wthumb = wthumbs[-1].get("url", "") if isinstance(wthumbs, list) and wthumbs and isinstance(wthumbs[-1], dict) else f"https://i.ytimg.com/vi/{wvid}/hqdefault.jpg"
+                        radio_tracks.append({
+                            "video_id": wvid,
+                            "title": wt.get("title") or "Track",
+                            "artist": warts or "YouTube Music",
+                            "thumb": wthumb,
+                        })
+            except Exception as e:
+                print(f"[HEARTH-Bridge] Supermix radio seed warning: {e}", flush=True)
+        combined = radio_tracks if (is_discover and radio_tracks) else (dedup_pool + radio_tracks)
+        final_tracks = []
+        final_seen = set()
+        for t in combined:
+            vid = t.get("video_id")
+            if vid and vid not in final_seen:
+                final_seen.add(vid)
+                final_tracks.append(t)
+        if final_tracks:
+            random.shuffle(final_tracks)
+            return final_tracks[:50]
     tok = get_yt_oauth_token()
     tracks = []
     if tok:

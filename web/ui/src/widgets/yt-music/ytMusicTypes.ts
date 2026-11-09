@@ -379,16 +379,9 @@ export function resolveSuggestions(stateData?: MusicState | null): SuggestedItem
     }
   }
 
-  if (Array.isArray(stateData?.playlists)) {
-    for (const p of stateData.playlists) {
-      derived.push({
-        id: `sug-pl-${p.playlist_id}`,
-        title: p.title,
-        subtitle: typeof p.count === 'number' ? `${p.count} tracks` : 'Playlist',
-        kind: 'album',
-        thumb: p.thumb,
-        playlist_id: p.playlist_id,
-      });
+  for (const defSug of DEFAULT_SUGGESTIONS) {
+    if (!derived.some((d) => d.id === defSug.id || (defSug.playlist_id && d.playlist_id === defSug.playlist_id))) {
+      derived.push(defSug);
       if (derived.length >= 6) break;
     }
   }
