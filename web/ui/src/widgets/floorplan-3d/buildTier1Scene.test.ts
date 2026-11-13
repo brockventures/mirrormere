@@ -1,4 +1,4 @@
-import { Box3, Mesh, type MeshStandardMaterial } from 'three';
+import { Box3, Color, Mesh, type MeshStandardMaterial, type Object3D } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import {
   buildTier1Scene,
@@ -16,12 +16,13 @@ import { TIER1_FIXTURES, fixtureToBox3 } from './tier1LayoutSpec';
 import { createTier1Materials } from './tier1Shell';
 
 describe('tier1Fixtures & buildTier1Scene — Multi-Part 3D Fixtures, HA Entities & Lifecycle', () => {
-  it('builds all 39 multi-part fixtures strictly inside spec AABBs and enforces 3D walkthrough geometry', () => {
+  it('builds all 42 multi-part fixtures strictly inside spec AABBs and enforces 3D walkthrough geometry', () => {
     const palette = createTier1Materials();
     const built: Tier1FixturesBuildResult = buildTier1Fixtures(palette);
     const indicators: Tier1FixtureIndicators = built.indicators;
     built.root.updateMatrixWorld(true);
 
+    expect(TIER1_FIXTURES).toHaveLength(42);
     expect(Object.keys(built.fixtures)).toHaveLength(TIER1_FIXTURES.length);
     expect(indicators.printerStatusMat.emissiveIntensity).toBeGreaterThan(0);
 
@@ -29,7 +30,7 @@ describe('tier1Fixtures & buildTier1Scene — Multi-Part 3D Fixtures, HA Entitie
       const group = built.fixtures[spec.id];
       expect(group.userData.fixtureId).toBe(spec.id);
       expect(group.userData.room).toBe(spec.room);
-      const meshes = group.children.filter((c): c is Mesh => c instanceof Mesh);
+      const meshes = group.children.filter((c: Object3D): c is Mesh => c instanceof Mesh);
       expect(meshes.length).toBeGreaterThanOrEqual(2);
 
       const worldBox = new Box3().setFromObject(group);
@@ -47,23 +48,63 @@ describe('tier1Fixtures & buildTier1Scene — Multi-Part 3D Fixtures, HA Entitie
     const thresholdBox = new Box3().setFromObject(built.fixtures['garage-south-threshold']);
     expect(thresholdBox.max.y).toBeLessThanOrEqual(0.1801);
 
-    const sofaMeshes = built.fixtures['garage-charcoal-sofa'].children.filter((c): c is Mesh => c instanceof Mesh);
+    const sofaMeshes = built.fixtures['garage-charcoal-sofa'].children.filter(
+      (c: Object3D): c is Mesh => c instanceof Mesh,
+    );
     const sofaMidZ = (7.4 + 10.2) / 2;
-    const southMaxY = Math.max(...sofaMeshes.filter((m) => m.position.z > sofaMidZ).map((m) => new Box3().setFromObject(m).max.y));
+    const southMaxY = Math.max(
+      ...sofaMeshes.filter((m: Mesh) => m.position.z > sofaMidZ).map((m: Mesh) => new Box3().setFromObject(m).max.y),
+    );
     const northSeatOnlyMaxY = Math.max(
-      ...sofaMeshes.filter((m) => new Box3().setFromObject(m).max.z < sofaMidZ).map((m) => new Box3().setFromObject(m).max.y),
+      ...sofaMeshes
+        .filter((m: Mesh) => new Box3().setFromObject(m).max.z < sofaMidZ)
+        .map((m: Mesh) => new Box3().setFromObject(m).max.y),
     );
     expect(southMaxY).toBeGreaterThan(2.8);
     expect(northSeatOnlyMaxY).toBeLessThan(2.2);
 
-    const signMeshes = built.fixtures['garage-brock-studios-sign'].children.filter((c): c is Mesh => c instanceof Mesh);
-    expect(signMeshes.some((m) => m.material === palette.brockStudiosSign)).toBe(true);
+    const signMeshes = built.fixtures['garage-brock-studios-sign'].children.filter(
+      (c: Object3D): c is Mesh => c instanceof Mesh,
+    );
+    expect(signMeshes.some((m: Mesh) => m.material === palette.brockStudiosSign)).toBe(true);
 
     const lockerBox = new Box3().setFromObject(built.fixtures['garage-locker-left']);
     const washerBox = new Box3().setFromObject(built.fixtures['garage-washer-dryer']);
     const benchBox = new Box3().setFromObject(built.fixtures['garage-workbench']);
     expect(Math.abs(lockerBox.min.x - washerBox.max.x)).toBeLessThanOrEqual(0.05);
     expect(benchBox.max.x - benchBox.min.x).toBeCloseTo(6.4, 3);
+
+    // Chunk 2 polish checks: walnut TV table beneath wall TV, SE 6-drawer dresser, spin bike, and Kraft box stack
+    const consoleGroup = built.fixtures['office-media-console'];
+    const tvGroup = built.fixtures['office-wall-tv'];
+    const dresserGroup = built.fixtures['office-se-dresser'];
+    const bikeGroup = built.fixtures['garage-exercise-bike'];
+    const boxesGroup = built.fixtures['garage-cardboard-boxes'];
+
+    const consoleMeshes = consoleGroup.children.filter((c: Object3D): c is Mesh => c instanceof Mesh);
+    const dresserMeshes = dresserGroup.children.filter((c: Object3D): c is Mesh => c instanceof Mesh);
+    const bikeMeshes = bikeGroup.children.filter((c: Object3D): c is Mesh => c instanceof Mesh);
+    const boxesMeshes = boxesGroup.children.filter((c: Object3D): c is Mesh => c instanceof Mesh);
+
+    expect(consoleMeshes.length).toBeGreaterThanOrEqual(12);
+    expect(dresserMeshes.length).toBeGreaterThanOrEqual(16);
+    expect(bikeMeshes.length).toBeGreaterThanOrEqual(16);
+    expect(boxesMeshes.length).toBeGreaterThanOrEqual(12);
+
+    const consoleBox = new Box3().setFromObject(consoleGroup);
+    const tvBox = new Box3().setFromObject(tvGroup);
+    expect(consoleBox.max.y).toBeCloseTo(2.2, 3);
+    expect(tvBox.min.y).toBeGreaterThan(consoleBox.max.y);
+    expect(consoleBox.min.x).toBeLessThan(tvBox.min.x);
+    expect(tvBox.max.x).toBeLessThan(-3.68);
+
+    const expectedCalipersHex = new Color('#d93829').getHexString();
+    expect(
+      bikeMeshes.some((m: Mesh) => (m.material as MeshStandardMaterial).color.getHexString() === expectedCalipersHex),
+    ).toBe(true);
+
+    const boxesBox = new Box3().setFromObject(boxesGroup);
+    expect(boxesBox.max.y).toBeCloseTo(2.5, 3);
 
     built.dispose();
     palette.dispose();

@@ -368,10 +368,13 @@ describe('tier1LayoutSpec — Remaining Wall Fixtures, Three.js Helpers & Zero F
     const chair = getFixtureById('office-task-chair');
     const consoleUnit = getFixtureById('office-media-console');
     const wallTv = getFixtureById('office-wall-tv');
+    const seDresser = getFixtureById('office-se-dresser');
     const seDoorway = getFixtureById('office-foyer-doorway');
     const pegboard = getFixtureById('garage-pegboard-bins');
     const gearRack = getFixtureById('garage-wood-gear-rack');
     const cubbies = getFixtureById('garage-grey-cubbies');
+    const exerciseBike = getFixtureById('garage-exercise-bike');
+    const cardboardBoxes = getFixtureById('garage-cardboard-boxes');
 
     expect([bed.xMin, bed.xMax, bed.zMin, bed.zMax]).toEqual([-19.8, -13.2, -6.4, -0.6]);
     expect(bed.facing).toBe('+X');
@@ -386,13 +389,60 @@ describe('tier1LayoutSpec — Remaining Wall Fixtures, Three.js Helpers & Zero F
     expect(fixtureCenter(chair).x).toBeCloseTo(-13.9, 5);
     expect(fixtureCenter(chair).z).toBeCloseTo(6.7, 5);
     expect(chair.facing).toBe('+Z');
-    expect([consoleUnit.zMin, consoleUnit.zMax]).toEqual([-5.2, -1.2]);
+
+    // Walnut TV table directly below wall-mounted TV on office face (x = -3.68) opposite guest bed
+    expect(consoleUnit.label).toBe('Walnut TV Table');
+    expect([consoleUnit.xMin, consoleUnit.xMax, consoleUnit.yMin, consoleUnit.yMax, consoleUnit.zMin, consoleUnit.zMax]).toEqual([
+      -5.45, -3.72, 0.0, 2.2, -5.3, -1.1,
+    ]);
+    expect(consoleUnit.primaryColor).toBe('#6b442a');
+    expect(consoleUnit.accentColor).toBe('#1f2329');
     expect(consoleUnit.facing).toBe('-X');
+    expect(consoleUnit.solidFloorFootprint).toBe(true);
+
+    expect([wallTv.xMin, wallTv.xMax, wallTv.yMin, wallTv.yMax, wallTv.zMin, wallTv.zMax]).toEqual([
+      -3.96, -3.69, 2.95, 5.55, -4.9, -1.5,
+    ]);
     expect(wallTv.facing).toBe('-X');
+    expect(wallTv.xMax).toBeLessThan( -3.68);
+    expect(wallTv.yMin).toBeGreaterThan(consoleUnit.yMax);
+
+    // SE corner wood dresser south of the office-foyer doorway
+    expect(seDresser.label).toBe('Corner Wood Dresser');
+    expect([seDresser.xMin, seDresser.xMax, seDresser.yMin, seDresser.yMax, seDresser.zMin, seDresser.zMax]).toEqual([
+      -8.6, -4.1, 0.0, 2.85, 9.25, 10.75,
+    ]);
+    expect(seDresser.facing).toBe('-Z');
+    expect(seDresser.solidFloorFootprint).toBe(true);
+    expect(seDresser.primaryColor).toBe('#6b442a');
+    expect(seDresser.accentColor).toBe('#c8cfd6');
+    expect(seDresser.zMin).toBeGreaterThan(seDoorway.zMax);
+
     expect([seDoorway.zMin, seDoorway.zMax]).toEqual([6.4, 9.2]);
     expect([pegboard.zMin, pegboard.zMax]).toEqual([-7.5, -1.5]);
     expect([gearRack.zMin, gearRack.zMax]).toEqual([-0.5, 3.0]);
     expect([cubbies.zMin, cubbies.zMax]).toEqual([3.8, 7.4]);
+
+    // Garage stationary exercise bike & stacked cardboard storage boxes along West studio zone
+    expect(exerciseBike.label).toBe('Stationary Spin Exercise Bike');
+    expect(exerciseBike.category).toBe('fitness');
+    expect([exerciseBike.xMin, exerciseBike.xMax, exerciseBike.yMin, exerciseBike.yMax, exerciseBike.zMin, exerciseBike.zMax]).toEqual([
+      4.6, 6.8, 0.0, 4.0, 1.0, 3.2,
+    ]);
+    expect(exerciseBike.facing).toBe('+X');
+    expect(exerciseBike.solidFloorFootprint).toBe(true);
+    expect(exerciseBike.primaryColor).toBe('#1f2329');
+    expect(exerciseBike.accentColor).toBe('#d93829');
+
+    expect(cardboardBoxes.label).toBe('Stacked Cardboard Storage Boxes');
+    expect(cardboardBoxes.category).toBe('storage');
+    expect([cardboardBoxes.xMin, cardboardBoxes.xMax, cardboardBoxes.yMin, cardboardBoxes.yMax, cardboardBoxes.zMin, cardboardBoxes.zMax]).toEqual([
+      4.3, 6.9, 0.0, 2.5, 6.6, 9.2,
+    ]);
+    expect(cardboardBoxes.facing).toBe('+X');
+    expect(cardboardBoxes.solidFloorFootprint).toBe(true);
+    expect(cardboardBoxes.primaryColor).toBe('#b98b58');
+    expect(cardboardBoxes.accentColor).toBe('#dfd1ba');
   });
 
   it('has zero 2D floor AABB collisions among all solid floor-standing furniture items and validates Three.js Box3 helpers', () => {

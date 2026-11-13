@@ -34,6 +34,7 @@ export type FixtureId =
   | 'office-task-chair'
   | 'office-media-console'
   | 'office-wall-tv'
+  | 'office-se-dresser'
   | 'office-foyer-doorway'
   | 'foyer-staircase'
   | 'foyer-runner-rug'
@@ -54,6 +55,8 @@ export type FixtureId =
   | 'garage-grey-cubbies'
   | 'garage-pastel-rug'
   | 'garage-charcoal-sofa'
+  | 'garage-exercise-bike'
+  | 'garage-cardboard-boxes'
   | 'garage-south-threshold';
 
 export interface RoomBoundsSpec {
@@ -294,8 +297,9 @@ export const TIER1_FIXTURES: readonly FixtureSpec[] = [
   { id: 'office-south-window-sill', label: 'Office Front Window Sill', room: 'office', category: 'trim', mount: 'wall', facing: '-Z', solidFloorFootprint: false, xMin: -16.8, xMax: -8.8, yMin: 1.35, yMax: 1.52, zMin: 10.75, zMax: 11.25, primaryColor: '#f7f6f2' },
   { id: 'office-desk', label: 'South Window Writing Desk', room: 'office', category: 'furniture', mount: 'floor', facing: '+Z', solidFloorFootprint: true, xMin: -16.4, xMax: -11.4, yMin: 0.0, yMax: 2.5, zMin: 8.2, zMax: 10.4, primaryColor: '#7b5333', accentColor: '#24272c' },
   { id: 'office-task-chair', label: 'Ergonomic Task Chair', room: 'office', category: 'furniture', mount: 'floor', facing: '+Z', solidFloorFootprint: true, xMin: -14.9, xMax: -12.9, yMin: 0.0, yMax: 3.4, zMin: 5.7, zMax: 7.7, primaryColor: '#252930' },
-  { id: 'office-media-console', label: 'Black Media Console', room: 'office', category: 'furniture', mount: 'floor', facing: '-X', solidFloorFootprint: true, xMin: -5.0, xMax: -3.6, yMin: 0.0, yMax: 2.1, zMin: -5.2, zMax: -1.2, primaryColor: '#1d2025' },
-  { id: 'office-wall-tv', label: 'Wall-Mounted Flatscreen TV', room: 'office', category: 'electronics', mount: 'wall', facing: '-X', solidFloorFootprint: false, xMin: -3.85, xMax: -3.55, yMin: 3.0, yMax: 5.6, zMin: -4.9, zMax: -1.5, primaryColor: '#111317' },
+  { id: 'office-media-console', label: 'Walnut TV Table', room: 'office', category: 'furniture', mount: 'floor', facing: '-X', solidFloorFootprint: true, xMin: -5.45, xMax: -3.72, yMin: 0.0, yMax: 2.2, zMin: -5.3, zMax: -1.1, primaryColor: '#6b442a', accentColor: '#1f2329' },
+  { id: 'office-wall-tv', label: 'Wall-Mounted Flatscreen TV', room: 'office', category: 'electronics', mount: 'wall', facing: '-X', solidFloorFootprint: false, xMin: -3.96, xMax: -3.69, yMin: 2.95, yMax: 5.55, zMin: -4.9, zMax: -1.5, primaryColor: '#111317' },
+  { id: 'office-se-dresser', label: 'Corner Wood Dresser', room: 'office', category: 'furniture', mount: 'floor', facing: '-Z', solidFloorFootprint: true, xMin: -8.6, xMax: -4.1, yMin: 0.0, yMax: 2.85, zMin: 9.25, zMax: 10.75, primaryColor: '#6b442a', accentColor: '#c8cfd6' },
   { id: 'office-foyer-doorway', label: 'Office SE Foyer Doorway', room: 'office', category: 'door', mount: 'wall', facing: '-X', solidFloorFootprint: false, xMin: -3.7, xMax: -3.3, yMin: 0.0, yMax: 6.8, zMin: 6.4, zMax: 9.2, primaryColor: '#f4f2ec' },
   { id: 'foyer-staircase', label: '13-Tread Honey-Wood L-Turn Staircase', room: 'foyer', category: 'stairs', mount: 'floor', facing: '+Z', solidFloorFootprint: true, xMin: -3.5, xMax: 3.3, yMin: 0.0, yMax: 8.4, zMin: -11.0, zMax: 4.6, primaryColor: '#a57242', accentColor: '#1b1e23' },
   { id: 'foyer-runner-rug', label: 'Patterned Foyer Runner Rug', room: 'foyer', category: 'rug', mount: 'rug', facing: 'up', solidFloorFootprint: false, xMin: 0.1, xMax: 2.9, yMin: 0.0, yMax: 0.03, zMin: -5.2, zMax: 6.8, primaryColor: '#8d6e57', accentColor: '#dfd7ca' },
@@ -316,6 +320,8 @@ export const TIER1_FIXTURES: readonly FixtureSpec[] = [
   { id: 'garage-grey-cubbies', label: '2x4 Grey Storage Cubbies', room: 'garage', category: 'storage', mount: 'floor', facing: '-X', solidFloorFootprint: true, xMin: 22.0, xMax: 23.4, yMin: 0.0, yMax: 2.9, zMin: 3.8, zMax: 7.4, primaryColor: '#7a8088' },
   { id: 'garage-pastel-rug', label: 'Pastel-Circles Studio Rug', room: 'garage', category: 'rug', mount: 'rug', facing: 'up', solidFloorFootprint: false, xMin: 8.8, xMax: 18.2, yMin: 0.0, yMax: 0.03, zMin: -2.8, zMax: 4.8, primaryColor: '#e8e2d8', accentColor: '#9ab7b0' },
   { id: 'garage-charcoal-sofa', label: 'Dark Charcoal 3-Seat Sofa', room: 'garage', category: 'furniture', mount: 'floor', facing: '-Z', solidFloorFootprint: true, xMin: 9.5, xMax: 17.5, yMin: 0.0, yMax: 2.9, zMin: 7.4, zMax: 10.2, primaryColor: '#2d3138' },
+  { id: 'garage-exercise-bike', label: 'Stationary Spin Exercise Bike', room: 'garage', category: 'fitness', mount: 'floor', facing: '+X', solidFloorFootprint: true, xMin: 4.6, xMax: 6.8, yMin: 0.0, yMax: 4.0, zMin: 1.0, zMax: 3.2, primaryColor: '#1f2329', accentColor: '#d93829' },
+  { id: 'garage-cardboard-boxes', label: 'Stacked Cardboard Storage Boxes', room: 'garage', category: 'storage', mount: 'floor', facing: '+X', solidFloorFootprint: true, xMin: 4.3, xMax: 6.9, yMin: 0.0, yMax: 2.5, zMin: 6.6, zMax: 9.2, primaryColor: '#b98b58', accentColor: '#dfd1ba' },
   { id: 'garage-south-threshold', label: 'Flush Concrete Garage Threshold Curb', room: 'garage', category: 'threshold', mount: 'threshold', facing: '-Z', solidFloorFootprint: false, xMin: 5.5, xMax: 21.5, yMin: 0.0, yMax: 0.18, zMin: 10.82, zMax: 11.18, primaryColor: '#b8bec4' },
 ];
 

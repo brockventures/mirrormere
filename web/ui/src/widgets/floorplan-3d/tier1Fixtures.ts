@@ -102,8 +102,64 @@ const BUILDERS: Readonly<Record<FixtureId, (c: FixtureCtx, g: Group, s: FixtureS
     const d = c.mat(s.primaryColor, 0.62);
     c.parts(g, s, [[0.15, 0.85, 0, 0.07, 0.44, 0.56, c.p.matteBlackIron], [0.44, 0.56, 0, 0.07, 0.15, 0.85, c.p.matteBlackIron], [0.45, 0.55, 0.07, 0.44, 0.45, 0.55, c.p.matteBlackIron], [0.18, 0.82, 0.44, 0.52, 0.20, 0.82, d], [0.12, 0.20, 0.52, 0.68, 0.30, 0.74, d], [0.80, 0.88, 0.52, 0.68, 0.30, 0.74, d], [0.20, 0.80, 0.52, 1, 0.12, 0.24, d]]);
   },
-  'office-media-console': (c, g, s) => c.parts(g, s, [[0.08, 0.96, 0, 0.14, 0.04, 0.96, c.p.matteBlackIron], [0.05, 1, 0.14, 0.92, 0, 1, c.mat(s.primaryColor, 0.58)], [0, 1, 0.92, 1, 0, 1, c.mat('#6e472b', 0.58)], [0, 0.05, 0.18, 0.88, 0.04, 0.96, c.mat('#2a2e36', 0.65)]]),
+  'office-media-console': (c, g, s) => {
+    const [walnutTop, walnutBody, walnutDoor, darkMedia] = [
+      c.mat('#7a4e30', 0.50),
+      c.mat(s.primaryColor, 0.56),
+      c.mat('#7d5233', 0.52),
+      c.mat('#1f2329', 0.52, 0.18),
+    ];
+    c.parts(g, s, [
+      [0.06, 0.16, 0, 0.22, 0.03, 0.09, c.p.matteBlackIron],
+      [0.06, 0.16, 0, 0.22, 0.91, 0.97, c.p.matteBlackIron],
+      [0.84, 0.94, 0, 0.22, 0.03, 0.09, c.p.matteBlackIron],
+      [0.84, 0.94, 0, 0.22, 0.91, 0.97, c.p.matteBlackIron],
+      [0.03, 0.98, 0.22, 0.29, 0.01, 0.99, walnutBody],
+      [0.03, 0.98, 0.29, 0.88, 0.01, 0.06, walnutBody],
+      [0.03, 0.98, 0.29, 0.88, 0.94, 0.99, walnutBody],
+      [0.90, 0.98, 0.29, 0.88, 0.06, 0.94, walnutBody],
+      [0.04, 0.92, 0.60, 0.65, 0.06, 0.94, walnutBody],
+      [0.08, 0.90, 0.29, 0.60, 0.485, 0.515, walnutBody],
+      [0.015, 0.06, 0.30, 0.59, 0.07, 0.48, walnutDoor],
+      [0.015, 0.06, 0.30, 0.59, 0.52, 0.93, walnutDoor],
+      [0, 0.02, 0.41, 0.52, 0.43, 0.46, c.p.brushedSteel],
+      [0, 0.02, 0.41, 0.52, 0.54, 0.57, c.p.brushedSteel],
+      [0.14, 0.68, 0.65, 0.78, 0.30, 0.70, darkMedia],
+      [0, 1, 0.88, 0.95, 0, 1, walnutTop],
+      [0.24, 0.54, 0.95, 1, 0.20, 0.80, darkMedia],
+    ]);
+  },
   'office-wall-tv': (c, g, s) => c.parts(g, s, [[0.55, 1, 0.25, 0.75, 0.25, 0.75, c.p.matteBlackIron], [0.15, 0.55, 0, 1, 0, 1, c.mat(s.primaryColor, 0.35)], [0, 0.15, 0.04, 0.96, 0.03, 0.97, c.ind.officeScreenMat]]),
+  'office-se-dresser': (c, g, s) => {
+    const [woodTop, woodBody, drawerMat, pullMat] = [
+      c.mat('#7a4e30', 0.50),
+      c.mat(s.primaryColor, 0.56),
+      c.mat('#7d5233', 0.52),
+      c.mat('#c8cfd6', 0.32, 0.78),
+    ];
+    const drawerRows: ReadonlyArray<readonly [number, number]> = [
+      [0.14, 0.37],
+      [0.40, 0.63],
+      [0.66, 0.89],
+    ];
+    c.parts(g, s, [
+      [0.03, 0.09, 0, 0.11, 0.06, 0.22, woodBody],
+      [0.91, 0.97, 0, 0.11, 0.06, 0.22, woodBody],
+      [0.03, 0.09, 0, 0.11, 0.78, 0.94, woodBody],
+      [0.91, 0.97, 0, 0.11, 0.78, 0.94, woodBody],
+      [0.02, 0.98, 0.11, 0.93, 0.07, 0.98, woodBody],
+      [0, 1, 0.93, 1, 0.02, 1, woodTop],
+      ...drawerRows.flatMap(([y0, y1]: readonly [number, number]): PartTuple[] => {
+        const ym = (y0 + y1) / 2;
+        return [
+          [0.045, 0.485, y0, y1, 0.025, 0.07, drawerMat],
+          [0.515, 0.955, y0, y1, 0.025, 0.07, drawerMat],
+          [0.21, 0.32, ym - 0.018, ym + 0.018, 0, 0.025, pullMat],
+          [0.68, 0.79, ym - 0.018, ym + 0.018, 0, 0.025, pullMat],
+        ];
+      }),
+    ]);
+  },
   'office-foyer-doorway': (c, g, s) => c.parts(g, s, [[0, 1, 0, 1, 0, 0.06, c.p.whiteTrim], [0, 1, 0, 1, 0.94, 1, c.p.whiteTrim], [0, 1, 0.95, 1, 0.06, 0.94, c.p.whiteTrim]]),
   'foyer-staircase': (c, g, s) => {
     g.userData.hasRearShelves = false;
@@ -144,6 +200,71 @@ const BUILDERS: Readonly<Record<FixtureId, (c: FixtureCtx, g: Group, s: FixtureS
   'garage-charcoal-sofa': (c, g, s) => {
     const [fab, cush] = [c.mat(s.primaryColor, 0.86), c.mat('#363b44', 0.84)];
     c.parts(g, s, [[0.02, 0.98, 0, 0.12, 0.06, 0.96, c.p.matteBlackIron], [0, 1, 0.12, 0.36, 0.02, 1, fab], [0, 0.09, 0.12, 0.74, 0.02, 1, fab], [0.91, 1, 0.12, 0.74, 0.02, 1, fab], [0, 1, 0.36, 1, 0.78, 1, fab], ...([[0.095, 0.39], [0.398, 0.602], [0.61, 0.905]] as const).flatMap(([x0, x1]): PartTuple[] => [[x0, x1, 0.36, 0.56, 0.02, 0.78, cush], [x0, x1, 0.56, 0.96, 0.64, 0.78, cush]]), [0.11, 0.23, 0.56, 0.82, 0.46, 0.66, c.mat('#7d937c', 0.82)]]);
+  },
+  'garage-exercise-bike': (c, g, s) => {
+    const [frameMat, redAccent, darkPad, tabletBezel, tabletScreen] = [
+      c.mat(s.primaryColor, 0.46, 0.35),
+      c.mat('#d93829', 0.38, 0.20),
+      c.mat('#2a2f37', 0.72),
+      c.mat('#12151a', 0.32, 0.20),
+      c.mat('#2b6cb0', 0.28),
+    ];
+    c.parts(g, s, [
+      [0.04, 0.18, 0, 0.055, 0.14, 0.86, frameMat],
+      [0.76, 0.90, 0, 0.055, 0.12, 0.88, frameMat],
+      [0.03, 0.19, 0, 0.065, 0.10, 0.18, darkPad],
+      [0.03, 0.19, 0, 0.065, 0.82, 0.90, darkPad],
+      [0.75, 0.91, 0, 0.065, 0.08, 0.16, darkPad],
+      [0.75, 0.91, 0, 0.065, 0.84, 0.92, darkPad],
+      [0.10, 0.84, 0.055, 0.12, 0.45, 0.55, frameMat],
+      [0.30, 0.56, 0.12, 0.32, 0.43, 0.57, frameMat],
+      [0.38, 0.50, 0.18, 0.22, 0.24, 0.43, darkPad],
+      [0.34, 0.46, 0.22, 0.26, 0.57, 0.76, darkPad],
+      [0.18, 0.28, 0.12, 0.64, 0.46, 0.54, frameMat],
+      [0.19, 0.26, 0.64, 0.72, 0.47, 0.53, c.p.brushedSteel],
+      [0.06, 0.31, 0.72, 0.78, 0.39, 0.61, darkPad],
+      [0.28, 0.54, 0.28, 0.37, 0.46, 0.54, frameMat],
+      [0.48, 0.74, 0.36, 0.47, 0.46, 0.54, frameMat],
+      [0.56, 0.63, 0.47, 0.54, 0.46, 0.54, redAccent],
+      [0.68, 0.98, 0.09, 0.45, 0.47, 0.53, c.p.brushedSteel],
+      [0.78, 0.88, 0.21, 0.33, 0.44, 0.56, frameMat],
+      [0.67, 0.82, 0.36, 0.48, 0.44, 0.56, redAccent],
+      [0.68, 0.77, 0.45, 0.80, 0.46, 0.54, frameMat],
+      [0.66, 0.76, 0.78, 0.83, 0.22, 0.78, darkPad],
+      [0.74, 0.88, 0.79, 0.84, 0.22, 0.28, darkPad],
+      [0.74, 0.88, 0.79, 0.84, 0.72, 0.78, darkPad],
+      [0.78, 0.85, 0.80, 0.88, 0.47, 0.53, frameMat],
+      [0.82, 0.87, 0.84, 1, 0.26, 0.74, tabletBezel],
+      [0.80, 0.82, 0.855, 0.985, 0.28, 0.72, tabletScreen],
+    ]);
+  },
+  'garage-cardboard-boxes': (c, g, s) => {
+    const [kraftMain, kraftDark, kraftLight, tapeMat] = [
+      c.mat(s.primaryColor, 0.86, 0.02),
+      c.mat('#a67846', 0.88, 0.02),
+      c.mat('#c59865', 0.84, 0.02),
+      c.mat('#dfd1ba', 0.52, 0.04),
+    ];
+    c.parts(g, s, [
+      [0.02, 0.58, 0, 0.52, 0.03, 0.56, kraftMain],
+      [0.02, 0.58, 0.52, 0.532, 0.26, 0.33, tapeMat],
+      [0.58, 0.59, 0.34, 0.53, 0.26, 0.33, tapeMat],
+      [0.58, 0.592, 0.22, 0.38, 0.36, 0.50, c.p.whiteTrim],
+      [0.05, 0.62, 0, 0.46, 0.58, 0.98, kraftDark],
+      [0.05, 0.62, 0.46, 0.472, 0.75, 0.82, tapeMat],
+      [0.30, 0.37, 0.28, 0.47, 0.98, 0.992, tapeMat],
+      [0.40, 0.56, 0.20, 0.36, 0.98, 0.994, c.p.whiteTrim],
+      [0.64, 0.98, 0, 0.56, 0.16, 0.86, kraftMain],
+      [0.78, 0.84, 0.56, 0.572, 0.16, 0.86, tapeMat],
+      [0.98, 0.992, 0.28, 0.46, 0.32, 0.54, c.p.whiteTrim],
+      [0.68, 0.77, 0.56, 0.574, 0.56, 0.78, c.p.whiteTrim],
+      [0.08, 0.53, 0.532, 0.992, 0.08, 0.52, kraftLight],
+      [0.08, 0.53, 0.992, 1, 0.27, 0.33, tapeMat],
+      [0.27, 0.33, 0.82, 0.992, 0.52, 0.532, tapeMat],
+      [0.53, 0.542, 0.82, 0.992, 0.27, 0.33, tapeMat],
+      [0.14, 0.30, 0.992, 1, 0.36, 0.48, c.p.whiteTrim],
+      [0.36, 0.49, 0.66, 0.82, 0.52, 0.534, c.p.whiteTrim],
+    ]);
   },
   'garage-south-threshold': (c, g, s) => c.parts(g, s, [[0, 1, 0, 0.86, 0, 1, c.p.concreteCurb], [0.01, 0.99, 0.86, 1, 0.42, 0.58, c.ind.garageThresholdStatusMat]]),
 };
