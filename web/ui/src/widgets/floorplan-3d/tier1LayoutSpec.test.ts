@@ -32,7 +32,7 @@ import {
 } from './tier1LayoutSpec';
 
 describe('tier1LayoutSpec — Envelope, Rooms, Walls, Upper Massing, Cameras & HA Bindings', () => {
-  it('defines the exact 43.5 ft x 22.0 ft right-handed foot-scale Tier 1 envelope and room bounds', () => {
+  it('defines the exact 43.5 ft x 22.0 ft right-handed foot-scale Tier 1 envelope, shared honey-wood floor colors, and room bounds', () => {
     expect(TIER1_ENVELOPE.xMin).toBe(-20.0);
     expect(TIER1_ENVELOPE.xMax).toBe(23.5);
     expect(TIER1_ENVELOPE.xMax - TIER1_ENVELOPE.xMin).toBeCloseTo(TIER1_ENVELOPE.width, 6);
@@ -43,14 +43,17 @@ describe('tier1LayoutSpec — Envelope, Rooms, Walls, Upper Massing, Cameras & H
     expect(TIER1_ENVELOPE.wallTopY).toBe(8.6);
 
     const roomIds: RoomId[] = ['office', 'foyer', 'garage'];
-    const rooms: RoomBoundsSpec[] = roomIds.map((id) => TIER1_ROOMS[id]);
+    const rooms: RoomBoundsSpec[] = roomIds.map((id: RoomId) => TIER1_ROOMS[id]);
     expect(rooms).toHaveLength(3);
 
     expect(TIER1_ROOMS.office.xMin).toBe(-20.0);
     expect(TIER1_ROOMS.office.xMax).toBe(-3.5);
+    expect(TIER1_ROOMS.office.floorColor.toLowerCase()).toBe('#9e6b3b');
     expect(TIER1_ROOMS.foyer.xMin).toBe(-3.5);
     expect(TIER1_ROOMS.foyer.xMax).toBe(3.5);
     expect(TIER1_ROOMS.foyer.wallColor.toLowerCase()).toBe('#2c323b');
+    expect(TIER1_ROOMS.foyer.floorColor.toLowerCase()).toBe('#9e6b3b');
+    expect(TIER1_ROOMS.foyer.floorColor).toBe(TIER1_ROOMS.office.floorColor);
     expect(TIER1_ROOMS.garage.xMin).toBe(3.5);
     expect(TIER1_ROOMS.garage.xMax).toBe(23.5);
 
@@ -63,7 +66,7 @@ describe('tier1LayoutSpec — Envelope, Rooms, Walls, Upper Massing, Cameras & H
   });
 
   it('defines cutaway wall heights, tapered interior partitions with doorway cutouts, and upper-floor massing', () => {
-    const wallById = new Map<string, WallSegmentSpec>(TIER1_WALLS.map((w) => [w.id, w]));
+    const wallById = new Map<string, WallSegmentSpec>(TIER1_WALLS.map((w: WallSegmentSpec) => [w.id, w]));
 
     const westWall = wallById.get('outer-west-office')!;
     const eastWall = wallById.get('outer-east-garage')!;
@@ -104,7 +107,7 @@ describe('tier1LayoutSpec — Envelope, Rooms, Walls, Upper Massing, Cameras & H
     expect(wallHeightAtZ(zeroSpanWall, 11.0)).toBe(1.4);
 
     const upperIds: UpperMassingId[] = ['tier2South', 'tier3North'];
-    const massings: UpperFloorMassingSpec[] = upperIds.map((id) => UPPER_FLOOR_MASSING[id]);
+    const massings: UpperFloorMassingSpec[] = upperIds.map((id: UpperMassingId) => UPPER_FLOOR_MASSING[id]);
     expect(massings[0].yBase).toBe(9.5);
     expect(massings[0].zMax).toBe(11.0);
     expect(massings[1].yBase).toBe(14.0);
@@ -200,7 +203,7 @@ describe('tier1LayoutSpec — Four Mandatory Walkthrough Layout Invariants', () 
     expect(wetBarShelves.yMin).toBeGreaterThan(wetBarCounter.yMax);
   });
 
-  it('Walkthrough Fix #2: hugs 13-tread Foyer staircase to Left/West wall rising South-to-North with zero rear shelves and floating wood ledges on Right/East wall', () => {
+  it('Walkthrough Fix #2: defines L-shaped 13-tread honey-wood Foyer staircase turning 90 degrees right at top while keeping NE garage door and East walkway clear', () => {
     const stairsSpec: StaircaseSpec = FOYER_STAIRCASE;
     const stairsFixture = getFixtureById('foyer-staircase');
     const lowerLedge = getFixtureById('foyer-wood-ledge-lower');
@@ -209,22 +212,47 @@ describe('tier1LayoutSpec — Four Mandatory Walkthrough Layout Invariants', () 
     const garageDoor = getFixtureById('foyer-garage-door');
 
     expect(stairsSpec.treadCount).toBe(13);
+    expect(stairsSpec.lowerTreadCount).toBe(10);
+    expect(stairsSpec.upperTreadCount).toBe(3);
+    expect(stairsSpec.lowerTreadCount + stairsSpec.upperTreadCount).toBe(stairsSpec.treadCount);
+
+    // Lower straight flight (10 treads) along West foyer wall climbing North
     expect(stairsSpec.xMin).toBe(-3.5);
     expect(stairsSpec.xMax).toBe(-0.5);
-    expect(stairsSpec.xMax).toBeLessThanOrEqual(-0.4);
-    expect(stairsFixture.xMax).toBeLessThanOrEqual(-0.4);
-
-    // Rising South (+Z) to North (-Z): zStart > zEnd
     expect(stairsSpec.zStart).toBe(4.6);
-    expect(stairsSpec.zEnd).toBe(-10.4);
-    expect(stairsSpec.zStart).toBeGreaterThan(stairsSpec.zEnd);
+    expect(stairsSpec.zLandingSouth).toBe(-8.4);
+    expect(stairsSpec.zEnd).toBe(-11.0);
     expect(stairsSpec.yStart).toBe(0.0);
+    expect(stairsSpec.yLanding).toBe(6.45);
+
+    // Upper right-turn flight (3 treads going East +X along North wall)
+    expect(stairsSpec.xTurnStart).toBe(-0.5);
+    expect(stairsSpec.xTurnEnd).toBe(3.3);
+    expect(stairsSpec.turnZMin).toBe(-11.0);
+    expect(stairsSpec.turnZMax).toBe(-8.55);
     expect(stairsSpec.yEnd).toBe(8.4);
+
+    // Honey-wood tread color & matte-black L-railing routing
+    expect(stairsSpec.treadColor).toBe('#a57242');
+    expect(stairsSpec.railingColor).toBe('#1b1e23');
+    expect(stairsSpec.railingX).toBe(-0.55);
+    expect(stairsSpec.upperRailingZ).toBe(-8.55);
     expect(stairsSpec.hasRearShelves).toBe(false);
+
+    // Fixture envelope matches full L-turn staircase bounds and honey-wood color
+    expect(stairsFixture.xMin).toBe(-3.5);
+    expect(stairsFixture.xMax).toBe(3.3);
+    expect(stairsFixture.zMin).toBe(-11.0);
+    expect(stairsFixture.zMax).toBe(4.6);
+    expect(stairsFixture.yMin).toBe(0.0);
+    expect(stairsFixture.yMax).toBe(8.4);
+    expect(stairsFixture.primaryColor).toBe('#a57242');
 
     // All Foyer shelves/ledges must be strictly on the Right/East wall (xMin >= 2.8) and zero shelves behind stairs
     const foyerShelves = TIER1_FIXTURES.filter(
-      (f) => f.room === 'foyer' && (f.category === 'shelf' || f.label.toLowerCase().includes('ledge') || f.label.toLowerCase().includes('shelf')),
+      (f: FixtureSpec) =>
+        f.room === 'foyer'
+        && (f.category === 'shelf' || f.label.toLowerCase().includes('ledge') || f.label.toLowerCase().includes('shelf')),
     );
     expect(foyerShelves).toHaveLength(2);
     for (const ledge of [lowerLedge, upperLedge, ...foyerShelves]) {
@@ -233,8 +261,9 @@ describe('tier1LayoutSpec — Four Mandatory Walkthrough Layout Invariants', () 
       expect(ledge.zMax).toBe(4.5);
     }
 
-    // Open East walkway runner rug and interior garage door
-    expect(runnerRug.xMin).toBeGreaterThan(stairsFixture.xMax);
+    // Open East walkway (x > -0.5, z > -8.5) and unobstructed NE interior garage doorway
+    expect(runnerRug.xMin).toBeGreaterThan(stairsSpec.xMax);
+    expect(stairsSpec.turnZMax).toBeLessThan(garageDoor.zMin);
     expect(garageDoor.zMin).toBe(-8.5);
     expect(garageDoor.zMax).toBe(-5.8);
   });
@@ -250,14 +279,14 @@ describe('tier1LayoutSpec — Four Mandatory Walkthrough Layout Invariants', () 
     expect(threshold.yMax).toBeLessThanOrEqual(0.25);
 
     // Every Garage fixture or wall near South cutaway (Z >= 10.4, excluding East outer wall) must be <= 0.25 ft high
-    const garageSouthFixtures = TIER1_FIXTURES.filter((f) => f.room === 'garage' && f.zMax > 10.4);
+    const garageSouthFixtures = TIER1_FIXTURES.filter((f: FixtureSpec) => f.room === 'garage' && f.zMax > 10.4);
     expect(garageSouthFixtures.length).toBeGreaterThan(0);
     for (const item of garageSouthFixtures) {
       expect(item.yMax).toBeLessThanOrEqual(0.25);
     }
 
     const garageSouthWalls = TIER1_WALLS.filter(
-      (w) => w.xMax > 3.7 && w.xMin < 23.5 && w.zMax > 10.5,
+      (w: WallSegmentSpec) => w.xMax > 3.7 && w.xMin < 23.5 && w.zMax > 10.5,
     );
     expect(garageSouthWalls.length).toBeGreaterThan(0);
     for (const wall of garageSouthWalls) {

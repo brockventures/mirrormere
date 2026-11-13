@@ -96,15 +96,24 @@ export interface StaircaseSpec {
   id: string;
   room: RoomId;
   treadCount: number;
+  lowerTreadCount: number;
+  upperTreadCount: number;
   xMin: number;
   xMax: number;
   zStart: number;
+  zLandingSouth: number;
   zEnd: number;
+  xTurnStart: number;
+  xTurnEnd: number;
+  turnZMin: number;
+  turnZMax: number;
   yStart: number;
+  yLanding: number;
   yEnd: number;
   treadColor: string;
   railingColor: string;
   railingX: number;
+  upperRailingZ: number;
   hasRearShelves: false;
 }
 
@@ -171,8 +180,8 @@ export const TIER1_ENVELOPE = {
 } as const;
 
 export const TIER1_ROOMS: Readonly<Record<RoomId, RoomBoundsSpec>> = {
-  office: { id: 'office', label: 'Office & Guest Suite', xMin: -20.0, xMax: -3.5, yMin: 0.0, yMax: 8.6, zMin: -11.0, zMax: 11.0, wallColor: '#f3efe6', floorColor: '#b98b56' },
-  foyer: { id: 'foyer', label: 'Entry Foyer', xMin: -3.5, xMax: 3.5, yMin: 0.0, yMax: 8.6, zMin: -11.0, zMax: 11.0, wallColor: '#2c323b', floorColor: '#434952' },
+  office: { id: 'office', label: 'Office & Guest Suite', xMin: -20.0, xMax: -3.5, yMin: 0.0, yMax: 8.6, zMin: -11.0, zMax: 11.0, wallColor: '#f3efe6', floorColor: '#9e6b3b' },
+  foyer: { id: 'foyer', label: 'Entry Foyer', xMin: -3.5, xMax: 3.5, yMin: 0.0, yMax: 8.6, zMin: -11.0, zMax: 11.0, wallColor: '#2c323b', floorColor: '#9e6b3b' },
   garage: { id: 'garage', label: 'Garage / Laundry / Brock Studios', xMin: 3.5, xMax: 23.5, yMin: 0.0, yMax: 8.6, zMin: -11.0, zMax: 11.0, wallColor: '#eceee9', floorColor: '#9aa0a6' },
 };
 
@@ -222,15 +231,24 @@ export const FOYER_STAIRCASE: StaircaseSpec = {
   id: 'foyer-west-staircase',
   room: 'foyer',
   treadCount: 13,
+  lowerTreadCount: 10,
+  upperTreadCount: 3,
   xMin: -3.5,
   xMax: -0.5,
   zStart: 4.6,
-  zEnd: -10.4,
+  zLandingSouth: -8.4,
+  zEnd: -11.0,
+  xTurnStart: -0.5,
+  xTurnEnd: 3.3,
+  turnZMin: -11.0,
+  turnZMax: -8.55,
   yStart: 0.0,
+  yLanding: 6.45,
   yEnd: 8.4,
-  treadColor: '#c89d6c',
+  treadColor: '#a57242',
   railingColor: '#1b1e23',
   railingX: -0.55,
+  upperRailingZ: -8.55,
   hasRearShelves: false,
 };
 
@@ -279,7 +297,7 @@ export const TIER1_FIXTURES: readonly FixtureSpec[] = [
   { id: 'office-media-console', label: 'Black Media Console', room: 'office', category: 'furniture', mount: 'floor', facing: '-X', solidFloorFootprint: true, xMin: -5.0, xMax: -3.6, yMin: 0.0, yMax: 2.1, zMin: -5.2, zMax: -1.2, primaryColor: '#1d2025' },
   { id: 'office-wall-tv', label: 'Wall-Mounted Flatscreen TV', room: 'office', category: 'electronics', mount: 'wall', facing: '-X', solidFloorFootprint: false, xMin: -3.85, xMax: -3.55, yMin: 3.0, yMax: 5.6, zMin: -4.9, zMax: -1.5, primaryColor: '#111317' },
   { id: 'office-foyer-doorway', label: 'Office SE Foyer Doorway', room: 'office', category: 'door', mount: 'wall', facing: '-X', solidFloorFootprint: false, xMin: -3.7, xMax: -3.3, yMin: 0.0, yMax: 6.8, zMin: 6.4, zMax: 9.2, primaryColor: '#f4f2ec' },
-  { id: 'foyer-staircase', label: '13-Tread White-Oak Staircase', room: 'foyer', category: 'stairs', mount: 'floor', facing: '+Z', solidFloorFootprint: true, xMin: -3.5, xMax: -0.5, yMin: 0.0, yMax: 8.4, zMin: -10.4, zMax: 4.6, primaryColor: '#c89d6c', accentColor: '#1b1e23' },
+  { id: 'foyer-staircase', label: '13-Tread Honey-Wood L-Turn Staircase', room: 'foyer', category: 'stairs', mount: 'floor', facing: '+Z', solidFloorFootprint: true, xMin: -3.5, xMax: 3.3, yMin: 0.0, yMax: 8.4, zMin: -11.0, zMax: 4.6, primaryColor: '#a57242', accentColor: '#1b1e23' },
   { id: 'foyer-runner-rug', label: 'Patterned Foyer Runner Rug', room: 'foyer', category: 'rug', mount: 'rug', facing: 'up', solidFloorFootprint: false, xMin: 0.1, xMax: 2.9, yMin: 0.0, yMax: 0.03, zMin: -5.2, zMax: 6.8, primaryColor: '#8d6e57', accentColor: '#dfd7ca' },
   { id: 'foyer-wood-ledge-lower', label: 'East Wall Floating Wood Ledge (Lower)', room: 'foyer', category: 'shelf', mount: 'wall', facing: '-X', solidFloorFootprint: false, xMin: 2.9, xMax: 3.48, yMin: 3.1, yMax: 3.28, zMin: 0.5, zMax: 4.5, primaryColor: '#b78652' },
   { id: 'foyer-wood-ledge-upper', label: 'East Wall Floating Wood Ledge (Upper)', room: 'foyer', category: 'shelf', mount: 'wall', facing: '-X', solidFloorFootprint: false, xMin: 2.9, xMax: 3.48, yMin: 4.5, yMax: 4.68, zMin: 0.5, zMax: 4.5, primaryColor: '#b78652' },
@@ -301,7 +319,7 @@ export const TIER1_FIXTURES: readonly FixtureSpec[] = [
   { id: 'garage-south-threshold', label: 'Flush Concrete Garage Threshold Curb', room: 'garage', category: 'threshold', mount: 'threshold', facing: '-Z', solidFloorFootprint: false, xMin: 5.5, xMax: 21.5, yMin: 0.0, yMax: 0.18, zMin: 10.82, zMax: 11.18, primaryColor: '#b8bec4' },
 ];
 
-const FIXTURE_BY_ID = new Map<FixtureId, FixtureSpec>(TIER1_FIXTURES.map((f) => [f.id, f]));
+const FIXTURE_BY_ID = new Map<FixtureId, FixtureSpec>(TIER1_FIXTURES.map((f: FixtureSpec) => [f.id, f]));
 
 export function getFixtureById(id: FixtureId): FixtureSpec {
   const found = FIXTURE_BY_ID.get(id);
@@ -339,7 +357,7 @@ export function findFloorAabbCollisions(
   fixtures: readonly FixtureSpec[] = TIER1_FIXTURES,
   epsilon = 1e-6,
 ): Array<[FixtureSpec, FixtureSpec]> {
-  const floorItems = fixtures.filter((f) => f.solidFloorFootprint);
+  const floorItems = fixtures.filter((f: FixtureSpec) => f.solidFloorFootprint);
   const collisions: Array<[FixtureSpec, FixtureSpec]> = [];
   for (let i = 0; i < floorItems.length; i += 1) {
     const a = floorItems[i];

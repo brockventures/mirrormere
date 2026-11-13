@@ -5,11 +5,12 @@ import {
 } from 'three';
 import {
   FOYER_STAIRCASE, TIER1_HA_BINDINGS, TIER1_ROOMS, TIER1_WALLS, UPPER_FLOOR_MASSING, wallHeightAtZ,
-  type RoomId, type UpperMassingId, type WallSegmentSpec,
+  type RoomId, type UpperMassingId, type WallDoorwayCutoutSpec, type WallSegmentSpec,
 } from './tier1LayoutSpec';
 
 export interface Tier1MaterialPalette {
   oakFloor: MeshStandardMaterial; foyerFloor: MeshStandardMaterial; garageFloor: MeshStandardMaterial;
+  stairTread: MeshStandardMaterial;
   trellisRug: MeshStandardMaterial; foyerRunner: MeshStandardMaterial; pastelCirclesRug: MeshStandardMaterial;
   wrigleyArt: MeshStandardMaterial; collectorCardArt: MeshStandardMaterial; brockStudiosSign: MeshStandardMaterial;
   officeWall: MeshStandardMaterial; garageWall: MeshStandardMaterial; foyerSlateWall: MeshStandardMaterial;
@@ -32,7 +33,53 @@ export interface Tier1ShellBuildResult {
 
 const namedGroup = (name: string): Group => { const g = new Group(); g.name = name; return g; };
 
-function makeTexture(w: number, h: number, hex: string, draw: (ctx: CanvasRenderingContext2D, cw: number, ch: number) => void, repeat: readonly [number, number] = [1, 1]): Texture {
+const HONEY_PLANK_TONES = ['#a47140', '#996738', '#a16e3d', '#966436'] as const;
+const HONEY_PLANK_JOINTS: ReadonlyArray<readonly [number, number]> = [
+  [76, 338], [214, 468], [42, 294], [164, 426],
+  [108, 372], [244, 492], [62, 318], [188, 446],
+];
+
+function drawHoneyWoodPlanks(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+  ctx.fillStyle = '#9e6b3b';
+  ctx.fillRect(0, 0, w, h);
+  const rowCount = HONEY_PLANK_JOINTS.length;
+  const plankH = h / rowCount;
+  for (let r = 0; r < rowCount; r += 1) {
+    const y0 = r * plankH;
+    const [j0, j1] = HONEY_PLANK_JOINTS[r];
+    const toneA = HONEY_PLANK_TONES[r % HONEY_PLANK_TONES.length];
+    const toneB = HONEY_PLANK_TONES[(r + 1 + (r % 2)) % HONEY_PLANK_TONES.length];
+    ctx.fillStyle = toneA;
+    ctx.fillRect(0, y0, j0, plankH);
+    ctx.fillRect(j1, y0, w - j1, plankH);
+    ctx.fillStyle = toneB;
+    ctx.fillRect(j0, y0, j1 - j0, plankH);
+
+    ctx.fillStyle = 'rgba(122, 82, 44, 0.10)';
+    ctx.fillRect(0, y0 + 14 + (r % 3) * 3, w, 1.5);
+    ctx.fillRect(0, y0 + 32 + ((r + 1) % 3) * 3, w, 1.2);
+    ctx.fillRect(0, y0 + 49 + ((r + 2) % 3) * 2, w, 1.5);
+
+    ctx.strokeStyle = 'rgba(68, 40, 18, 0.22)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, y0 + 0.5);
+    ctx.lineTo(w, y0 + 0.5);
+    ctx.moveTo(j0 + 0.5, y0);
+    ctx.lineTo(j0 + 0.5, y0 + plankH);
+    ctx.moveTo(j1 + 0.5, y0);
+    ctx.lineTo(j1 + 0.5, y0 + plankH);
+    ctx.stroke();
+  }
+}
+
+function makeTexture(
+  w: number,
+  h: number,
+  hex: string,
+  draw: (ctx: CanvasRenderingContext2D, cw: number, ch: number) => void,
+  repeat: readonly [number, number] = [1, 1],
+): Texture {
   let ctx: CanvasRenderingContext2D | null = null;
   let canvas: HTMLCanvasElement | null = null;
   const isUnmockedJsdom = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)
@@ -59,19 +106,42 @@ function makeTexture(w: number, h: number, hex: string, draw: (ctx: CanvasRender
 export function createTier1Materials(): Tier1MaterialPalette {
   const textures: Texture[] = [];
   const materials: MeshStandardMaterial[] = [];
-  const mat = (opts: ConstructorParameters<typeof MeshStandardMaterial>[0]) => { const m = new MeshStandardMaterial(opts); materials.push(m); return m; };
-  const texMat = (w: number, h: number, hex: string, draw: (ctx: CanvasRenderingContext2D, cw: number, ch: number) => void, roughness = 0.78, repeat: readonly [number, number] = [1, 1]) => {
+  const mat = (opts: ConstructorParameters<typeof MeshStandardMaterial>[0]) => {
+    const m = new MeshStandardMaterial(opts);
+    materials.push(m);
+    return m;
+  };
+  const texMat = (
+    w: number,
+    h: number,
+    hex: string,
+    draw: (ctx: CanvasRenderingContext2D, cw: number, ch: number) => void,
+    roughness = 0.78,
+    repeat: readonly [number, number] = [1, 1],
+  ) => {
     const map = makeTexture(w, h, hex, draw, repeat);
     textures.push(map);
     return mat({ map, roughness, metalness: 0.04 });
   };
+
+  const honeyWoodFloor = texMat(512, 512, TIER1_ROOMS.office.floorColor, drawHoneyWoodPlanks, 0.58, [4, 4]);
+
   return {
-    oakFloor: texMat(256, 256, '#c69b68', (ctx, w, h) => {
-      ctx.fillStyle = '#c69b68'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = '#8f683d'; ctx.lineWidth = 2;
-      for (let r = 0; r < 8; r += 1) { ctx.fillStyle = r % 2 === 0 ? '#cca270' : '#be925e'; ctx.fillRect(0, r * 32, w, 30); ctx.strokeRect(0, r * 32, w, 32); }
-    }, 0.62, [6, 6]),
-    foyerFloor: mat({ color: TIER1_ROOMS.foyer.floorColor, roughness: 0.74 }),
+    oakFloor: honeyWoodFloor,
+    foyerFloor: honeyWoodFloor,
     garageFloor: mat({ color: TIER1_ROOMS.garage.floorColor, roughness: 0.78 }),
+    stairTread: texMat(128, 128, FOYER_STAIRCASE.treadColor, (ctx, w, h) => {
+      ctx.fillStyle = FOYER_STAIRCASE.treadColor;
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = 'rgba(122, 82, 44, 0.10)';
+      for (let y = 16; y < h; y += 24) ctx.fillRect(0, y, w, 2);
+      ctx.strokeStyle = 'rgba(68, 40, 18, 0.18)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, h * 0.5 + 0.5);
+      ctx.lineTo(w, h * 0.5 + 0.5);
+      ctx.stroke();
+    }, 0.56, [1, 1]),
     trellisRug: texMat(256, 256, '#233654', (ctx, w, h) => {
       ctx.fillStyle = '#233654'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = '#efeae0'; ctx.lineWidth = 5; ctx.strokeRect(10, 10, w - 20, h - 20);
       for (let i = -w; i < w * 2; i += 48) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + h, h); ctx.moveTo(i + h, 0); ctx.lineTo(i, h); ctx.stroke(); }
@@ -107,13 +177,17 @@ export function createTier1Materials(): Tier1MaterialPalette {
     whiteTrim: mat({ color: '#f8f8f6', roughness: 0.52 }),
     glass: mat({ color: '#9ac7e3', transparent: true, opacity: 0.36, roughness: 0.12, metalness: 0.1 }),
     brushedSteel: mat({ color: '#c8cfd6', roughness: 0.32, metalness: 0.78 }),
-    matteBlackIron: mat({ color: '#1b1e23', roughness: 0.48, metalness: 0.62 }),
+    matteBlackIron: mat({ color: FOYER_STAIRCASE.railingColor, roughness: 0.48, metalness: 0.62 }),
     concreteCurb: mat({ color: '#b8bec4', roughness: 0.82 }),
     foyerThreshold: mat({ color: '#3a404a', roughness: 0.76 }),
     upperMassingSouth: mat({ color: UPPER_FLOOR_MASSING.tier2South.color, transparent: true, opacity: 0.38, roughness: 0.7 }),
     upperMassingNorth: mat({ color: UPPER_FLOOR_MASSING.tier3North.color, transparent: true, opacity: 0.38, roughness: 0.7 }),
-    textures, materials,
-    dispose: () => { for (const t of textures) t.dispose(); for (const m of materials) m.dispose(); },
+    textures,
+    materials,
+    dispose: () => {
+      for (const t of new Set(textures)) t.dispose();
+      for (const m of new Set(materials)) m.dispose();
+    },
   };
 }
 
@@ -124,11 +198,11 @@ function buildWallGroup(wall: WallSegmentSpec, palette: Tier1MaterialPalette, ad
   const mainMat = wall.id === 'cutaway-south-garage-curb' ? palette.concreteCurb
     : wall.id === 'cutaway-south-foyer-sill' ? palette.foyerThreshold
     : wall.color === '#2c323b' ? palette.foyerSlateWall : wall.color === '#eceee9' ? palette.garageWall : palette.officeWall;
-  const zStops = Array.from(new Set([wall.zMin, wall.zMax, ...wall.doorways.flatMap((d) => [d.zMin, d.zMax])])).sort((a, b) => a - b);
+  const zStops = Array.from(new Set([wall.zMin, wall.zMax, ...wall.doorways.flatMap((d: WallDoorwayCutoutSpec) => [d.zMin, d.zMax])])).sort((a: number, b: number) => a - b);
   for (let i = 0; i < zStops.length - 1; i += 1) {
     const [z0, z1] = [zStops[i], zStops[i + 1]];
     if (z1 - z0 < 1e-4) continue;
-    const door = wall.doorways.find((d) => (z0 + z1) / 2 > d.zMin && (z0 + z1) / 2 < d.zMax);
+    const door = wall.doorways.find((d: WallDoorwayCutoutSpec) => (z0 + z1) / 2 > d.zMin && (z0 + z1) / 2 < d.zMax);
     const [h0, h1, yBot] = [wallHeightAtZ(wall, z0), wallHeightAtZ(wall, z1), door ? door.yMax : 0];
     if (Math.min(h0, h1) <= yBot + 0.02) continue;
     const hasTrim = Math.min(h0, h1) >= 1.0;
@@ -182,24 +256,60 @@ export function buildTier1Shell(palette: Tier1MaterialPalette): Tier1ShellBuildR
   const staircaseGroup = namedGroup(st.id);
   staircaseGroup.userData = { hasRearShelves: st.hasRearShelves };
   const stairTreads: Mesh[] = [];
-  const [stepRun, stepRise] = [(st.zStart - st.zEnd) / st.treadCount, (st.yEnd - st.yStart) / st.treadCount];
-  for (let i = 0; i < st.treadCount; i += 1) {
-    const [zFront, zBack, yTop] = [st.zStart - i * stepRun, st.zStart - (i + 1) * stepRun, st.yStart + (i + 1) * stepRise];
-    stairTreads.push(addPrism(staircaseGroup, st.xMin, st.xMax, zBack, zFront, yTop - 0.11, yTop - 0.11, yTop, yTop, palette.oakFloor, `stair-tread-${i}`));
-    addPrism(staircaseGroup, st.xMin + 0.04, st.xMax - 0.08, zBack, zFront - 0.04, i * stepRise, i * stepRise, yTop - 0.11, yTop - 0.11, palette.whiteTrim, `stair-riser-${i}`);
-    if (i % 3 === 0 || i === st.treadCount - 1) {
+
+  const lowerRun = (st.zStart - st.zLandingSouth) / st.lowerTreadCount;
+  const lowerRise = (st.yLanding - st.yStart) / st.lowerTreadCount;
+  for (let i = 0; i < st.lowerTreadCount; i += 1) {
+    const zFront = st.zStart - i * lowerRun;
+    const zBack = st.zStart - (i + 1) * lowerRun;
+    const yPrev = st.yStart + i * lowerRise;
+    const yTop = st.yStart + (i + 1) * lowerRise;
+    stairTreads.push(addPrism(staircaseGroup, st.xMin, st.xMax, zBack, zFront, yTop - 0.11, yTop - 0.11, yTop, yTop, palette.stairTread, `stair-tread-${i}`));
+    addPrism(staircaseGroup, st.xMin + 0.04, st.xMax - 0.08, zBack, zFront - 0.04, yPrev, yPrev, yTop - 0.11, yTop - 0.11, palette.whiteTrim, `stair-riser-${i}`);
+    if (i % 3 === 0) {
       const zp = (zFront + zBack) / 2;
-      addPrism(staircaseGroup, st.railingX - 0.04, st.railingX + 0.04, zp - 0.04, zp + 0.04, yTop, yTop, yTop + 3.0, yTop + 3.0, palette.matteBlackIron, `stair-post-${i}`);
+      addPrism(staircaseGroup, st.railingX - 0.04, st.railingX + 0.04, zp - 0.04, zp + 0.04, yTop, yTop, yTop + 2.9, yTop + 2.9, palette.matteBlackIron, `stair-post-lower-${i}`);
     }
   }
-  for (const hOff of [0.85, 1.55, 2.25, 3.0]) {
-    const p0 = new Vector3(st.railingX, stepRise + hOff, st.zStart - stepRun * 0.5);
-    const p1 = new Vector3(st.railingX, st.yEnd + hOff, st.zEnd + stepRun * 0.5);
-    const barGeom = new BoxGeometry(hOff === 3.0 ? 0.09 : 0.045, hOff === 3.0 ? 0.07 : 0.045, p0.distanceTo(p1));
+
+  addPrism(staircaseGroup, st.xMin, st.xMax, st.zEnd, st.zLandingSouth, st.yLanding - 0.14, st.yLanding - 0.14, st.yLanding, st.yLanding, palette.stairTread, 'stair-landing');
+  addPrism(staircaseGroup, st.xMin + 0.04, st.xMax - 0.04, st.zEnd + 0.04, st.zLandingSouth - 0.02, st.yLanding - 0.48, st.yLanding - 0.48, st.yLanding - 0.14, st.yLanding - 0.14, palette.whiteTrim, 'stair-landing-trim');
+  addPrism(staircaseGroup, st.railingX - 0.04, st.railingX + 0.04, st.upperRailingZ - 0.04, st.upperRailingZ + 0.04, st.yLanding, st.yLanding, st.yLanding + 2.9, st.yLanding + 2.9, palette.matteBlackIron, 'stair-post-corner');
+
+  const upperRun = (st.xTurnEnd - st.xTurnStart) / st.upperTreadCount;
+  const upperRise = (st.yEnd - st.yLanding) / st.upperTreadCount;
+  for (let j = 0; j < st.upperTreadCount; j += 1) {
+    const idx = st.lowerTreadCount + j;
+    const xLeft = st.xTurnStart + j * upperRun;
+    const xRight = st.xTurnStart + (j + 1) * upperRun;
+    const yPrev = st.yLanding + j * upperRise;
+    const yTop = st.yLanding + (j + 1) * upperRise;
+    stairTreads.push(addPrism(staircaseGroup, xLeft, xRight, st.turnZMin, st.turnZMax, yTop - 0.11, yTop - 0.11, yTop, yTop, palette.stairTread, `stair-tread-${idx}`));
+    addPrism(staircaseGroup, xLeft + 0.04, xRight, st.turnZMin + 0.04, st.turnZMax - 0.04, yPrev, yPrev, yTop - 0.11, yTop - 0.11, palette.whiteTrim, `stair-riser-${idx}`);
+    if (j === 1 || j === st.upperTreadCount - 1) {
+      const xp = j === st.upperTreadCount - 1 ? st.xTurnEnd - 0.08 : (xLeft + xRight) / 2;
+      addPrism(staircaseGroup, xp - 0.04, xp + 0.04, st.upperRailingZ - 0.04, st.upperRailingZ + 0.04, yTop, yTop, yTop + 2.9, yTop + 2.9, palette.matteBlackIron, `stair-post-upper-${j}`);
+    }
+  }
+
+  const addRailBar = (p0: Vector3, p1: Vector3, isTopRail: boolean, name: string) => {
+    const barGeom = new BoxGeometry(isTopRail ? 0.08 : 0.045, isTopRail ? 0.07 : 0.045, p0.distanceTo(p1));
     geometries.push(barGeom);
     const bar = new Mesh(barGeom, palette.matteBlackIron);
-    bar.name = `stair-rail-${hOff}`; bar.position.copy(p0).add(p1).multiplyScalar(0.5);
-    bar.lookAt(p1); bar.castShadow = true; staircaseGroup.add(bar);
+    bar.name = name;
+    bar.position.copy(p0).add(p1).multiplyScalar(0.5);
+    bar.lookAt(p1);
+    bar.castShadow = true;
+    staircaseGroup.add(bar);
+  };
+
+  for (const hOff of [0.8, 1.5, 2.2, 2.9]) {
+    const isTop = hOff === 2.9;
+    const pLowerStart = new Vector3(st.railingX, st.yStart + lowerRise + hOff, st.zStart - lowerRun * 0.5);
+    const pCorner = new Vector3(st.railingX, st.yLanding + hOff, st.upperRailingZ);
+    const pUpperEnd = new Vector3(st.xTurnEnd - 0.08, st.yEnd + hOff, st.upperRailingZ);
+    addRailBar(pLowerStart, pCorner, isTop, `stair-rail-lower-${hOff}`);
+    addRailBar(pCorner, pUpperEnd, isTop, `stair-rail-upper-${hOff}`);
   }
   root.add(staircaseGroup);
 
