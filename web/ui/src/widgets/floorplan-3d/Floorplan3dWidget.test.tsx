@@ -65,6 +65,7 @@ describe('Floorplan3dWidget', () => {
 
     const { container } = render(<Floorplan3dWidget id="fp1" type="floorplan-3d" />);
     const root = container.querySelector('.fp3d-widget') as HTMLElement;
+    expect(root.dataset.activeTier).toBe('1');
     expect(root.dataset.activePreset).toBe('topdown');
     expect(screen.getByRole('region', { name: /Hearth Tier 1 Floorplan Overview/i })).toBeTruthy();
     expect(screen.getByText(/Office 72.4°F/)).toBeTruthy();
@@ -93,7 +94,41 @@ describe('Floorplan3dWidget', () => {
     expect(root.dataset.activePreset).toBe('foyer');
   });
 
-  it('mounts WebGL viewport with orbit, pinch/wheel zoom, raycast room focus, and falls back cleanly on renderer throw', async () => {
+  it('initializes Floor 2 from ?tier=2 / ?floor=2 with ?view=topdown and ?kiosk=1 and supports Floor 1 / Floor 2 toggle buttons', () => {
+    window.history.replaceState({}, '', '/?floorplan3d=1&tier=2&view=topdown&kiosk=1');
+
+    const { container } = render(<Floorplan3dWidget id="fp-t2" type="floorplan-3d" />);
+    const root = container.querySelector('.fp3d-widget') as HTMLElement;
+    expect(root.dataset.activeTier).toBe('2');
+    expect(root.dataset.activePreset).toBe('topdown');
+    expect(root.dataset.kiosk).toBe('true');
+    expect(screen.getByRole('region', { name: /Hearth Tier 2 Floorplan Overview/i })).toBeTruthy();
+    expect(screen.getAllByText(/Living Room/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Primary En-Suite Bath/i).length).toBeGreaterThanOrEqual(1);
+
+    const tier1Btn = screen.getByTestId('floorplan-tier-1-btn');
+    const tier2Btn = screen.getByTestId('floorplan-tier-2-btn');
+    expect(tier2Btn.getAttribute('aria-pressed')).toBe('true');
+    expect(tier1Btn.getAttribute('aria-pressed')).toBe('false');
+
+    fireEvent.click(tier1Btn);
+    expect(root.dataset.activeTier).toBe('1');
+    expect(tier1Btn.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('region', { name: /Hearth Tier 1 Floorplan Overview/i })).toBeTruthy();
+
+    fireEvent.click(tier2Btn);
+    expect(root.dataset.activeTier).toBe('2');
+    expect(tier2Btn.getAttribute('aria-pressed')).toBe('true');
+
+    const primaryBedFallback = container.querySelector('[data-room-id="primaryBedroom"]') as HTMLButtonElement;
+    fireEvent.click(primaryBedFallback);
+    expect(root.dataset.activePreset).toBe('garage');
+
+    act(() => { window.__setFloorplanTier?.(1); });
+    expect(root.dataset.activeTier).toBe('1');
+  });
+
+  it('mounts WebGL viewport for both Tier 1 and Tier 2 with orbit, pinch/wheel zoom, raycast room focus, and falls back cleanly on renderer throw', async () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(((kind: string) => (kind === '2d' ? null : {})) as never);
     globalThis.ResizeObserver = class {
       observe() {}
@@ -123,8 +158,13 @@ describe('Floorplan3dWidget', () => {
       canvas.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: -120 }));
     });
     expect((container.querySelector('.fp3d-widget') as HTMLElement).dataset.activePreset).toBe('office');
+
+    fireEvent.click(screen.getByTestId('floorplan-tier-2-btn'));
+    expect((container.querySelector('.fp3d-widget') as HTMLElement).dataset.activeTier).toBe('2');
+    expect(container.querySelector('canvas.fp3d-canvas')?.getAttribute('aria-label')).toContain('Hearth Tier 2');
+
     unmount();
-    expect(disposeSpy).toHaveBeenCalledTimes(1);
+    expect(disposeSpy).toHaveBeenCalled();
 
     webglMode = 'throw';
     render(<Floorplan3dWidget id="fp-fail" type="floorplan-3d" />);
