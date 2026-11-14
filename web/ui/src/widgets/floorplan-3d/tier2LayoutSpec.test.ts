@@ -14,7 +14,7 @@ import {
   type Tier2WallSpec,
 } from './tier2LayoutSpec';
 
-describe('tier2LayoutSpec — Envelope, Rooms, Non-Overlap, Stairs, Accent Walls & Fixtures', () => {
+describe('tier2LayoutSpec — Envelope, 7 Non-Overlapping Rooms, Side-by-Side Stairs/Void, Walls & 29 Fixtures', () => {
   it('defines the exact 43.5 ft x 22.0 ft Tier 2 envelope and ceiling/cutaway heights', () => {
     const spec: Tier2LayoutSpec = TIER2_LAYOUT_SPEC;
     expect(spec.widthFt).toBe(43.5);
@@ -31,7 +31,7 @@ describe('tier2LayoutSpec — Envelope, Rooms, Non-Overlap, Stairs, Accent Walls
     expect(spec.wallThicknessFt).toBe(0.45);
   });
 
-  it('defines all 7 Tier 2 rooms within the envelope with expected floor materials and non-overlapping main zones', () => {
+  it('defines all 7 mutually non-overlapping Tier 2 rooms partitioning the full envelope', () => {
     const expectedIds: Tier2RoomId[] = [
       'livingRoom',
       'playNook',
@@ -43,81 +43,91 @@ describe('tier2LayoutSpec — Envelope, Rooms, Non-Overlap, Stairs, Accent Walls
     ];
     expect(Object.keys(TIER2_LAYOUT_SPEC.rooms)).toEqual(expectedIds);
 
+    let totalAreaSqFt = 0;
     for (const id of expectedIds) {
       const room: Tier2RoomSpec = TIER2_LAYOUT_SPEC.rooms[id];
       expect(room.id).toBe(id);
       expect(isBoundsContainedIn(room.bounds, TIER2_LAYOUT_SPEC)).toBe(true);
+      totalAreaSqFt += (room.bounds.xMax - room.bounds.xMin) * (room.bounds.zMax - room.bounds.zMin);
     }
+    expect(totalAreaSqFt).toBeCloseTo(TIER2_LAYOUT_SPEC.widthFt * TIER2_LAYOUT_SPEC.depthFt, 6);
 
     const bathMaterial: Tier2FloorMaterial = TIER2_LAYOUT_SPEC.rooms.primaryBath.floorMaterial;
-    const livingMaterial: Tier2FloorMaterial = TIER2_LAYOUT_SPEC.rooms.livingRoom.floorMaterial;
     expect(bathMaterial).toBe('slate-tile');
-    expect(livingMaterial).toBe('wood');
-    expect(TIER2_LAYOUT_SPEC.rooms.primaryBedroom.floorMaterial).toBe('wood');
+    for (const woodId of ['livingRoom', 'playNook', 'stairLanding', 'hallway', 'powderRoom', 'primaryBedroom'] as const) {
+      expect(TIER2_LAYOUT_SPEC.rooms[woodId].floorMaterial).toBe('wood');
+    }
 
-    // Primary partition zones do not overlap (powderRoom is nested inside the NW corner of the stairLanding column)
-    const primaryZones: Tier2RoomId[] = [
-      'livingRoom',
-      'playNook',
-      'stairLanding',
-      'hallway',
-      'primaryBedroom',
-      'primaryBath',
-    ];
-    for (let i = 0; i < primaryZones.length; i += 1) {
-      for (let j = i + 1; j < primaryZones.length; j += 1) {
-        const roomA = TIER2_LAYOUT_SPEC.rooms[primaryZones[i]];
-        const roomB = TIER2_LAYOUT_SPEC.rooms[primaryZones[j]];
+    expect(TIER2_LAYOUT_SPEC.rooms.powderRoom.bounds).toEqual({ xMin: 3.5, xMax: 8.5, zMin: -11.0, zMax: -5.5 });
+    expect(TIER2_LAYOUT_SPEC.rooms.hallway.bounds).toEqual({ xMin: 3.5, xMax: 8.5, zMin: -5.5, zMax: 11.0 });
+    expect(TIER2_LAYOUT_SPEC.rooms.primaryBath.bounds).toEqual({ xMin: 8.5, xMax: 23.5, zMin: -11.0, zMax: -2.5 });
+    expect(TIER2_LAYOUT_SPEC.rooms.primaryBedroom.bounds).toEqual({ xMin: 8.5, xMax: 23.5, zMin: -2.5, zMax: 11.0 });
+
+    for (let i = 0; i < expectedIds.length; i += 1) {
+      for (let j = i + 1; j < expectedIds.length; j += 1) {
+        const roomA = TIER2_LAYOUT_SPEC.rooms[expectedIds[i]];
+        const roomB = TIER2_LAYOUT_SPEC.rooms[expectedIds[j]];
         expect(doBoundsOverlap2D(roomA.bounds, roomB.bounds)).toBe(false);
       }
     }
-
-    // Powder room does not overlap Living Room, Play Nook, Hallway, Primary Bedroom, or Primary Bath
-    for (const otherId of ['livingRoom', 'playNook', 'hallway', 'primaryBedroom', 'primaryBath'] as const) {
-      expect(
-        doBoundsOverlap2D(TIER2_LAYOUT_SPEC.rooms.powderRoom.bounds, TIER2_LAYOUT_SPEC.rooms[otherId].bounds),
-      ).toBe(false);
-    }
   });
 
-  it('defines the 7-tread staircase up to Tier 3 and the stairwell void from Tier 1 without overlapping', () => {
+  it('places the 7-tread staircase up to Tier 3 and stairwell void from Tier 1 side-by-side on the North without overlapping', () => {
     const stairsUpToTier3: Tier2StairsUpSpec = TIER2_LAYOUT_SPEC.stairsUpToTier3;
     const stairwellVoidFromTier1: Tier2Bounds2D = TIER2_LAYOUT_SPEC.stairwellVoidFromTier1;
-    expect(stairsUpToTier3.stepCount).toBe(7);
-    expect(stairsUpToTier3.direction).toBe('-z');
-    expect(stairsUpToTier3.bottomElevationFt).toBe(0.0);
-    expect(stairsUpToTier3.topElevationFt).toBe(4.55);
-    expect(stairsUpToTier3.xMin).toBe(-3.4);
-    expect(stairsUpToTier3.xMax).toBe(0.1);
-    expect(stairsUpToTier3.zMin).toBe(-10.6);
-    expect(stairsUpToTier3.zMax).toBe(-4.6);
-
+    expect(stairsUpToTier3).toEqual({
+      xMin: -3.4,
+      xMax: -0.15,
+      zMin: -10.6,
+      zMax: -4.6,
+      stepCount: 7,
+      bottomElevationFt: 0.0,
+      topElevationFt: 4.55,
+      direction: '-z',
+    });
     expect(stairwellVoidFromTier1).toEqual({
-      xMin: -0.1,
+      xMin: 0.15,
       xMax: 3.3,
-      zMin: -4.4,
-      zMax: 2.8,
+      zMin: -10.6,
+      zMax: -4.4,
     });
     expect(doBoundsOverlap2D(stairsUpToTier3, stairwellVoidFromTier1)).toBe(false);
+    expect(isBoundsContainedIn(stairsUpToTier3, TIER2_LAYOUT_SPEC.rooms.stairLanding.bounds)).toBe(true);
+    expect(isBoundsContainedIn(stairwellVoidFromTier1, TIER2_LAYOUT_SPEC.rooms.stairLanding.bounds)).toBe(true);
   });
 
-  it('defines all 16 cutaway and interior wall segments with exact accent wall hex colors', () => {
+  it('defines all 16 cutaway and interior wall segments with open South living/play zone, N green bedroom wall, and walk-in closet partitions', () => {
     expect(TIER2_LAYOUT_SPEC.walls).toHaveLength(16);
     const wallById = new Map<string, Tier2WallSpec>(
       TIER2_LAYOUT_SPEC.walls.map((wall: Tier2WallSpec) => [wall.id, wall]),
     );
 
-    expect(wallById.get('north-living-accent')?.colorHex).toBe(0x38434f);
-    expect(wallById.get('stairwell-north-accent')?.colorHex).toBe(0x353d47);
-    expect(wallById.get('primary-west-green-accent')?.colorHex).toBe(0x1f3b33);
+    expect(wallById.has('play-nook-east-partition')).toBe(false);
+    expect(wallById.get('living-stair-west-wall')).toMatchObject({ x1: -3.5, z1: -11.0, x2: -3.5, z2: -4.4, heightFt: 4.4, thicknessFt: 0.35 });
+    expect(wallById.get('stairwell-center-divider')).toMatchObject({ x1: 0.0, z1: -10.8, x2: 0.0, z2: -4.4, heightFt: 4.4, thicknessFt: 0.35 });
+    expect(wallById.get('north-living-accent')).toMatchObject({ x1: -20.0, z1: -11.0, x2: -3.5, z2: -11.0, colorHex: 0x38434f });
+    expect(wallById.get('stairwell-north-accent')).toMatchObject({ x1: -3.5, z1: -11.0, x2: 3.5, z2: -11.0, colorHex: 0x353d47 });
+    expect(wallById.get('walk-in-closet-north')).toMatchObject({ x1: 3.5, z1: 2.5, x2: 8.5, z2: 2.5 });
+    expect(wallById.get('primary-bedroom-west')).toMatchObject({ x1: 8.5, z1: 0.2, x2: 8.5, z2: 11.0 });
+    expect(wallById.get('primary-west-green-accent')).toEqual({
+      id: 'primary-west-green-accent',
+      x1: 8.5,
+      z1: -2.5,
+      x2: 20.4,
+      z2: -2.5,
+      heightFt: 4.6,
+      thicknessFt: 0.35,
+      colorHex: 0x1f3b33,
+    });
+    expect(wallById.get('primary-bath-south-east')).toMatchObject({ x1: 22.6, z1: -2.5, x2: 23.5, z2: -2.5 });
     expect(wallById.get('primary-bath-north-marble')?.colorHex).toBe(0xebeef2);
     expect(wallById.get('primary-bath-east-marble')?.colorHex).toBe(0xebeef2);
     expect(wallById.get('south-front-cutaway')?.heightFt).toBe(2.2);
   });
 
-  it('contains all fixtures strictly inside their assigned room bounds and overall Tier 2 envelope', () => {
+  it('contains all 29 fixtures strictly inside their assigned room bounds and overall Tier 2 envelope with audited positions', () => {
     const fixtureEntries = Object.entries(TIER2_LAYOUT_SPEC.fixtures) as Array<[Tier2FixtureKey, Tier2FixtureSpec]>;
-    expect(fixtureEntries.length).toBeGreaterThanOrEqual(24);
+    expect(fixtureEntries).toHaveLength(29);
 
     for (const [key, fixture] of fixtureEntries) {
       expect(fixture.id).toBe(key);
@@ -128,5 +138,17 @@ describe('tier2LayoutSpec — Envelope, Rooms, Non-Overlap, Stairs, Accent Walls
       expect(isBoundsContainedIn(fixture, assignedRoom.bounds)).toBe(true);
       expect(isBoundsContainedIn(fixture, TIER2_LAYOUT_SPEC)).toBe(true);
     }
+
+    const f = TIER2_LAYOUT_SPEC.fixtures;
+    expect(f.fireplaceHearth).toMatchObject({ roomId: 'livingRoom', xMin: -19.9, xMax: -17.9, zMin: -5.2, zMax: -0.6, heightFt: 4.8 });
+    expect(f.cubeStorageShelves).toMatchObject({ roomId: 'playNook', xMin: -11.8, xMax: -6.8, zMin: 9.4, zMax: 10.8, heightFt: 2.8 });
+    expect(f.landingBookcase).toMatchObject({ roomId: 'stairLanding', xMin: 0.2, xMax: 3.3, zMin: -4.3, zMax: -3.0, heightFt: 3.0 });
+    expect(f.hallwayCabinetAndMap).toMatchObject({ roomId: 'hallway', xMin: 7.1, xMax: 8.4, zMin: -5.0, zMax: -2.6, heightFt: 2.8 });
+    expect(f.powderToilet).toMatchObject({ roomId: 'powderRoom', xMin: 3.8, xMax: 5.3, zMin: -9.8, zMax: -7.8, heightFt: 2.5 });
+    expect(f.powderVanity).toMatchObject({ roomId: 'powderRoom', xMin: 6.9, xMax: 8.3, zMin: -9.8, zMax: -6.8, heightFt: 2.8 });
+    expect(f.bedsideBassinet).toMatchObject({ roomId: 'primaryBedroom', xMin: 13.6, xMax: 16.6, zMin: -2.3, zMax: 0.2, heightFt: 2.8 });
+    expect(f.eastChangingDresser).toMatchObject({ roomId: 'primaryBedroom', xMin: 8.7, xMax: 10.5, zMin: 2.2, zMax: 6.8, heightFt: 3.0 });
+    expect(f.walkInGlassShower).toMatchObject({ roomId: 'primaryBath', xMin: 8.7, xMax: 13.0, zMin: -10.8, zMax: -4.6, heightFt: 4.6 });
+    expect(f.walnutDoubleVanity).toMatchObject({ roomId: 'primaryBath', xMin: 16.0, xMax: 22.6, zMin: -10.8, zMax: -8.3, heightFt: 2.9 });
   });
 });
