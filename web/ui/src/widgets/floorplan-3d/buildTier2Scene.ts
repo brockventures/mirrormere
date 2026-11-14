@@ -1,0 +1,283 @@
+import {
+  BoxGeometry, Color, DirectionalLight, Group, HemisphereLight, Mesh, MeshStandardMaterial,
+  PointLight, Scene, type BufferGeometry,
+} from 'three';
+import {
+  TIER2_LAYOUT_SPEC, type Tier2Bounds2D, type Tier2FixtureKey, type Tier2LayoutSpec,
+  type Tier2RoomId, type Tier2WallSpec,
+} from './tier2LayoutSpec';
+import { buildTier2Fixtures } from './tier2Fixtures';
+import { createTier1Materials, type Tier1MaterialPalette } from './tier1Shell';
+
+export interface Tier2SceneMaterials extends Tier1MaterialPalette {
+  woodFloor: MeshStandardMaterial;
+  slateTileFloor: MeshStandardMaterial;
+}
+
+export interface BuiltTier2Scene {
+  scene: Scene;
+  group: Group;
+  shellGroup: Group;
+  rooms: Readonly<Record<Tier2RoomId, Group>>;
+  roomFloors: Readonly<Record<Tier2RoomId, Mesh>>;
+  wallsById: Readonly<Record<string, Group>>;
+  stairsUpGroup: Group;
+  stairwellVoidGroup: Group;
+  fixtures: Readonly<Record<Tier2FixtureKey, Group>>;
+  materials: Tier2SceneMaterials;
+  dispose: () => void;
+}
+
+export interface BuildTier2SceneOptions {
+  background?: string | null;
+  spec?: Tier2LayoutSpec;
+}
+
+function namedGroup(name: string): Group {
+  const g = new Group();
+  g.name = name;
+  return g;
+}
+
+function applyWorldSpaceFloorUVs(geom: BufferGeometry, bounds: Tier2Bounds2D): void {
+  const pos = geom.attributes.position;
+  const uv = geom.attributes.uv;
+  if (!pos || !uv) return;
+  const cx = (bounds.xMin + bounds.xMax) / 2;
+  const cz = (bounds.zMin + bounds.zMax) / 2;
+  for (let i = 0; i < pos.count; i += 1) {
+    const wx = cx + pos.getX(i);
+    const wz = cz + pos.getZ(i);
+    uv.setXY(i, (wx + 20.0) / 16.0, (wz + 12.6) / 16.0);
+  }
+  uv.needsUpdate = true;
+}
+
+type AddBoxFn = (
+  parent: Group, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number,
+  mat: MeshStandardMaterial, name?: string,
+) => Mesh;
+
+function buildStairsAndVoid(
+  spec: Tier2LayoutSpec,
+  materials: Tier2SceneMaterials,
+  addBox: AddBoxFn,
+): { stairsUpGroup: Group; stairwellVoidGroup: Group } {
+  const st = spec.stairsUpToTier3;
+  const stairsUpGroup = namedGroup('stairsUpToTier3');
+  stairsUpGroup.userData = { stepCount: st.stepCount, direction: st.direction };
+
+  const runZ = (st.zMax - st.zMin) / st.stepCount;
+  const riseY = (st.topElevationFt - st.bottomElevationFt) / st.stepCount;
+
+  for (let i = 0; i < st.stepCount; i += 1) {
+    const zFront = st.zMax - i * runZ;
+    const zBack = st.zMax - (i + 1) * runZ;
+    const yPrev = st.bottomElevationFt + i * riseY;
+    const yTop = st.bottomElevationFt + (i + 1) * riseY;
+    const tread = addBox(
+      stairsUpGroup, st.xMin, st.xMax, yTop - 0.11, yTop, zBack, zFront,
+      materials.woodFloor, `tier2-stair-tread-${i}`,
+    );
+    applyWorldSpaceFloorUVs(tread.geometry, { xMin: st.xMin, xMax: st.xMax, zMin: zBack, zMax: zFront });
+    addBox(
+      stairsUpGroup, st.xMin + 0.04, st.xMax - 0.04, yPrev, yTop - 0.11, zBack, zFront - 0.03,
+      materials.whiteTrim, `tier2-stair-riser-${i}`,
+    );
+  }
+
+  // Matte-black horizontal iron railings along east edge of half-flight stairs
+  const railX = st.xMax - 0.06;
+  addBox(stairsUpGroup, railX - 0.04, railX + 0.04, 0, 3.0, st.zMax - 0.12, st.zMax - 0.04, materials.matteBlackIron, 'stairs-post-bottom');
+  addBox(stairsUpGroup, railX - 0.04, railX + 0.04, st.topElevationFt, st.topElevationFt + 3.0, st.zMin + 0.04, st.zMin + 0.12, materials.matteBlackIron, 'stairs-post-top');
+  for (const hOff of [0.8, 1.5, 2.2, 2.9]) {
+    addBox(
+      stairsUpGroup, railX - 0.03, railX + 0.03, st.topElevationFt * 0.5 + hOff - 0.03, st.topElevationFt * 0.5 + hOff + 0.03,
+      st.zMin, st.zMax, materials.matteBlackIron, `stairs-rail-bar-${hOff}`,
+    );
+  }
+
+  // Bottom black metal child safety gate at z = st.zMax
+  const gateGroup = namedGroup('stairs-safety-gate');
+  addBox(gateGroup, st.xMin, st.xMax, 0.1, 2.65, st.zMax - 0.06, st.zMax + 0.04, materials.matteBlackIron, 'safety-gate-frame');
+  stairsUpGroup.add(gateGroup);
+
+  // Upper Tier 3 Kitchen doorway portal at north end of stairs (z = st.zMin)
+  const portalGroup = namedGroup('tier3-kitchen-doorway-portal');
+  addBox(portalGroup, st.xMin - 0.12, st.xMin, st.topElevationFt, st.topElevationFt + 6.8, st.zMin - 0.25, st.zMin + 0.15, materials.whiteTrim, 'portal-jamb-west');
+  addBox(portalGroup, st.xMax, st.xMax + 0.12, st.topElevationFt, st.topElevationFt + 6.8, st.zMin - 0.25, st.zMin + 0.15, materials.whiteTrim, 'portal-jamb-east');
+  addBox(portalGroup, st.xMin - 0.12, st.xMax + 0.12, st.topElevationFt + 6.65, st.topElevationFt + 6.9, st.zMin - 0.25, st.zMin + 0.15, materials.whiteTrim, 'portal-header');
+  stairsUpGroup.add(portalGroup);
+
+  // Stairwell Void from Tier 1 with black horizontal metal railing
+  const vd = spec.stairwellVoidFromTier1;
+  const stairwellVoidGroup = namedGroup('stairwellVoidFromTier1');
+  addBox(stairwellVoidGroup, vd.xMin, vd.xMax, -0.35, -0.02, vd.zMin, vd.zMax, materials.foyerSlateWall, 'stairwell-void-well');
+  for (const hOff of [0.8, 1.5, 2.2, 2.95]) {
+    addBox(stairwellVoidGroup, vd.xMin - 0.04, vd.xMin + 0.04, hOff - 0.03, hOff + 0.03, vd.zMin, vd.zMax, materials.matteBlackIron, `void-rail-west-${hOff}`);
+    addBox(stairwellVoidGroup, vd.xMin, vd.xMax, hOff - 0.03, hOff + 0.03, vd.zMax - 0.04, vd.zMax + 0.04, materials.matteBlackIron, `void-rail-south-${hOff}`);
+  }
+
+  return { stairsUpGroup, stairwellVoidGroup };
+}
+
+function buildWallSegment(
+  wall: Tier2WallSpec,
+  materials: Tier2SceneMaterials,
+  accentMatCache: Map<number, MeshStandardMaterial>,
+  localMats: MeshStandardMaterial[],
+  addBox: AddBoxFn,
+): Group {
+  const wg = namedGroup(`wall-${wall.id}`);
+  wg.userData = { wallId: wall.id, colorHex: wall.colorHex };
+
+  let wallMat = materials.officeWall;
+  if (wall.colorHex !== undefined) {
+    const cached = accentMatCache.get(wall.colorHex);
+    if (cached) {
+      wallMat = cached;
+    } else {
+      wallMat = new MeshStandardMaterial({ color: wall.colorHex, roughness: 0.78, metalness: 0.04 });
+      accentMatCache.set(wall.colorHex, wallMat);
+      localMats.push(wallMat);
+    }
+  }
+
+  const isHorizontal = Math.abs(wall.z1 - wall.z2) <= Math.abs(wall.x1 - wall.x2);
+  const halfT = wall.thicknessFt / 2;
+  const x0 = isHorizontal ? Math.min(wall.x1, wall.x2) : Math.min(wall.x1, wall.x2) - halfT;
+  const x1 = isHorizontal ? Math.max(wall.x1, wall.x2) : Math.max(wall.x1, wall.x2) + halfT;
+  const z0 = isHorizontal ? Math.min(wall.z1, wall.z2) - halfT : Math.min(wall.z1, wall.z2);
+  const z1 = isHorizontal ? Math.max(wall.z1, wall.z2) + halfT : Math.max(wall.z1, wall.z2);
+
+  const capH = 0.07;
+  addBox(wg, x0, x1, 0, Math.max(0.2, wall.heightFt - capH), z0, z1, wallMat, `${wall.id}-body`);
+  addBox(wg, x0, x1, Math.max(0.2, wall.heightFt - capH), wall.heightFt, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
+  return wg;
+}
+
+export function buildTier2Scene(options: BuildTier2SceneOptions = {}): BuiltTier2Scene {
+  const spec = options.spec ?? TIER2_LAYOUT_SPEC;
+  const basePalette = createTier1Materials();
+  const geometries: BufferGeometry[] = [];
+  const localMats: MeshStandardMaterial[] = [];
+  const accentMatCache = new Map<number, MeshStandardMaterial>();
+
+  const slateTileFloor = new MeshStandardMaterial({ color: 0x32363b, roughness: 0.76, metalness: 0.08 });
+  localMats.push(slateTileFloor);
+
+  const materials: Tier2SceneMaterials = {
+    ...basePalette,
+    woodFloor: basePalette.oakFloor,
+    slateTileFloor,
+    dispose: () => {
+      for (const m of localMats) m.dispose();
+      basePalette.dispose();
+    },
+  };
+
+  const addBox: AddBoxFn = (parent, x0, x1, y0, y1, z0, z1, mat, name) => {
+    const geom = new BoxGeometry(Math.max(0.02, x1 - x0), Math.max(0.02, y1 - y0), Math.max(0.02, z1 - z0));
+    geometries.push(geom);
+    const mesh = new Mesh(geom, mat);
+    if (name) mesh.name = name;
+    mesh.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    parent.add(mesh);
+    return mesh;
+  };
+
+  const group = namedGroup('tier2-root');
+  const shellGroup = namedGroup('tier2-shell');
+  group.add(shellGroup);
+
+  // Foundation plinth beneath Floor 2 slab
+  addBox(
+    shellGroup, spec.xMin - 0.4, spec.xMax + 0.4, -0.42, -0.2, spec.zMin - 0.4, spec.zMax + 0.4,
+    materials.foyerThreshold, 'tier2-foundation-plinth',
+  );
+
+  // Room groups and floor slabs
+  const rooms = {} as Record<Tier2RoomId, Group>;
+  const roomFloors = {} as Record<Tier2RoomId, Mesh>;
+  for (const roomId of Object.keys(spec.rooms) as Tier2RoomId[]) {
+    const rSpec = spec.rooms[roomId];
+    const rGroup = namedGroup(`room-${rSpec.id}`);
+    rGroup.userData = { roomId: rSpec.id, label: rSpec.label, floorMaterial: rSpec.floorMaterial };
+    const floorMat = rSpec.floorMaterial === 'slate-tile' ? materials.slateTileFloor : materials.woodFloor;
+    const floorMesh = addBox(
+      rGroup, rSpec.bounds.xMin, rSpec.bounds.xMax, -0.2, 0.0, rSpec.bounds.zMin, rSpec.bounds.zMax,
+      floorMat, `floor-${rSpec.id}`,
+    );
+    floorMesh.userData = { roomId: rSpec.id, label: rSpec.label, floorMaterial: rSpec.floorMaterial };
+    if (rSpec.floorMaterial === 'wood') {
+      applyWorldSpaceFloorUVs(floorMesh.geometry, rSpec.bounds);
+    }
+    rooms[roomId] = rGroup;
+    roomFloors[roomId] = floorMesh;
+    shellGroup.add(rGroup);
+  }
+
+  // Cutaway and accent walls
+  const wallsGroup = namedGroup('tier2-walls');
+  const wallsById: Record<string, Group> = {};
+  for (const wall of spec.walls) {
+    const wg = buildWallSegment(wall, materials, accentMatCache, localMats, addBox);
+    wallsById[wall.id] = wg;
+    wallsGroup.add(wg);
+  }
+  shellGroup.add(wallsGroup);
+
+  // Half-flight stairs to Tier 3 + Stairwell void from Tier 1
+  const { stairsUpGroup, stairwellVoidGroup } = buildStairsAndVoid(spec, materials, addBox);
+  shellGroup.add(stairsUpGroup, stairwellVoidGroup);
+
+  // Fixtures
+  const fixturesBuilt = buildTier2Fixtures(materials, spec);
+  group.add(fixturesBuilt.root);
+  for (const key of Object.keys(fixturesBuilt.fixtures) as Tier2FixtureKey[]) {
+    const fSpec = spec.fixtures[key];
+    rooms[fSpec.roomId].add(fixturesBuilt.fixtures[key]);
+  }
+
+  // Lighting
+  const lightsGroup = namedGroup('tier2-lights');
+  const hemi = new HemisphereLight('#fffaf0', '#47505c', 0.95);
+  hemi.position.set(0, 24, 0);
+  const sun = new DirectionalLight('#fff6e8', 1.35);
+  sun.position.set(12, 28, 18);
+  sun.castShadow = true;
+  const livingPt = new PointLight('#ffe9c8', 0.85, 28, 1.4);
+  livingPt.position.set(-11.8, 7.2, -3.5);
+  const primaryPt = new PointLight('#ffe9c8', 0.85, 28, 1.4);
+  primaryPt.position.set(15.0, 7.2, 4.2);
+  const bathPt = new PointLight('#f5f9ff', 0.8, 22, 1.4);
+  bathPt.position.set(16.0, 7.2, -6.8);
+  lightsGroup.add(hemi, sun, sun.target, livingPt, primaryPt, bathPt);
+  shellGroup.add(lightsGroup);
+
+  const scene = new Scene();
+  scene.name = 'hearth-tier2-scene';
+  scene.background = options.background === null ? null : new Color(options.background ?? '#13171e');
+  scene.add(group);
+  scene.updateMatrixWorld(true);
+
+  return {
+    scene,
+    group,
+    shellGroup,
+    rooms,
+    roomFloors,
+    wallsById,
+    stairsUpGroup,
+    stairwellVoidGroup,
+    fixtures: fixturesBuilt.fixtures,
+    materials,
+    dispose: () => {
+      for (const g of geometries) g.dispose();
+      fixturesBuilt.dispose();
+      materials.dispose();
+    },
+  };
+}
