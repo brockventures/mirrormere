@@ -33,6 +33,18 @@ export interface BuildTier2SceneOptions {
   spec?: Tier2LayoutSpec;
 }
 
+interface WallApertureZ {
+  z0: number;
+  z1: number;
+  y0: number;
+  y1: number;
+}
+
+const WALL_WINDOW_APERTURES: Readonly<Record<string, WallApertureZ>> = {
+  'west-living': { z0: -0.2, z1: 5.5, y0: 1.85, y1: 4.55 },
+  'primary-bath-east-marble': { z0: -8.2, z1: -4.8, y0: 2.2, y1: 4.4 },
+};
+
 function namedGroup(name: string): Group {
   const g = new Group();
   g.name = name;
@@ -86,7 +98,7 @@ function buildStairsAndVoid(
     );
   }
 
-  // Matte-black horizontal iron railings along east edge of half-flight stairs
+  // Matte-black horizontal iron railings along east edge of upward stairs
   const railX = st.xMax - 0.06;
   addBox(stairsUpGroup, railX - 0.04, railX + 0.04, 0, 3.0, st.zMax - 0.12, st.zMax - 0.04, materials.matteBlackIron, 'stairs-post-bottom');
   addBox(stairsUpGroup, railX - 0.04, railX + 0.04, st.topElevationFt, st.topElevationFt + 3.0, st.zMin + 0.04, st.zMin + 0.12, materials.matteBlackIron, 'stairs-post-top');
@@ -109,13 +121,16 @@ function buildStairsAndVoid(
   addBox(portalGroup, st.xMin - 0.12, st.xMax + 0.12, st.topElevationFt + 6.65, st.topElevationFt + 6.9, st.zMin - 0.25, st.zMin + 0.15, materials.whiteTrim, 'portal-header');
   stairsUpGroup.add(portalGroup);
 
-  // Stairwell Void from Tier 1 with black horizontal metal railing
+  // Stairwell Void from Tier 1 side-by-side on the East with South & East black horizontal railings
   const vd = spec.stairwellVoidFromTier1;
   const stairwellVoidGroup = namedGroup('stairwellVoidFromTier1');
-  addBox(stairwellVoidGroup, vd.xMin, vd.xMax, -0.35, -0.02, vd.zMin, vd.zMax, materials.foyerSlateWall, 'stairwell-void-well');
+  addBox(stairwellVoidGroup, vd.xMin, vd.xMax, -0.38, 0.015, vd.zMin, vd.zMax, materials.foyerSlateWall, 'stairwell-void-well');
+  addBox(stairwellVoidGroup, vd.xMin - 0.04, vd.xMin + 0.04, 0, 3.05, vd.zMax - 0.04, vd.zMax + 0.04, materials.matteBlackIron, 'void-post-sw');
+  addBox(stairwellVoidGroup, vd.xMax - 0.04, vd.xMax + 0.04, 0, 3.05, vd.zMax - 0.04, vd.zMax + 0.04, materials.matteBlackIron, 'void-post-se');
+  addBox(stairwellVoidGroup, vd.xMax - 0.04, vd.xMax + 0.04, 0, 3.05, vd.zMin - 0.04, vd.zMin + 0.04, materials.matteBlackIron, 'void-post-ne');
   for (const hOff of [0.8, 1.5, 2.2, 2.95]) {
-    addBox(stairwellVoidGroup, vd.xMin - 0.04, vd.xMin + 0.04, hOff - 0.03, hOff + 0.03, vd.zMin, vd.zMax, materials.matteBlackIron, `void-rail-west-${hOff}`);
     addBox(stairwellVoidGroup, vd.xMin, vd.xMax, hOff - 0.03, hOff + 0.03, vd.zMax - 0.04, vd.zMax + 0.04, materials.matteBlackIron, `void-rail-south-${hOff}`);
+    addBox(stairwellVoidGroup, vd.xMax - 0.04, vd.xMax + 0.04, hOff - 0.03, hOff + 0.03, vd.zMin, vd.zMax, materials.matteBlackIron, `void-rail-east-${hOff}`);
   }
 
   return { stairsUpGroup, stairwellVoidGroup };
@@ -151,9 +166,64 @@ function buildWallSegment(
   const z1 = isHorizontal ? Math.max(wall.z1, wall.z2) + halfT : Math.max(wall.z1, wall.z2);
 
   const capH = 0.07;
-  addBox(wg, x0, x1, 0, Math.max(0.2, wall.heightFt - capH), z0, z1, wallMat, `${wall.id}-body`);
-  addBox(wg, x0, x1, Math.max(0.2, wall.heightFt - capH), wall.heightFt, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
+  const bodyTop = Math.max(0.2, wall.heightFt - capH);
+  const ap = WALL_WINDOW_APERTURES[wall.id];
+  if (ap && !isHorizontal && ap.z0 > z0 && ap.z1 < z1) {
+    addBox(wg, x0, x1, 0, bodyTop, z0, ap.z0, wallMat, `${wall.id}-body`);
+    addBox(wg, x0, x1, 0, bodyTop, ap.z1, z1, wallMat, `${wall.id}-body-south`);
+    addBox(wg, x0, x1, 0, ap.y0, ap.z0, ap.z1, wallMat, `${wall.id}-sill`);
+    if (ap.y1 < bodyTop) {
+      addBox(wg, x0, x1, ap.y1, bodyTop, ap.z0, ap.z1, wallMat, `${wall.id}-header`);
+    }
+  } else {
+    addBox(wg, x0, x1, 0, bodyTop, z0, z1, wallMat, `${wall.id}-body`);
+  }
+  addBox(wg, x0, x1, bodyTop, wall.heightFt, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
   return wg;
+}
+
+function buildTier2Windows(
+  shellGroup: Group,
+  materials: Tier2SceneMaterials,
+  localMats: MeshStandardMaterial[],
+  addBox: AddBoxFn,
+): void {
+  const windowsGroup = namedGroup('tier2-windows');
+  const frostedGlass = new MeshStandardMaterial({
+    color: 0xdff0fa, roughness: 0.44, metalness: 0.05, transparent: true, opacity: 0.56,
+  });
+  localMats.push(frostedGlass);
+
+  // 1. Living Room West glazed window South of fireplace (x = -20.0, z: -0.2..5.5)
+  const westWin = namedGroup('living-west-window');
+  addBox(westWin, -20.24, -19.76, 1.85, 1.94, -0.2, 5.5, materials.whiteTrim, 'living-west-window-sill');
+  addBox(westWin, -20.24, -19.76, 4.46, 4.55, -0.2, 5.5, materials.whiteTrim, 'living-west-window-header');
+  addBox(westWin, -20.24, -19.76, 1.94, 4.46, -0.2, -0.1, materials.whiteTrim, 'living-west-window-jamb-n');
+  addBox(westWin, -20.24, -19.76, 1.94, 4.46, 5.4, 5.5, materials.whiteTrim, 'living-west-window-jamb-s');
+  addBox(westWin, -20.08, -19.92, 1.94, 4.46, 2.61, 2.69, materials.whiteTrim, 'living-west-window-mullion');
+  addBox(westWin, -20.04, -19.96, 1.94, 4.46, -0.1, 5.4, materials.glass, 'living-west-window-glass');
+  windowsGroup.add(westWin);
+
+  // 2. Play Nook South cutaway glazed window above southWindowBench (x: -17.8..-12.6, z = 11.0)
+  const southWin = namedGroup('south-bench-window');
+  addBox(southWin, -17.8, -12.6, 2.2, 2.29, 10.78, 11.22, materials.whiteTrim, 'south-bench-window-sill');
+  addBox(southWin, -17.8, -12.6, 4.46, 4.55, 10.78, 11.22, materials.whiteTrim, 'south-bench-window-header');
+  addBox(southWin, -17.8, -17.7, 2.29, 4.46, 10.78, 11.22, materials.whiteTrim, 'south-bench-window-jamb-w');
+  addBox(southWin, -12.7, -12.6, 2.29, 4.46, 10.78, 11.22, materials.whiteTrim, 'south-bench-window-jamb-e');
+  addBox(southWin, -15.24, -15.16, 2.29, 4.46, 10.92, 11.08, materials.whiteTrim, 'south-bench-window-mullion');
+  addBox(southWin, -17.7, -12.7, 2.29, 4.46, 10.96, 11.04, materials.glass, 'south-bench-window-glass');
+  windowsGroup.add(southWin);
+
+  // 3. Primary En-Suite Bath East frosted window (x = 23.4, y: 2.2..4.4, z: -8.2..-4.8)
+  const bathWin = namedGroup('primary-bath-east-window');
+  addBox(bathWin, 23.26, 23.74, 2.2, 2.28, -8.2, -4.8, materials.whiteTrim, 'primary-bath-east-window-sill');
+  addBox(bathWin, 23.26, 23.74, 4.32, 4.4, -8.2, -4.8, materials.whiteTrim, 'primary-bath-east-window-header');
+  addBox(bathWin, 23.26, 23.74, 2.28, 4.32, -8.2, -8.1, materials.whiteTrim, 'primary-bath-east-window-jamb-n');
+  addBox(bathWin, 23.26, 23.74, 2.28, 4.32, -4.9, -4.8, materials.whiteTrim, 'primary-bath-east-window-jamb-s');
+  addBox(bathWin, 23.36, 23.44, 2.28, 4.32, -8.1, -4.9, frostedGlass, 'primary-bath-east-window-glass');
+  windowsGroup.add(bathWin);
+
+  shellGroup.add(windowsGroup);
 }
 
 export function buildTier2Scene(options: BuildTier2SceneOptions = {}): BuiltTier2Scene {
@@ -219,7 +289,7 @@ export function buildTier2Scene(options: BuildTier2SceneOptions = {}): BuiltTier
     shellGroup.add(rGroup);
   }
 
-  // Cutaway and accent walls
+  // Cutaway and accent walls + glazed/frosted windows
   const wallsGroup = namedGroup('tier2-walls');
   const wallsById: Record<string, Group> = {};
   for (const wall of spec.walls) {
@@ -228,6 +298,7 @@ export function buildTier2Scene(options: BuildTier2SceneOptions = {}): BuiltTier
     wallsGroup.add(wg);
   }
   shellGroup.add(wallsGroup);
+  buildTier2Windows(shellGroup, materials, localMats, addBox);
 
   // Half-flight stairs to Tier 3 + Stairwell void from Tier 1
   const { stairsUpGroup, stairwellVoidGroup } = buildStairsAndVoid(spec, materials, addBox);
@@ -249,12 +320,14 @@ export function buildTier2Scene(options: BuildTier2SceneOptions = {}): BuiltTier
   sun.position.set(12, 28, 18);
   sun.castShadow = true;
   const livingPt = new PointLight('#ffe9c8', 0.85, 28, 1.4);
-  livingPt.position.set(-11.8, 7.2, -3.5);
+  livingPt.position.set(-11.8, 7.2, -1.5);
+  const landingPt = new PointLight('#fff2dc', 0.72, 24, 1.4);
+  landingPt.position.set(3.2, 7.2, -3.5);
   const primaryPt = new PointLight('#ffe9c8', 0.85, 28, 1.4);
   primaryPt.position.set(15.0, 7.2, 4.2);
-  const bathPt = new PointLight('#f5f9ff', 0.8, 22, 1.4);
-  bathPt.position.set(16.0, 7.2, -6.8);
-  lightsGroup.add(hemi, sun, sun.target, livingPt, primaryPt, bathPt);
+  const bathPt = new PointLight('#f5f9ff', 0.85, 24, 1.4);
+  bathPt.position.set(15.8, 7.2, -6.8);
+  lightsGroup.add(hemi, sun, sun.target, livingPt, landingPt, primaryPt, bathPt);
   shellGroup.add(lightsGroup);
 
   const scene = new Scene();

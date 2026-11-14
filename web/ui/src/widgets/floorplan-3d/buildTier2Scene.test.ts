@@ -1,4 +1,4 @@
-import { Color, Mesh, type MeshStandardMaterial, type Object3D } from 'three';
+import { Box3, Color, Mesh, type MeshStandardMaterial, type Object3D } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { buildTier2Scene, type BuiltTier2Scene, type Tier2SceneMaterials } from './buildTier2Scene';
 import { TIER2_LAYOUT_SPEC, type Tier2FixtureKey, type Tier2RoomId } from './tier2LayoutSpec';
@@ -31,7 +31,6 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
       }
     }
 
-    // Verify world-space UV formula u = (wx + 20.0) / 16.0, v = (wz + 12.6) / 16.0 on livingRoom floor
     const livingFloor = built.roomFloors.livingRoom;
     const pos = livingFloor.geometry.attributes.position;
     const uv = livingFloor.geometry.attributes.uv;
@@ -48,7 +47,7 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
     built.dispose();
   });
 
-  it('builds cutaway and accent walls with exact colorHex values and 7-tread half-flight stairs to Tier 3', () => {
+  it('builds cutaway/accent walls, glazed/frosted windows, 7-tread stairs, and stairwell void South & East railings', () => {
     const built = buildTier2Scene();
 
     for (const wallSpec of TIER2_LAYOUT_SPEC.walls) {
@@ -62,14 +61,23 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
       }
     }
 
-    // Verify forest-green West wall (#1f3b33) and North living room slate accent wall (#38434f)
+    // Verify forest-green North primary bedroom wall (#1f3b33) and North living room slate accent wall (#38434f)
     const greenWallBody = built.wallsById['primary-west-green-accent'].getObjectByName('primary-west-green-accent-body') as Mesh;
     expect((greenWallBody.material as MeshStandardMaterial).color.getHex()).toBe(0x1f3b33);
     const northSlateBody = built.wallsById['north-living-accent'].getObjectByName('north-living-accent-body') as Mesh;
     expect((northSlateBody.material as MeshStandardMaterial).color.getHex()).toBe(0x38434f);
 
-    // Verify 7-tread stairsUpToTier3 rising -Z with railings, bottom safety gate, and upper Tier 3 Kitchen portal
-    expect(built.stairsUpGroup.name).toBe('stairsUpToTier3');
+    // Verify glazed windows on Living West, Play Nook South, and frosted East window in Primary Bath
+    expect(built.shellGroup.getObjectByName('living-west-window')).toBeDefined();
+    expect(built.shellGroup.getObjectByName('south-bench-window')).toBeDefined();
+    const bathWin = built.shellGroup.getObjectByName('primary-bath-east-window');
+    expect(bathWin).toBeDefined();
+    const bathWinGlass = built.shellGroup.getObjectByName('primary-bath-east-window-glass') as Mesh;
+    expect(bathWinGlass).toBeInstanceOf(Mesh);
+    expect(bathWinGlass.position.x).toBeCloseTo(23.4, 2);
+    expect((bathWinGlass.material as MeshStandardMaterial).transparent).toBe(true);
+
+    // Verify 7-tread stairsUpToTier3 and stairwellVoidFromTier1 South + East railings backing onto landingBookcase
     expect(built.stairsUpGroup.userData.stepCount).toBe(7);
     expect(built.stairsUpGroup.userData.direction).toBe('-z');
     for (let i = 0; i < 7; i += 1) {
@@ -79,12 +87,20 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
     }
     expect(built.stairsUpGroup.getObjectByName('stairs-safety-gate')).toBeDefined();
     expect(built.stairsUpGroup.getObjectByName('tier3-kitchen-doorway-portal')).toBeDefined();
-    expect(built.stairwellVoidGroup.name).toBe('stairwellVoidFromTier1');
+
+    const vd = TIER2_LAYOUT_SPEC.stairwellVoidFromTier1;
+    const southRail = built.stairwellVoidGroup.getObjectByName('void-rail-south-0.8') as Mesh;
+    const eastRail = built.stairwellVoidGroup.getObjectByName('void-rail-east-0.8') as Mesh;
+    expect(southRail).toBeInstanceOf(Mesh);
+    expect(eastRail).toBeInstanceOf(Mesh);
+    expect(southRail.position.z).toBeCloseTo(vd.zMax, 2);
+    expect(eastRail.position.x).toBeCloseTo(vd.xMax, 2);
+    expect(built.stairwellVoidGroup.getObjectByName('void-rail-west-0.8')).toBeUndefined();
 
     built.dispose();
   });
 
-  it('builds all 29 fixture-<id> groups with required architectural details and disposes all geometries/materials cleanly', () => {
+  it('builds all 29 audited fixtures with corrected orientations, open-top glass shower, SW walk-in closet, and clean disposal', () => {
     const built = buildTier2Scene({ background: null });
     expect(built.scene.background).toBeNull();
 
@@ -104,27 +120,67 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
       expect(meshes.length).toBeGreaterThanOrEqual(1);
     }
 
-    // Check frameless walk-in glass shower opacity 0.32
+    // 1. Living & Play Nook: vertical pastel ovals on canvas, South wall 2x2 prints, beige/mesh playard (opacity 0.35)
+    const oval0 = built.fixtures.pastelOvalWallArt.getObjectByName('pastel-oval-0') as Mesh;
+    expect(oval0.rotation.x).toBeCloseTo(Math.PI / 2, 3);
+    const nookFrame = built.fixtures.cubeStorageShelves.getObjectByName('nook-grid-frame-0-0') as Mesh;
+    expect(nookFrame.position.z).toBeCloseTo(TIER2_LAYOUT_SPEC.fixtures.cubeStorageShelves.zMax - 0.08, 2);
+
+    const playardMeshes = built.fixtures.babyPlayard.children.filter((c: Object3D): c is Mesh => c instanceof Mesh);
+    expect(playardMeshes.some((m) => {
+      const mat = m.material as MeshStandardMaterial;
+      return mat.transparent && Math.abs(mat.opacity - 0.35) < 1e-3;
+    })).toBe(true);
+    expect(playardMeshes.some((m) => (m.material as MeshStandardMaterial).color.getHex() === 0xd8d0c5)).toBe(true);
+
+    // 2. Hallway East world-map wall art
+    const hm = TIER2_LAYOUT_SPEC.fixtures.hallwayCabinetAndMap;
+    const worldMap = built.fixtures.hallwayCabinetAndMap.getObjectByName('world-map-wall-art') as Mesh;
+    expect(worldMap.position.x).toBeCloseTo(hm.xMax - 0.08, 2);
+
+    // 3. Primary Bedroom: North green wall gold tree-of-life art, West changing dresser accessories, SW walk-in closet
+    const bs = TIER2_LAYOUT_SPEC.fixtures.bedsideBassinet;
+    const treeArt = built.fixtures.bedsideBassinet.getObjectByName('gold-tree-of-life-art') as Mesh;
+    expect(treeArt.rotation.x).toBeCloseTo(Math.PI / 2, 3);
+    expect(treeArt.position.z).toBeCloseTo(bs.zMin + 0.08, 2);
+    expect(built.fixtures.eastChangingDresser.getObjectByName('changing-dresser-mirror')).toBeDefined();
+    expect(built.fixtures.eastChangingDresser.getObjectByName('baseball-cap-rack')).toBeDefined();
+    expect(built.fixtures.eastChangingDresser.getObjectByName('fiddle-leaf-fig-plant')).toBeDefined();
+    expect(built.group.getObjectByName('sw-walk-in-closet')).toBeDefined();
+
+    // 4. Primary Bath: open-top walkInGlassShower (no full ceiling slab; thin 0.06 headers on xMax & zMax) + North double vanity
+    const sh = TIER2_LAYOUT_SPEC.fixtures.walkInGlassShower;
     const showerGroup = built.fixtures.walkInGlassShower;
     const showerMeshes = showerGroup.children.filter((c: Object3D): c is Mesh => c instanceof Mesh);
-    const hasGlassOpacity = showerMeshes.some((m: Mesh) => {
+    expect(showerMeshes.some((m) => {
       const mat = m.material as MeshStandardMaterial;
       return mat.transparent && Math.abs(mat.opacity - 0.32) < 1e-3;
+    })).toBe(true);
+    // Verify no opaque roof slab covers top of shower (y > 4.0) across full X & Z span
+    const hasSolidRoof = showerMeshes.some((m) => {
+      const box = new Box3().setFromObject(m);
+      return box.min.y > 4.0 && (box.max.x - box.min.x) > 1.0 && (box.max.z - box.min.z) > 1.0;
     });
-    expect(hasGlassOpacity).toBe(true);
+    expect(hasSolidRoof).toBe(false);
+    const eastHeader = showerGroup.getObjectByName('shower-header-east') as Mesh;
+    const southHeader = showerGroup.getObjectByName('shower-header-south') as Mesh;
+    expect(eastHeader.position.x).toBeCloseTo(sh.xMax - 0.03, 2);
+    expect(southHeader.position.z).toBeCloseTo(sh.zMax - 0.03, 2);
 
-    // Check walnutDoubleVanity has 2 round mirrors and 4-globe vanity light
+    const vv = TIER2_LAYOUT_SPEC.fixtures.walnutDoubleVanity;
     const vanityGroup = built.fixtures.walnutDoubleVanity;
-    expect(vanityGroup.getObjectByName('vanity-mirror-north')).toBeDefined();
-    expect(vanityGroup.getObjectByName('vanity-mirror-south')).toBeDefined();
+    const mNorth = vanityGroup.getObjectByName('vanity-mirror-north') as Mesh;
+    const mSouth = vanityGroup.getObjectByName('vanity-mirror-south') as Mesh;
+    expect(mNorth.rotation.x).toBeCloseTo(Math.PI / 2, 3);
+    expect(mSouth.rotation.x).toBeCloseTo(Math.PI / 2, 3);
+    expect(mNorth.position.z).toBeCloseTo(vv.zMin + 0.08, 2);
     expect(vanityGroup.getObjectByName('vanity-globe-0')).toBeDefined();
     expect(vanityGroup.getObjectByName('vanity-globe-3')).toBeDefined();
 
-    // Check ceiling fans in Living Room and Primary Bedroom
+    // Ceiling fans + dispose check
     expect(built.group.getObjectByName('living-room-ceiling-fan')).toBeDefined();
     expect(built.group.getObjectByName('primary-bedroom-ceiling-fan')).toBeDefined();
 
-    // Verify dispose() cleans up geometries and materials
     const sofaMesh = built.fixtures.creamSofa.children[0] as Mesh;
     const geomSpy = vi.spyOn(sofaMesh.geometry, 'dispose');
     const matSpy = vi.spyOn(sofaMesh.material as MeshStandardMaterial, 'dispose');
