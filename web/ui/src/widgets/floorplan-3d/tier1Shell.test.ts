@@ -69,8 +69,12 @@ describe('tier1Shell — Honey-Wood Materials, Cutaway Shell, L-Turn Staircase, 
       expect(fillStylesSeen).toContain('#996738');
       expect(fillStylesSeen).toContain('#a16e3d');
       expect(fillStylesSeen).toContain('#966436');
+      expect(fillStylesSeen).toContain('rgba(156, 104, 57, 0.72)');
       expect(fillStylesSeen).toContain('rgba(122, 82, 44, 0.10)');
       expect(fillStylesSeen).toContain('#a57242');
+      expect(strokeStylesSeen).toContain('rgba(110, 68, 32, 0.11)');
+      expect(strokeStylesSeen).toContain('rgba(181, 128, 78, 0.09)');
+      expect(strokeStylesSeen).toContain('rgba(71, 42, 18, 0.24)');
       expect(strokeStylesSeen).toContain('rgba(68, 40, 18, 0.22)');
       expect(stubCtx.fillText).toHaveBeenCalledWith('BROCK STUDIOS', 256, 64);
       canvasPalette.dispose();
@@ -96,6 +100,32 @@ describe('tier1Shell — Honey-Wood Materials, Cutaway Shell, L-Turn Staircase, 
     expect(shell.floors.office.material).toBe(palette.oakFloor);
     expect(shell.floors.foyer.material).toBe(palette.foyerFloor);
     expect(shell.floors.foyer.material).toBe(shell.floors.office.material);
+
+    const measureUvSpan = (mesh: Mesh) => {
+      const uv = mesh.geometry.attributes.uv;
+      let [uMin, uMax, vMin, vMax] = [Infinity, -Infinity, Infinity, -Infinity];
+      for (let i = 0; i < uv.count; i += 1) {
+        const [u, v] = [uv.getX(i), uv.getY(i)];
+        uMin = Math.min(uMin, u);
+        uMax = Math.max(uMax, u);
+        vMin = Math.min(vMin, v);
+        vMax = Math.max(vMax, v);
+      }
+      return { uSpan: uMax - uMin, vSpan: vMax - vMin };
+    };
+
+    for (const roomId of ['office', 'foyer'] as const) {
+      const spec = TIER1_ROOMS[roomId];
+      const { uSpan, vSpan } = measureUvSpan(shell.floors[roomId]);
+      expect(uSpan).toBeCloseTo((spec.xMax - spec.xMin) / 16.0, 5);
+      expect(vSpan).toBeCloseTo((spec.zMax - spec.zMin) / 16.0, 5);
+      expect(uSpan / vSpan).toBeCloseTo((spec.xMax - spec.xMin) / (spec.zMax - spec.zMin), 5);
+    }
+
+    const alcoveMesh = shell.root.getObjectByName('floor-office-wetbar-alcove') as Mesh | undefined;
+    expect(alcoveMesh).toBeDefined();
+    const alcoveUv = measureUvSpan(alcoveMesh!);
+    expect(alcoveUv.uSpan / alcoveUv.vSpan).toBeCloseTo((-3.5 - -8.6) / (-11.0 - -12.6), 5);
 
     expect(Object.keys(shell.wallsById)).toHaveLength(TIER1_WALLS.length);
     expect(new Box3().setFromObject(shell.wallsById['outer-west-office']).max.y).toBeCloseTo(8.6, 5);

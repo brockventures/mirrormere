@@ -34,51 +34,62 @@ export interface Tier1ShellBuildResult {
 const namedGroup = (name: string): Group => { const g = new Group(); g.name = name; return g; };
 
 const HONEY_PLANK_TONES = ['#a47140', '#996738', '#a16e3d', '#966436'] as const;
-const HONEY_PLANK_JOINTS: ReadonlyArray<readonly [number, number]> = [
-  [76, 338], [214, 468], [42, 294], [164, 426],
-  [108, 372], [244, 492], [62, 318], [188, 446],
+const HONEY_PLANK_JOINTS: ReadonlyArray<readonly number[]> = [
+  [84, 344], [208, 456], [62, 286], [152, 364, 476],
+  [76, 256], [168, 412], [52, 232, 348], [124, 424],
+  [224, 362, 486], [96, 298], [184, 438], [68, 268, 382],
+  [156, 452], [48, 236, 368], [138, 304, 464], [212, 404],
 ];
+
+function strokeGrainWave(ctx: CanvasRenderingContext2D, w: number, baseY: number, amp: number, freq: number, phase: number): void {
+  const segs = 8;
+  ctx.beginPath();
+  for (let s = 0; s <= segs; s += 1) {
+    const x = (s / segs) * w;
+    const y = baseY + Math.sin((s / segs) * Math.PI * 2 * freq + phase) * amp;
+    if (s === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+}
 
 function drawHoneyWoodPlanks(ctx: CanvasRenderingContext2D, w: number, h: number): void {
   ctx.fillStyle = '#9e6b3b';
   ctx.fillRect(0, 0, w, h);
   const rowCount = HONEY_PLANK_JOINTS.length;
   const plankH = h / rowCount;
+  const [sx, sy] = [w / 512, plankH / 32];
   for (let r = 0; r < rowCount; r += 1) {
     const y0 = r * plankH;
-    const [j0, j1] = HONEY_PLANK_JOINTS[r];
-    const toneA = HONEY_PLANK_TONES[r % HONEY_PLANK_TONES.length];
-    const toneB = HONEY_PLANK_TONES[(r + 1 + (r % 2)) % HONEY_PLANK_TONES.length];
-    ctx.fillStyle = toneA;
-    ctx.fillRect(0, y0, j0, plankH);
-    ctx.fillRect(j1, y0, w - j1, plankH);
-    ctx.fillStyle = toneB;
-    ctx.fillRect(j0, y0, j1 - j0, plankH);
-
+    const joints = HONEY_PLANK_JOINTS[r].map((j) => Math.round(j * sx));
+    const stops = [0, ...joints, w];
+    const rowTones = [HONEY_PLANK_TONES[r % 4], HONEY_PLANK_TONES[(r + 1 + (r % 2)) % 4], HONEY_PLANK_TONES[(r + 2 + (r % 2)) % 4]];
+    for (let b = 0; b < stops.length - 1; b += 1) {
+      ctx.fillStyle = b === stops.length - 2 ? rowTones[0] : rowTones[b % 3];
+      ctx.fillRect(stops[b], y0, stops[b + 1] - stops[b], plankH);
+    }
+    ctx.fillStyle = 'rgba(156, 104, 57, 0.72)';
+    ctx.fillRect(0, y0, w, plankH);
     ctx.fillStyle = 'rgba(122, 82, 44, 0.10)';
-    ctx.fillRect(0, y0 + 14 + (r % 3) * 3, w, 1.5);
-    ctx.fillRect(0, y0 + 32 + ((r + 1) % 3) * 3, w, 1.2);
-    ctx.fillRect(0, y0 + 49 + ((r + 2) % 3) * 2, w, 1.5);
-
-    ctx.strokeStyle = 'rgba(68, 40, 18, 0.22)';
+    ctx.fillRect(0, y0 + (6 + (r % 3) * 1.5) * sy, w, 1.4 * sy);
+    ctx.fillRect(0, y0 + (20 + ((r + 1) % 3) * 1.5) * sy, w, 1.2 * sy);
     ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(110, 68, 32, 0.11)';
+    for (let f = 0; f < 6; f += 1) strokeGrainWave(ctx, w, y0 + (3 + f * 4.8) * sy, (1.1 + ((r + f) % 2) * 0.45) * sy, 1 + ((r + f) % 2), r * 1.7 + f * 1.1);
+    ctx.strokeStyle = 'rgba(181, 128, 78, 0.09)';
+    for (let f = 0; f < 4; f += 1) strokeGrainWave(ctx, w, y0 + (5.2 + f * 6.4) * sy, (0.9 + ((r + f) % 2) * 0.35) * sy, 1 + (f % 2), r * 2.1 + f * 1.4);
+    ctx.strokeStyle = 'rgba(71, 42, 18, 0.24)';
+    ctx.beginPath(); ctx.moveTo(0, y0 + 0.5); ctx.lineTo(w, y0 + 0.5); ctx.stroke();
+    ctx.strokeStyle = 'rgba(68, 40, 18, 0.22)';
     ctx.beginPath();
-    ctx.moveTo(0, y0 + 0.5);
-    ctx.lineTo(w, y0 + 0.5);
-    ctx.moveTo(j0 + 0.5, y0);
-    ctx.lineTo(j0 + 0.5, y0 + plankH);
-    ctx.moveTo(j1 + 0.5, y0);
-    ctx.lineTo(j1 + 0.5, y0 + plankH);
+    for (const j of joints) { ctx.moveTo(j + 0.5, y0); ctx.lineTo(j + 0.5, y0 + plankH); }
     ctx.stroke();
   }
 }
 
 function makeTexture(
-  w: number,
-  h: number,
-  hex: string,
-  draw: (ctx: CanvasRenderingContext2D, cw: number, ch: number) => void,
-  repeat: readonly [number, number] = [1, 1],
+  w: number, h: number, hex: string,
+  draw: (ctx: CanvasRenderingContext2D, cw: number, ch: number) => void, repeat: readonly [number, number] = [1, 1],
 ): Texture {
   let ctx: CanvasRenderingContext2D | null = null;
   let canvas: HTMLCanvasElement | null = null;
@@ -106,47 +117,25 @@ function makeTexture(
 export function createTier1Materials(): Tier1MaterialPalette {
   const textures: Texture[] = [];
   const materials: MeshStandardMaterial[] = [];
-  const mat = (opts: ConstructorParameters<typeof MeshStandardMaterial>[0]) => {
-    const m = new MeshStandardMaterial(opts);
-    materials.push(m);
-    return m;
+  const mat = (opts: ConstructorParameters<typeof MeshStandardMaterial>[0]) => { const m = new MeshStandardMaterial(opts); materials.push(m); return m; };
+  const texMat = (w: number, h: number, hex: string, draw: (ctx: CanvasRenderingContext2D, cw: number, ch: number) => void, roughness = 0.78, repeat: readonly [number, number] = [1, 1]) => {
+    const map = makeTexture(w, h, hex, draw, repeat); textures.push(map); return mat({ map, roughness, metalness: 0.04 });
   };
-  const texMat = (
-    w: number,
-    h: number,
-    hex: string,
-    draw: (ctx: CanvasRenderingContext2D, cw: number, ch: number) => void,
-    roughness = 0.78,
-    repeat: readonly [number, number] = [1, 1],
-  ) => {
-    const map = makeTexture(w, h, hex, draw, repeat);
-    textures.push(map);
-    return mat({ map, roughness, metalness: 0.04 });
-  };
-
   const honeyWoodFloor = texMat(512, 512, TIER1_ROOMS.office.floorColor, drawHoneyWoodPlanks, 0.58, [4, 4]);
 
   return {
     oakFloor: honeyWoodFloor,
     foyerFloor: honeyWoodFloor,
     garageFloor: texMat(256, 256, TIER1_ROOMS.garage.floorColor, (ctx, w, h) => {
-      ctx.fillStyle = TIER1_ROOMS.garage.floorColor;
-      ctx.fillRect(0, 0, w, h);
-      ctx.strokeStyle = 'rgba(110, 118, 126, 0.14)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+      ctx.fillStyle = TIER1_ROOMS.garage.floorColor; ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = 'rgba(110, 118, 126, 0.14)'; ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
     }, 0.78, [3, 3]),
     stairTread: texMat(128, 128, FOYER_STAIRCASE.treadColor, (ctx, w, h) => {
-      ctx.fillStyle = FOYER_STAIRCASE.treadColor;
-      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = FOYER_STAIRCASE.treadColor; ctx.fillRect(0, 0, w, h);
       ctx.fillStyle = 'rgba(122, 82, 44, 0.10)';
       for (let y = 16; y < h; y += 24) ctx.fillRect(0, y, w, 2);
-      ctx.strokeStyle = 'rgba(68, 40, 18, 0.18)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, h * 0.5 + 0.5);
-      ctx.lineTo(w, h * 0.5 + 0.5);
-      ctx.stroke();
+      ctx.strokeStyle = 'rgba(68, 40, 18, 0.18)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, h * 0.5 + 0.5); ctx.lineTo(w, h * 0.5 + 0.5); ctx.stroke();
     }, 0.56, [1, 1]),
     trellisRug: texMat(256, 256, '#233654', (ctx, w, h) => {
       ctx.fillStyle = '#233654'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = '#efeae0'; ctx.lineWidth = 5; ctx.strokeRect(10, 10, w - 20, h - 20);
@@ -224,6 +213,19 @@ function buildWallGroup(wall: WallSegmentSpec, palette: Tier1MaterialPalette, ad
   return wg;
 }
 
+function applyWorldFloorUVs(geom: BufferGeometry, x0: number, x1: number, z0: number, z1: number): void {
+  const pos = geom.attributes.position;
+  const uv = geom.attributes.uv;
+  if (!pos || !uv) return;
+  const [cx, cz] = [(x0 + x1) / 2, (z0 + z1) / 2];
+  for (let i = 0; i < pos.count; i += 1) {
+    const wx = cx + pos.getX(i);
+    const wz = cz + pos.getZ(i);
+    uv.setXY(i, (wx + 20.0) / 16.0, (wz + 12.6) / 16.0);
+  }
+  uv.needsUpdate = true;
+}
+
 export function buildTier1Shell(palette: Tier1MaterialPalette): Tier1ShellBuildResult {
   const geometries: BufferGeometry[] = [];
   const root = namedGroup('tier1-shell');
@@ -244,9 +246,12 @@ export function buildTier1Shell(palette: Tier1MaterialPalette): Tier1ShellBuildR
 
   const floorsGroup = namedGroup('tier1-floors');
   addPrism(floorsGroup, -20.5, 24.0, -13.1, 11.3, -0.42, -0.42, -0.2, -0.2, palette.foyerThreshold, 'foundation-plinth');
-  addPrism(floorsGroup, -8.6, -3.5, -12.6, -11.0, -0.2, -0.2, 0.0, 0.0, palette.oakFloor, 'floor-office-wetbar-alcove');
+  const alcoveFloor = addPrism(floorsGroup, -8.6, -3.5, -12.6, -11.0, -0.2, -0.2, 0.0, 0.0, palette.oakFloor, 'floor-office-wetbar-alcove');
+  applyWorldFloorUVs(alcoveFloor.geometry, -8.6, -3.5, -12.6, -11.0);
   const mkFloor = (id: RoomId, m: MeshStandardMaterial) => addPrism(floorsGroup, TIER1_ROOMS[id].xMin, TIER1_ROOMS[id].xMax, TIER1_ROOMS[id].zMin, TIER1_ROOMS[id].zMax, -0.2, -0.2, 0, 0, m, `floor-${id}`);
   const floors: Record<RoomId, Mesh> = { office: mkFloor('office', palette.oakFloor), foyer: mkFloor('foyer', palette.foyerFloor), garage: mkFloor('garage', palette.garageFloor) };
+  applyWorldFloorUVs(floors.office.geometry, TIER1_ROOMS.office.xMin, TIER1_ROOMS.office.xMax, TIER1_ROOMS.office.zMin, TIER1_ROOMS.office.zMax);
+  applyWorldFloorUVs(floors.foyer.geometry, TIER1_ROOMS.foyer.xMin, TIER1_ROOMS.foyer.xMax, TIER1_ROOMS.foyer.zMin, TIER1_ROOMS.foyer.zMax);
   root.add(floorsGroup);
 
   const wallsGroup = namedGroup('tier1-walls');
@@ -278,14 +283,10 @@ export function buildTier1Shell(palette: Tier1MaterialPalette): Tier1ShellBuildR
   addPrism(staircaseGroup, st.xMin + 0.04, st.xMax - 0.04, st.zEnd + 0.04, st.zLandingSouth - 0.02, st.yLanding - 0.48, st.yLanding - 0.48, st.yLanding - 0.14, st.yLanding - 0.14, palette.whiteTrim, 'stair-landing-trim');
   addPrism(staircaseGroup, st.railingX - 0.04, st.railingX + 0.04, st.upperRailingZ - 0.04, st.upperRailingZ + 0.04, st.yLanding, st.yLanding, st.yLanding + 2.9, st.yLanding + 2.9, palette.matteBlackIron, 'stair-post-corner');
 
-  const upperRun = (st.xTurnEnd - st.xTurnStart) / st.upperTreadCount;
-  const upperRise = (st.yEnd - st.yLanding) / st.upperTreadCount;
+  const [upperRun, upperRise] = [(st.xTurnEnd - st.xTurnStart) / st.upperTreadCount, (st.yEnd - st.yLanding) / st.upperTreadCount];
   for (let j = 0; j < st.upperTreadCount; j += 1) {
-    const idx = st.lowerTreadCount + j;
-    const xLeft = st.xTurnStart + j * upperRun;
-    const xRight = st.xTurnStart + (j + 1) * upperRun;
-    const yPrev = st.yLanding + j * upperRise;
-    const yTop = st.yLanding + (j + 1) * upperRise;
+    const [idx, xLeft, xRight] = [st.lowerTreadCount + j, st.xTurnStart + j * upperRun, st.xTurnStart + (j + 1) * upperRun];
+    const [yPrev, yTop] = [st.yLanding + j * upperRise, st.yLanding + (j + 1) * upperRise];
     stairTreads.push(addPrism(staircaseGroup, xLeft, xRight, st.turnZMin, st.turnZMax, yTop - 0.11, yTop - 0.11, yTop, yTop, palette.stairTread, `stair-tread-${idx}`));
     addPrism(staircaseGroup, xLeft + 0.04, xRight, st.turnZMin + 0.04, st.turnZMax - 0.04, yPrev, yPrev, yTop - 0.11, yTop - 0.11, palette.whiteTrim, `stair-riser-${idx}`);
     if (j === 1 || j === st.upperTreadCount - 1) {
@@ -298,10 +299,7 @@ export function buildTier1Shell(palette: Tier1MaterialPalette): Tier1ShellBuildR
     const barGeom = new BoxGeometry(isTopRail ? 0.08 : 0.045, isTopRail ? 0.07 : 0.045, p0.distanceTo(p1));
     geometries.push(barGeom);
     const bar = new Mesh(barGeom, palette.matteBlackIron);
-    bar.name = name;
-    bar.position.copy(p0).add(p1).multiplyScalar(0.5);
-    bar.lookAt(p1);
-    bar.castShadow = true;
+    bar.name = name; bar.position.copy(p0).add(p1).multiplyScalar(0.5); bar.lookAt(p1); bar.castShadow = true;
     staircaseGroup.add(bar);
   };
 
@@ -328,15 +326,10 @@ export function buildTier1Shell(palette: Tier1MaterialPalette): Tier1ShellBuildR
   const hemisphere = new HemisphereLight('#fffaf0', '#4a525d', 0.95);
   hemisphere.position.set(0, 24, 0);
   const sun = new DirectionalLight('#fff6e8', 1.35);
-  sun.position.set(10, 28, 18);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.position.set(10, 28, 18); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, { left: -26, right: 26, bottom: -16, top: 16, near: 1, far: 70 });
   const mkPt = (k: 'officeLight' | 'foyerLight' | 'garageLight', hex: string, inten: number) => {
-    const pt = new PointLight(hex, inten, 28, 1.4);
-    pt.position.set(...TIER1_HA_BINDINGS[k].anchor);
-    lightsGroup.add(pt);
-    return pt;
+    const pt = new PointLight(hex, inten, 28, 1.4); pt.position.set(...TIER1_HA_BINDINGS[k].anchor); lightsGroup.add(pt); return pt;
   };
   const roomPoints: Record<RoomId, PointLight> = { office: mkPt('officeLight', '#ffe9c8', 0.85), foyer: mkPt('foyerLight', '#ffe4ba', 0.75), garage: mkPt('garageLight', '#f4f8ff', 0.95) };
   lightsGroup.add(hemisphere, sun, sun.target);
