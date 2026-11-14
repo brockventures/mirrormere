@@ -163,9 +163,8 @@ const BUILDERS: Readonly<Record<FixtureId, (c: FixtureCtx, g: Group, s: FixtureS
   'office-foyer-doorway': (c, g, s) => c.parts(g, s, [[0, 1, 0, 1, 0, 0.06, c.p.whiteTrim], [0, 1, 0, 1, 0.94, 1, c.p.whiteTrim], [0, 1, 0.95, 1, 0.06, 0.94, c.p.whiteTrim]]),
   'foyer-staircase': (c, g, s) => {
     g.userData.hasRearShelves = false;
-    c.parts(g, s, [[0, 0.03, 0, 0.08, 0, 1, c.p.oakFloor], [0, 0.98, 0, 0.02, 0.95, 1, c.p.oakFloor], [0, 0.98, 0.98, 1, 0, 0.06, c.p.oakFloor]]);
+    c.parts(g, s, [[0, 0.012, 0, 0.06, 0, 1, c.p.oakFloor]]);
   },
-  'foyer-runner-rug': (c, g, s) => buildRug(c, g, s, c.p.foyerRunner),
   'foyer-wood-ledge-lower': buildLedge,
   'foyer-wood-ledge-upper': buildLedge,
   'foyer-garage-door': (c, g, s) => c.parts(g, s, [[0, 1, 0, 1, 0, 0.06, c.p.whiteTrim], [0, 1, 0, 1, 0.94, 1, c.p.whiteTrim], [0.28, 0.72, 0.01, 0.96, 0.06, 0.94, c.mat(s.primaryColor, 0.56)], [0.05, 0.95, 0.46, 0.50, 0.14, 0.24, c.p.matteBlackIron]]),

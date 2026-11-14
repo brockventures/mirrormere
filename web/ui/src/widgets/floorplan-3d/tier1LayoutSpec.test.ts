@@ -208,7 +208,6 @@ describe('tier1LayoutSpec — Four Mandatory Walkthrough Layout Invariants', () 
     const stairsFixture = getFixtureById('foyer-staircase');
     const lowerLedge = getFixtureById('foyer-wood-ledge-lower');
     const upperLedge = getFixtureById('foyer-wood-ledge-upper');
-    const runnerRug = getFixtureById('foyer-runner-rug');
     const garageDoor = getFixtureById('foyer-garage-door');
 
     expect(stairsSpec.treadCount).toBe(13);
@@ -261,8 +260,13 @@ describe('tier1LayoutSpec — Four Mandatory Walkthrough Layout Invariants', () 
       expect(ledge.zMax).toBe(4.5);
     }
 
-    // Open East walkway (x > -0.5, z > -8.5) and unobstructed NE interior garage doorway
-    expect(runnerRug.xMin).toBeGreaterThan(stairsSpec.xMax);
+    // Unobstructed honey-wood Foyer walkway (zero Foyer rugs) and unobstructed NE interior garage doorway
+    const foyerRugs = TIER1_FIXTURES.filter(
+      (f: FixtureSpec) => f.room === 'foyer' && (f.category === 'rug' || f.mount === 'rug'),
+    );
+    expect(foyerRugs).toHaveLength(0);
+    const allRugs = TIER1_FIXTURES.filter((f: FixtureSpec) => f.category === 'rug' || f.mount === 'rug');
+    expect(allRugs.map((f: FixtureSpec) => f.id)).toEqual(['office-trellis-rug', 'garage-pastel-rug']);
     expect(stairsSpec.turnZMax).toBeLessThan(garageDoor.zMin);
     expect(garageDoor.zMin).toBe(-8.5);
     expect(garageDoor.zMax).toBe(-5.8);

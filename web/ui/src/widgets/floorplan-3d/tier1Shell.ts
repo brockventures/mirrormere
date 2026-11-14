@@ -11,7 +11,7 @@ import {
 export interface Tier1MaterialPalette {
   oakFloor: MeshStandardMaterial; foyerFloor: MeshStandardMaterial; garageFloor: MeshStandardMaterial;
   stairTread: MeshStandardMaterial;
-  trellisRug: MeshStandardMaterial; foyerRunner: MeshStandardMaterial; pastelCirclesRug: MeshStandardMaterial;
+  trellisRug: MeshStandardMaterial; pastelCirclesRug: MeshStandardMaterial;
   wrigleyArt: MeshStandardMaterial; collectorCardArt: MeshStandardMaterial; brockStudiosSign: MeshStandardMaterial;
   officeWall: MeshStandardMaterial; garageWall: MeshStandardMaterial; foyerSlateWall: MeshStandardMaterial;
   whiteTrim: MeshStandardMaterial; glass: MeshStandardMaterial; brushedSteel: MeshStandardMaterial;
@@ -129,7 +129,13 @@ export function createTier1Materials(): Tier1MaterialPalette {
   return {
     oakFloor: honeyWoodFloor,
     foyerFloor: honeyWoodFloor,
-    garageFloor: mat({ color: TIER1_ROOMS.garage.floorColor, roughness: 0.78 }),
+    garageFloor: texMat(256, 256, TIER1_ROOMS.garage.floorColor, (ctx, w, h) => {
+      ctx.fillStyle = TIER1_ROOMS.garage.floorColor;
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = 'rgba(110, 118, 126, 0.14)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+    }, 0.78, [3, 3]),
     stairTread: texMat(128, 128, FOYER_STAIRCASE.treadColor, (ctx, w, h) => {
       ctx.fillStyle = FOYER_STAIRCASE.treadColor;
       ctx.fillRect(0, 0, w, h);
@@ -146,10 +152,6 @@ export function createTier1Materials(): Tier1MaterialPalette {
       ctx.fillStyle = '#233654'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = '#efeae0'; ctx.lineWidth = 5; ctx.strokeRect(10, 10, w - 20, h - 20);
       for (let i = -w; i < w * 2; i += 48) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + h, h); ctx.moveTo(i + h, 0); ctx.lineTo(i, h); ctx.stroke(); }
     }, 0.9),
-    foyerRunner: texMat(256, 512, '#8d6e57', (ctx, w, h) => {
-      ctx.fillStyle = '#8d6e57'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = '#dfd7ca'; ctx.lineWidth = 8; ctx.strokeRect(18, 18, w - 36, h - 36);
-      for (let y = 80; y < h - 60; y += 96) ctx.strokeRect(w / 2 - 36, y - 24, 72, 48);
-    }, 0.88),
     pastelCirclesRug: texMat(256, 256, '#e8e2d8', (ctx, w, h) => {
       ctx.fillStyle = '#e8e2d8'; ctx.fillRect(0, 0, w, h);
       for (const [cx, cy, r, col] of [[64, 68, 34, '#9ab7b0'], [152, 60, 28, '#d9a992'], [200, 140, 32, '#8da4bc'], [92, 172, 36, '#d2c596']] as const) {

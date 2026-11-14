@@ -37,7 +37,6 @@ export type FixtureId =
   | 'office-se-dresser'
   | 'office-foyer-doorway'
   | 'foyer-staircase'
-  | 'foyer-runner-rug'
   | 'foyer-wood-ledge-lower'
   | 'foyer-wood-ledge-upper'
   | 'foyer-garage-door'
@@ -302,7 +301,6 @@ export const TIER1_FIXTURES: readonly FixtureSpec[] = [
   { id: 'office-se-dresser', label: 'Corner Wood Dresser', room: 'office', category: 'furniture', mount: 'floor', facing: '-Z', solidFloorFootprint: true, xMin: -8.6, xMax: -4.1, yMin: 0.0, yMax: 2.85, zMin: 9.25, zMax: 10.75, primaryColor: '#6b442a', accentColor: '#c8cfd6' },
   { id: 'office-foyer-doorway', label: 'Office SE Foyer Doorway', room: 'office', category: 'door', mount: 'wall', facing: '-X', solidFloorFootprint: false, xMin: -3.7, xMax: -3.3, yMin: 0.0, yMax: 6.8, zMin: 6.4, zMax: 9.2, primaryColor: '#f4f2ec' },
   { id: 'foyer-staircase', label: '13-Tread Honey-Wood L-Turn Staircase', room: 'foyer', category: 'stairs', mount: 'floor', facing: '+Z', solidFloorFootprint: true, xMin: -3.5, xMax: 3.3, yMin: 0.0, yMax: 8.4, zMin: -11.0, zMax: 4.6, primaryColor: '#a57242', accentColor: '#1b1e23' },
-  { id: 'foyer-runner-rug', label: 'Patterned Foyer Runner Rug', room: 'foyer', category: 'rug', mount: 'rug', facing: 'up', solidFloorFootprint: false, xMin: 0.1, xMax: 2.9, yMin: 0.0, yMax: 0.03, zMin: -5.2, zMax: 6.8, primaryColor: '#8d6e57', accentColor: '#dfd7ca' },
   { id: 'foyer-wood-ledge-lower', label: 'East Wall Floating Wood Ledge (Lower)', room: 'foyer', category: 'shelf', mount: 'wall', facing: '-X', solidFloorFootprint: false, xMin: 2.9, xMax: 3.48, yMin: 3.1, yMax: 3.28, zMin: 0.5, zMax: 4.5, primaryColor: '#b78652' },
   { id: 'foyer-wood-ledge-upper', label: 'East Wall Floating Wood Ledge (Upper)', room: 'foyer', category: 'shelf', mount: 'wall', facing: '-X', solidFloorFootprint: false, xMin: 2.9, xMax: 3.48, yMin: 4.5, yMax: 4.68, zMin: 0.5, zMax: 4.5, primaryColor: '#b78652' },
   { id: 'foyer-garage-door', label: 'Interior Foyer-to-Garage Door', room: 'foyer', category: 'door', mount: 'wall', facing: '-X', solidFloorFootprint: false, xMin: 3.3, xMax: 3.7, yMin: 0.0, yMax: 6.8, zMin: -8.5, zMax: -5.8, primaryColor: '#e8e7e3' },

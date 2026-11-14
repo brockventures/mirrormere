@@ -12,17 +12,17 @@ import {
   type Tier1FixtureIndicators,
   type Tier1FixturesBuildResult,
 } from './tier1Fixtures';
-import { TIER1_FIXTURES, fixtureToBox3 } from './tier1LayoutSpec';
+import { TIER1_FIXTURES, fixtureToBox3, type FixtureSpec } from './tier1LayoutSpec';
 import { createTier1Materials } from './tier1Shell';
 
 describe('tier1Fixtures & buildTier1Scene — Multi-Part 3D Fixtures, HA Entities & Lifecycle', () => {
-  it('builds all 42 multi-part fixtures strictly inside spec AABBs and enforces 3D walkthrough geometry', () => {
+  it('builds all 41 fixtures strictly inside spec AABBs and enforces 3D walkthrough geometry', () => {
     const palette = createTier1Materials();
     const built: Tier1FixturesBuildResult = buildTier1Fixtures(palette);
     const indicators: Tier1FixtureIndicators = built.indicators;
     built.root.updateMatrixWorld(true);
 
-    expect(TIER1_FIXTURES).toHaveLength(42);
+    expect(TIER1_FIXTURES).toHaveLength(41);
     expect(Object.keys(built.fixtures)).toHaveLength(TIER1_FIXTURES.length);
     expect(indicators.printerStatusMat.emissiveIntensity).toBeGreaterThan(0);
 
@@ -31,7 +31,11 @@ describe('tier1Fixtures & buildTier1Scene — Multi-Part 3D Fixtures, HA Entitie
       expect(group.userData.fixtureId).toBe(spec.id);
       expect(group.userData.room).toBe(spec.room);
       const meshes = group.children.filter((c: Object3D): c is Mesh => c instanceof Mesh);
-      expect(meshes.length).toBeGreaterThanOrEqual(2);
+      if (spec.id === 'foyer-staircase') {
+        expect(meshes).toHaveLength(1);
+      } else {
+        expect(meshes.length).toBeGreaterThanOrEqual(2);
+      }
 
       const worldBox = new Box3().setFromObject(group);
       const specBox = fixtureToBox3(spec);
@@ -45,6 +49,12 @@ describe('tier1Fixtures & buildTier1Scene — Multi-Part 3D Fixtures, HA Entitie
 
     // Walkthrough Fix #2 & #3 & #4 mesh-level checks
     expect(built.fixtures['foyer-staircase'].userData.hasRearShelves).toBe(false);
+    const stairTrimBox = new Box3().setFromObject(built.fixtures['foyer-staircase']);
+    expect(stairTrimBox.max.x).toBeLessThanOrEqual(-3.4);
+    expect('foyer-runner-rug' in built.fixtures).toBe(false);
+    expect(TIER1_FIXTURES.some((f: FixtureSpec) => f.room === 'foyer' && f.mount === 'rug')).toBe(false);
+    expect(built.fixtures['office-trellis-rug']).toBeDefined();
+    expect(built.fixtures['garage-pastel-rug']).toBeDefined();
     const thresholdBox = new Box3().setFromObject(built.fixtures['garage-south-threshold']);
     expect(thresholdBox.max.y).toBeLessThanOrEqual(0.1801);
 
