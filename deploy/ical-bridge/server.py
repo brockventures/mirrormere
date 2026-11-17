@@ -1707,7 +1707,7 @@ def fetch_cameras_catalog():
         cid = item["id"]
         entry = dict(item)
         entry["last_event_epoch"] = float(epoch_map.get(cid, 0.0) or 0.0)
-        entry["auto_live"] = cid in active_ids
+        entry["auto_live"] = (cid in active_ids) and not is_battery_camera(cid)
         catalog.append(entry)
     return catalog
 
@@ -1748,6 +1748,8 @@ def _get_auto_live_camera_ids(now=None):
 
     active_candidates = []
     for cid, last_epoch in epoch_map.items():
+        if is_battery_camera(cid):
+            continue
         try:
             ep = float(last_epoch or 0.0)
         except (ValueError, TypeError):
@@ -1765,6 +1767,10 @@ def is_camera_auto_live(cam_key, now=None):
     if not isinstance(target, dict):
         return False, 0.0
     cid = target["id"]
+    if is_battery_camera(cam_key, target):
+        with CAMERA_SNAP_LOCK:
+            last_epoch = float(_CAMERA_EVENT_EPOCH.get(cid, 0.0) or 0.0)
+        return False, last_epoch
     top_ids, epoch_map = _get_auto_live_camera_ids(now=now)
     last_epoch = float(epoch_map.get(cid, 0.0) or 0.0)
     return (cid in top_ids), last_epoch
@@ -1968,7 +1974,7 @@ def fetch_camera_snapshot(camera_key, force_refresh=False, active_refresh=False)
             except Exception as e:
                 print(f"[HEARTH-Bridge] HA camera snapshot warning for {ent}: {e}", flush=True)
 
-    if is_battery and not force_refresh and not event_changed:
+    if is_battery:
         with CAMERA_SNAP_LOCK:
             last_good = CAMERA_LAST_GOOD_FRAME.get(cid)
             if last_good:
@@ -2048,8 +2054,10 @@ def warm_camera_snapshots_once(stagger_sec=2.0):
         if not target:
             continue
         cid = target["id"]
-        is_battery = bool(target.get("battery", False))
+        is_battery = is_battery_camera(cam_id, target)
         is_event_driven = bool(target.get("event_driven", is_battery))
+        if is_battery and not (str(_cfg("HA_BASE_URL", "")).strip() and str(_cfg("HA_ACCESS_TOKEN", "")).strip()):
+            continue
         if is_event_driven:
             event_changed = _has_camera_event_changed(target)
             with CAMERA_SNAP_LOCK:
