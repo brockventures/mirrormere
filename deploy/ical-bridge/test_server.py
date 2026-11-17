@@ -1392,8 +1392,8 @@ class TestHandlerEndpoints(unittest.TestCase):
                             self.assertFalse(by_id["doorbell"]["auto_live"])
                             self.assertEqual(by_id["doorbell"]["last_event_epoch"], 0.0)
 
-                        # 2. 3+ cameras with motion within 60s -> caps auto_live: True at the 2 most recent wired cameras.
-                        # Battery camera 'doorbell' has most recent motion (t0 - 5.0), but MUST remain auto_live: False!
+                        # 2. 3+ cameras with motion within 60s -> caps auto_live: True at the 2 most recent cameras (including battery doorbell).
+                        # Battery camera 'doorbell' has most recent motion (t0 - 5.0), and front_yard_camera has (t0 - 10.0).
                         srv._CAMERA_EVENT_EPOCH["doorbell"] = t0 - 5.0
                         srv._CAMERA_EVENT_EPOCH["front_yard_camera"] = t0 - 10.0
                         srv._CAMERA_EVENT_EPOCH["rosie_cam"] = t0 - 20.0
@@ -1403,17 +1403,17 @@ class TestHandlerEndpoints(unittest.TestCase):
                             by_id = {c["id"]: c for c in cams}
                             auto_live_ids = [c["id"] for c in cams if c["auto_live"]]
                             self.assertEqual(len(auto_live_ids), 2)
-                            self.assertCountEqual(auto_live_ids, ["front_yard_camera", "rosie_cam"])
-                            self.assertFalse(by_id["doorbell"]["auto_live"])
+                            self.assertCountEqual(auto_live_ids, ["doorbell", "front_yard_camera"])
+                            self.assertTrue(by_id["doorbell"]["auto_live"])
                             self.assertEqual(by_id["doorbell"]["last_event_epoch"], t0 - 5.0)
                             self.assertTrue(by_id["front_yard_camera"]["auto_live"])
-                            self.assertTrue(by_id["rosie_cam"]["auto_live"])
+                            self.assertFalse(by_id["rosie_cam"]["auto_live"])
                             self.assertFalse(by_id["isaac_cam"]["auto_live"])
                             self.assertEqual(by_id["rosie_cam"]["last_event_epoch"], t0 - 20.0)
 
-                            # Explicitly verify is_camera_auto_live returns False for battery camera
+                            # Explicitly verify is_camera_auto_live returns True for battery camera
                             is_doorbell_live, doorbell_epoch = srv.is_camera_auto_live("doorbell", now=t0)
-                            self.assertFalse(is_doorbell_live)
+                            self.assertTrue(is_doorbell_live)
                             self.assertEqual(doorbell_epoch, t0 - 5.0)
 
                             is_front_live, front_epoch = srv.is_camera_auto_live("front_yard_camera", now=t0)

@@ -1707,7 +1707,7 @@ def fetch_cameras_catalog():
         cid = item["id"]
         entry = dict(item)
         entry["last_event_epoch"] = float(epoch_map.get(cid, 0.0) or 0.0)
-        entry["auto_live"] = (cid in active_ids) and not is_battery_camera(cid)
+        entry["auto_live"] = cid in active_ids
         catalog.append(entry)
     return catalog
 
@@ -1748,8 +1748,6 @@ def _get_auto_live_camera_ids(now=None):
 
     active_candidates = []
     for cid, last_epoch in epoch_map.items():
-        if is_battery_camera(cid):
-            continue
         try:
             ep = float(last_epoch or 0.0)
         except (ValueError, TypeError):
@@ -1767,10 +1765,6 @@ def is_camera_auto_live(cam_key, now=None):
     if not isinstance(target, dict):
         return False, 0.0
     cid = target["id"]
-    if is_battery_camera(cam_key, target):
-        with CAMERA_SNAP_LOCK:
-            last_epoch = float(_CAMERA_EVENT_EPOCH.get(cid, 0.0) or 0.0)
-        return False, last_epoch
     top_ids, epoch_map = _get_auto_live_camera_ids(now=now)
     last_epoch = float(epoch_map.get(cid, 0.0) or 0.0)
     return (cid in top_ids), last_epoch
