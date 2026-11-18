@@ -24,19 +24,6 @@ export interface Tier2FixturesBuildResult {
   dispose: () => void;
 }
 
-function addCeilingFan(c: Tier2FixtureMaterialContext, parent: Group, cx: number, cy: number, cz: number, name: string): Group {
-  const fg = new Group();
-  fg.name = name;
-  const [wood, iron, lightMat] = [c.mat('#7b5233', 0.55), c.palette.matteBlackIron, c.mat('#fff6df', 0.25, 0.05)];
-  c.addCyl(fg, cx, cy + 0.45, cz, 0.06, 0.06, 0.9, iron, `${name}-downrod`);
-  c.addCyl(fg, cx, cy, cz, 0.42, 0.38, 0.24, iron, `${name}-motor`);
-  c.addCyl(fg, cx, cy - 0.14, cz, 0.28, 0.22, 0.12, lightMat, `${name}-light`);
-  c.addBox(fg, cx - 2.2, cx + 2.2, cy - 0.03, cy + 0.03, cz - 0.22, cz + 0.22, wood, `${name}-blade-ew`);
-  c.addBox(fg, cx - 0.22, cx + 0.22, cy - 0.03, cy + 0.03, cz - 2.2, cz + 2.2, wood, `${name}-blade-ns`);
-  parent.add(fg);
-  return fg;
-}
-
 function buildLivingAndPlayFixtures(c: Tier2FixtureMaterialContext, fixtures: Record<Tier2FixtureKey, Group>, spec: Tier2LayoutSpec): void {
   const f = spec.fixtures;
   const [stone, firebox, ember] = [c.mat('#8a9098', 0.82), c.mat('#181b20', 0.9), c.mat('#d96b27', 0.4)];
@@ -103,11 +90,6 @@ function buildLivingAndPlayFixtures(c: Tier2FixtureMaterialContext, fixtures: Re
     oval.scale.set(1, 1, 1.65);
   }
 
-  c.parts(fixtures.southWindowBench, f.southWindowBench, [
-    [0, 1, 0, 0.82, 0, 1, c.palette.whiteTrim], [0, 1, 0.82, 1, 0, 1, creamCush],
-    [0.06, 0.34, 0.12, 0.74, 0, 0.94, c.mat('#d6cec2', 0.8)], [0.36, 0.64, 0.12, 0.74, 0, 0.94, c.mat('#d6cec2', 0.8)], [0.66, 0.94, 0.12, 0.74, 0, 0.94, c.mat('#d6cec2', 0.8)],
-  ]);
-
   const cs = f.cubeStorageShelves;
   c.parts(fixtures.cubeStorageShelves, cs, [
     [0, 1, 0, 0.96, 0.88, 1, c.palette.whiteTrim], [0, 1, 0, 0.07, 0, 1, c.palette.whiteTrim],
@@ -119,8 +101,8 @@ function buildLivingAndPlayFixtures(c: Tier2FixtureMaterialContext, fixtures: Re
   const csMidX = (cs.xMin + cs.xMax) / 2;
   for (const [ri, ry] of [3.05, 3.92].entries()) {
     for (const [ci, rx] of [csMidX - 1.35, csMidX + 0.15].entries()) {
-      c.addBox(fixtures.cubeStorageShelves, rx, rx + 1.2, ry, ry + 0.72, cs.zMax - 0.11, cs.zMax - 0.05, gold, `nook-grid-frame-${ri}-${ci}`);
-      c.addBox(fixtures.cubeStorageShelves, rx + 0.08, rx + 1.12, ry + 0.08, ry + 0.64, cs.zMax - 0.13, cs.zMax - 0.03, creamCush, `nook-grid-print-${ri}-${ci}`);
+      c.addBox(fixtures.cubeStorageShelves, rx, rx + 1.2, ry, ry + 0.72, cs.zMax - 0.04, cs.zMax + 0.04, gold, `nook-grid-frame-${ri}-${ci}`);
+      c.addBox(fixtures.cubeStorageShelves, rx + 0.08, rx + 1.12, ry + 0.08, ry + 0.64, cs.zMax - 0.06, cs.zMax + 0.02, creamCush, `nook-grid-print-${ri}-${ci}`);
     }
   }
 
@@ -247,16 +229,16 @@ function buildPrimarySuiteFixtures(c: Tier2FixtureMaterialContext, fixtures: Rec
 
   const closet = new Group();
   closet.name = 'sw-walk-in-closet';
-  c.addBox(closet, 3.8, 8.2, 3.45, 3.55, 2.75, 4.0, c.palette.whiteTrim, 'closet-shelf-north');
-  c.addBox(closet, 7.0, 8.2, 3.45, 3.55, 4.0, 10.6, c.palette.whiteTrim, 'closet-shelf-east');
-  const rodN = c.addCyl(closet, 5.4, 3.22, 3.4, 0.04, 0.04, 3.1, c.palette.brushedSteel, 'closet-rod-north');
+  c.addBox(closet, 4.8, 8.2, 3.45, 3.55, 2.8, 3.9, c.palette.whiteTrim, 'closet-shelf-north');
+  c.addBox(closet, 7.0, 8.2, 3.45, 3.55, 3.9, 10.6, c.palette.whiteTrim, 'closet-shelf-east');
+  const rodN = c.addCyl(closet, 6.5, 3.22, 3.35, 0.04, 0.04, 3.0, c.palette.brushedSteel, 'closet-rod-north');
   const rodE = c.addCyl(closet, 7.55, 3.22, 7.2, 0.04, 0.04, 6.4, c.palette.brushedSteel, 'closet-rod-east');
   rodN.rotation.z = Math.PI / 2;
   rodE.rotation.x = Math.PI / 2;
   for (const [gi, gCol] of ['#364559', '#d8d0c5', '#556b5d', '#6e5849'].entries()) {
     c.addBox(closet, 7.1, 8.05, 1.7, 3.18, 4.4 + gi * 1.5, 5.4 + gi * 1.5, c.mat(gCol, 0.82), `closet-garment-e-${gi}`);
   }
-  c.addBox(closet, 4.0, 6.6, 1.7, 3.18, 2.95, 3.85, c.mat('#4a5c6e', 0.82), 'closet-garment-n');
+  c.addBox(closet, 4.95, 6.85, 1.7, 3.18, 2.95, 3.8, c.mat('#4a5c6e', 0.82), 'closet-garment-n');
   root.add(closet);
 
   c.parts(fixtures.slidingClosetDoors, f.slidingClosetDoors, [
@@ -293,10 +275,6 @@ function buildPrimarySuiteFixtures(c: Tier2FixtureMaterialContext, fixtures: Rec
   for (let i = 0; i < 4; i += 1) {
     c.addSphere(fixtures.walnutDoubleVanity, vv.xMin + 1.15 + i * 1.43, 4.52, vv.zMin + 0.18, 0.14, c.mat('#fff5d6', 0.2), `vanity-globe-${i}`);
   }
-
-  c.parts(fixtures.bathLinenCloset, f.bathLinenCloset, [
-    [0, 1, 0, 1, 0.08, 1, c.palette.officeWall], [0.06, 0.94, 0.04, 0.96, 0, 0.08, c.palette.whiteTrim],
-  ]);
 }
 
 export function buildTier2Fixtures(palette: Tier1MaterialPalette, spec: Tier2LayoutSpec = TIER2_LAYOUT_SPEC): Tier2FixturesBuildResult {
@@ -358,8 +336,6 @@ export function buildTier2Fixtures(palette: Tier1MaterialPalette, spec: Tier2Lay
 
   const ceilingFansGroup = new Group();
   ceilingFansGroup.name = 'tier2-ceiling-fans';
-  addCeilingFan(ctx, ceilingFansGroup, -11.8, 7.6, -4.2, 'living-room-ceiling-fan');
-  addCeilingFan(ctx, ceilingFansGroup, 14.9, 7.6, 5.2, 'primary-bedroom-ceiling-fan');
   root.add(ceilingFansGroup);
 
   return {

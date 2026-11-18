@@ -14,7 +14,7 @@ import {
   type Tier2WallSpec,
 } from './tier2LayoutSpec';
 
-describe('tier2LayoutSpec — Envelope, 7 Non-Overlapping Rooms, Side-by-Side Stairs/Void, Walls & 29 Fixtures', () => {
+describe('tier2LayoutSpec — Envelope, 7 Non-Overlapping Rooms, Side-by-Side Stairs/Void, Walls & 27 Fixtures', () => {
   it('defines the exact 43.5 ft x 22.0 ft Tier 2 envelope and ceiling/cutaway heights', () => {
     const spec: Tier2LayoutSpec = TIER2_LAYOUT_SPEC;
     expect(spec.widthFt).toBe(43.5);
@@ -139,9 +139,11 @@ describe('tier2LayoutSpec — Envelope, 7 Non-Overlapping Rooms, Side-by-Side St
     expect(wallById.get('south-primary-cutaway')).toMatchObject({ x1: 4.5, z1: 11.0, x2: 23.5, z2: 11.0, heightFt: 2.2 });
   });
 
-  it('contains all 29 fixtures strictly inside their assigned room bounds and overall Tier 2 envelope with audited positions', () => {
+  it('contains all 27 fixtures strictly inside their assigned room bounds and overall Tier 2 envelope with audited positions', () => {
     const fixtureEntries = Object.entries(TIER2_LAYOUT_SPEC.fixtures) as Array<[Tier2FixtureKey, Tier2FixtureSpec]>;
-    expect(fixtureEntries).toHaveLength(29);
+    expect(fixtureEntries).toHaveLength(27);
+    expect('southWindowBench' in TIER2_LAYOUT_SPEC.fixtures).toBe(false);
+    expect('bathLinenCloset' in TIER2_LAYOUT_SPEC.fixtures).toBe(false);
 
     for (const [key, fixture] of fixtureEntries) {
       expect(fixture.id).toBe(key);

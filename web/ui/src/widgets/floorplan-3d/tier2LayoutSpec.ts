@@ -17,7 +17,6 @@ export type Tier2FixtureKey =
   | 'sofaSideTable'
   | 'creamArmchair'
   | 'pastelOvalWallArt'
-  | 'southWindowBench'
   | 'cubeStorageShelves'
   | 'babyPlayard'
   | 'catTree'
@@ -37,8 +36,7 @@ export type Tier2FixtureKey =
   | 'slidingClosetDoors'
   | 'walkInGlassShower'
   | 'primaryBathToilet'
-  | 'walnutDoubleVanity'
-  | 'bathLinenCloset';
+  | 'walnutDoubleVanity';
 
 export interface Tier2Bounds2D {
   xMin: number;
@@ -197,7 +195,6 @@ export const TIER2_LAYOUT_SPEC: Tier2LayoutSpec = {
     sofaSideTable: { id: 'sofaSideTable', roomId: 'livingRoom', label: 'Round Wood Side Table', xMin: -9.4, xMax: -7.8, zMin: 1.0, zMax: 2.4, heightFt: 2.0 },
     creamArmchair: { id: 'creamArmchair', roomId: 'livingRoom', label: 'Cream Upholstered Armchair', xMin: -18.4, xMax: -15.2, zMin: -0.2, zMax: 2.4, heightFt: 3.0 },
     pastelOvalWallArt: { id: 'pastelOvalWallArt', roomId: 'livingRoom', label: 'Pastel Multi-Oval Wall Art', xMin: -14.0, xMax: -6.5, zMin: -10.9, zMax: -10.5, heightFt: 2.4 },
-    southWindowBench: { id: 'southWindowBench', roomId: 'playNook', label: 'South Window Storage Bench', xMin: -17.8, xMax: -12.6, zMin: 9.4, zMax: 10.8, heightFt: 1.7 },
     cubeStorageShelves: { id: 'cubeStorageShelves', roomId: 'playNook', label: 'White Cube Storage Organizer', xMin: -11.0, xMax: -6.2, zMin: 9.4, zMax: 10.7, heightFt: 2.8 },
     babyPlayard: { id: 'babyPlayard', roomId: 'playNook', label: 'Mesh Baby Playard', xMin: -10.2, xMax: -6.8, zMin: 5.0, zMax: 8.0, heightFt: 2.6 },
     catTree: { id: 'catTree', roomId: 'playNook', label: 'Multi-Tier Cream Cat Tree', xMin: -5.8, xMax: -4.0, zMin: 8.8, zMax: 10.6, heightFt: 4.6 },
@@ -218,7 +215,6 @@ export const TIER2_LAYOUT_SPEC: Tier2LayoutSpec = {
     walkInGlassShower: { id: 'walkInGlassShower', roomId: 'primaryBath', label: 'Frameless Walk-In Glass Shower', xMin: 8.7, xMax: 13.0, zMin: -10.8, zMax: -4.6, heightFt: 4.6 },
     primaryBathToilet: { id: 'primaryBathToilet', roomId: 'primaryBath', label: 'Primary Bath Toilet', xMin: 13.6, xMax: 15.4, zMin: -10.7, zMax: -8.6, heightFt: 2.5 },
     walnutDoubleVanity: { id: 'walnutDoubleVanity', roomId: 'primaryBath', label: 'Walnut Double-Sink Vanity & Mirrors', xMin: 16.0, xMax: 22.6, zMin: -10.8, zMax: -8.3, heightFt: 2.9 },
-    bathLinenCloset: { id: 'bathLinenCloset', roomId: 'primaryBath', label: 'Primary Bath Linen Closet', xMin: 13.6, xMax: 16.4, zMin: -4.4, zMax: -2.7, heightFt: 4.4 },
   },
 };
 

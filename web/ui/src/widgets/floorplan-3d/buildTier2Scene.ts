@@ -73,6 +73,7 @@ type AddBoxFn = (
 function buildStairsAndVoid(
   spec: Tier2LayoutSpec,
   materials: Tier2SceneMaterials,
+  localMats: MeshStandardMaterial[],
   addBox: AddBoxFn,
 ): { stairsUpGroup: Group; stairwellVoidGroup: Group } {
   const st = spec.stairsUpToTier3;
@@ -114,17 +115,35 @@ function buildStairsAndVoid(
   addBox(gateGroup, st.xMin, st.xMax, 0.1, 2.65, st.zMax - 0.06, st.zMax + 0.04, materials.matteBlackIron, 'safety-gate-frame');
   stairsUpGroup.add(gateGroup);
 
-  // Upper Tier 3 Kitchen doorway portal at north end of stairs (z = st.zMin)
-  const portalGroup = namedGroup('tier3-kitchen-doorway-portal');
-  addBox(portalGroup, st.xMin - 0.12, st.xMin, st.topElevationFt, st.topElevationFt + 6.8, st.zMin - 0.25, st.zMin + 0.15, materials.whiteTrim, 'portal-jamb-west');
-  addBox(portalGroup, st.xMax, st.xMax + 0.12, st.topElevationFt, st.topElevationFt + 6.8, st.zMin - 0.25, st.zMin + 0.15, materials.whiteTrim, 'portal-jamb-east');
-  addBox(portalGroup, st.xMin - 0.12, st.xMax + 0.12, st.topElevationFt + 6.65, st.topElevationFt + 6.9, st.zMin - 0.25, st.zMin + 0.15, materials.whiteTrim, 'portal-header');
-  stairsUpGroup.add(portalGroup);
-
-  // Stairwell Void from Tier 1 side-by-side on the East with South & East black horizontal railings
+  // Stairwell Void from Tier 1 side-by-side on the East with sunken shaft, descending treads & South/East railings
   const vd = spec.stairwellVoidFromTier1;
   const stairwellVoidGroup = namedGroup('stairwellVoidFromTier1');
-  addBox(stairwellVoidGroup, vd.xMin, vd.xMax, -0.38, 0.015, vd.zMin, vd.zMax, materials.foyerSlateWall, 'stairwell-void-well');
+  const shaftMat = new MeshStandardMaterial({ color: 0x151920, roughness: 0.9, metalness: 0.05 });
+  localMats.push(shaftMat);
+
+  addBox(stairwellVoidGroup, vd.xMin, vd.xMax, -2.2, -2.08, vd.zMin, vd.zMax, shaftMat, 'stairwell-void-bottom');
+  addBox(stairwellVoidGroup, vd.xMin, vd.xMin + 0.08, -2.2, 0.0, vd.zMin, vd.zMax, shaftMat, 'stairwell-void-wall-west');
+  addBox(stairwellVoidGroup, vd.xMax - 0.08, vd.xMax, -2.2, 0.0, vd.zMin, vd.zMax, shaftMat, 'stairwell-void-wall-east');
+  addBox(stairwellVoidGroup, vd.xMin + 0.08, vd.xMax - 0.08, -2.2, 0.0, vd.zMin, vd.zMin + 0.08, shaftMat, 'stairwell-void-wall-north');
+  addBox(stairwellVoidGroup, vd.xMin + 0.08, vd.xMax - 0.08, -2.2, 0.0, vd.zMax - 0.08, vd.zMax, shaftMat, 'stairwell-void-wall-south');
+
+  const treadX0 = vd.xMin + 0.1;
+  const treadX1 = vd.xMax - 0.1;
+  const treadSpanZ = (vd.zMax - vd.zMin - 0.9) / 4;
+  for (let i = 0; i < 4; i += 1) {
+    const z0 = vd.zMin + 0.45 + i * treadSpanZ;
+    const z1 = z0 + treadSpanZ - 0.02;
+    const yTop = -0.35 - i * 0.45;
+    const tread = addBox(
+      stairwellVoidGroup, treadX0, treadX1, yTop - 0.11, yTop, z0, z1,
+      materials.woodFloor, `stairwell-void-tread-${i}`,
+    );
+    applyWorldSpaceFloorUVs(tread.geometry, { xMin: treadX0, xMax: treadX1, zMin: z0, zMax: z1 });
+    addBox(
+      stairwellVoidGroup, treadX0 + 0.04, treadX1 - 0.04, yTop - 0.45, yTop - 0.11, z0, z0 + 0.12,
+      materials.whiteTrim, `stairwell-void-riser-${i}`,
+    );
+  }
   addBox(stairwellVoidGroup, vd.xMin - 0.04, vd.xMin + 0.04, 0, 3.05, vd.zMax - 0.04, vd.zMax + 0.04, materials.matteBlackIron, 'void-post-sw');
   addBox(stairwellVoidGroup, vd.xMax - 0.04, vd.xMax + 0.04, 0, 3.05, vd.zMax - 0.04, vd.zMax + 0.04, materials.matteBlackIron, 'void-post-se');
   addBox(stairwellVoidGroup, vd.xMax - 0.04, vd.xMax + 0.04, 0, 3.05, vd.zMin - 0.04, vd.zMin + 0.04, materials.matteBlackIron, 'void-post-ne');
@@ -204,14 +223,14 @@ function buildTier2Windows(
   addBox(westWin, -20.04, -19.96, 1.94, 4.46, -0.1, 5.4, materials.glass, 'living-west-window-glass');
   windowsGroup.add(westWin);
 
-  // 2. Play Nook South cutaway glazed window above southWindowBench (x: -17.8..-12.6, z = 11.0)
+  // 2. Play Nook South cutaway glazed window (x: -18.5..-12.5, z = 11.0)
   const southWin = namedGroup('south-bench-window');
-  addBox(southWin, -17.8, -12.6, 2.2, 2.29, 10.78, 11.22, materials.whiteTrim, 'south-bench-window-sill');
-  addBox(southWin, -17.8, -12.6, 4.46, 4.55, 10.78, 11.22, materials.whiteTrim, 'south-bench-window-header');
-  addBox(southWin, -17.8, -17.7, 2.29, 4.46, 10.78, 11.22, materials.whiteTrim, 'south-bench-window-jamb-w');
-  addBox(southWin, -12.7, -12.6, 2.29, 4.46, 10.78, 11.22, materials.whiteTrim, 'south-bench-window-jamb-e');
-  addBox(southWin, -15.24, -15.16, 2.29, 4.46, 10.92, 11.08, materials.whiteTrim, 'south-bench-window-mullion');
-  addBox(southWin, -17.7, -12.7, 2.29, 4.46, 10.96, 11.04, materials.glass, 'south-bench-window-glass');
+  addBox(southWin, -18.5, -12.5, 2.2, 2.29, 10.78, 11.22, materials.whiteTrim, 'south-bench-window-sill');
+  addBox(southWin, -18.5, -12.5, 4.46, 4.55, 10.78, 11.22, materials.whiteTrim, 'south-bench-window-header');
+  addBox(southWin, -18.5, -18.4, 2.29, 4.46, 10.78, 11.22, materials.whiteTrim, 'south-bench-window-jamb-w');
+  addBox(southWin, -12.6, -12.5, 2.29, 4.46, 10.78, 11.22, materials.whiteTrim, 'south-bench-window-jamb-e');
+  addBox(southWin, -15.54, -15.46, 2.29, 4.46, 10.92, 11.08, materials.whiteTrim, 'south-bench-window-mullion');
+  addBox(southWin, -18.4, -12.6, 2.29, 4.46, 10.96, 11.04, materials.glass, 'south-bench-window-glass');
   windowsGroup.add(southWin);
 
   // 3. Primary En-Suite Bath East frosted window (x = 23.4, y: 2.2..4.4, z: -8.2..-4.8)
@@ -262,11 +281,14 @@ export function buildTier2Scene(options: BuildTier2SceneOptions = {}): BuiltTier
   const shellGroup = namedGroup('tier2-shell');
   group.add(shellGroup);
 
-  // Foundation plinth beneath Floor 2 slab
-  addBox(
-    shellGroup, spec.xMin - 0.4, spec.xMax + 0.4, -0.42, -0.2, spec.zMin - 0.4, spec.zMax + 0.4,
-    materials.foyerThreshold, 'tier2-foundation-plinth',
-  );
+  // Foundation plinth beneath Floor 2 slab (split around stairwell void so shaft stays open)
+  const vd = spec.stairwellVoidFromTier1;
+  const plinthGroup = namedGroup('tier2-foundation-plinth');
+  addBox(plinthGroup, spec.xMin - 0.4, vd.xMin, -0.42, -0.2, spec.zMin - 0.4, spec.zMax + 0.4, materials.foyerThreshold, 'tier2-plinth-west');
+  addBox(plinthGroup, vd.xMax, spec.xMax + 0.4, -0.42, -0.2, spec.zMin - 0.4, spec.zMax + 0.4, materials.foyerThreshold, 'tier2-plinth-east');
+  addBox(plinthGroup, vd.xMin, vd.xMax, -0.42, -0.2, spec.zMin - 0.4, vd.zMin, materials.foyerThreshold, 'tier2-plinth-north');
+  addBox(plinthGroup, vd.xMin, vd.xMax, -0.42, -0.2, vd.zMax, spec.zMax + 0.4, materials.foyerThreshold, 'tier2-plinth-south');
+  shellGroup.add(plinthGroup);
 
   // Room groups and floor slabs
   const rooms = {} as Record<Tier2RoomId, Group>;
@@ -276,16 +298,38 @@ export function buildTier2Scene(options: BuildTier2SceneOptions = {}): BuiltTier
     const rGroup = namedGroup(`room-${rSpec.id}`);
     rGroup.userData = { roomId: rSpec.id, label: rSpec.label, floorMaterial: rSpec.floorMaterial };
     const floorMat = rSpec.floorMaterial === 'slate-tile' ? materials.slateTileFloor : materials.woodFloor;
-    const floorMesh = addBox(
-      rGroup, rSpec.bounds.xMin, rSpec.bounds.xMax, -0.2, 0.0, rSpec.bounds.zMin, rSpec.bounds.zMax,
-      floorMat, `floor-${rSpec.id}`,
-    );
-    floorMesh.userData = { roomId: rSpec.id, label: rSpec.label, floorMaterial: rSpec.floorMaterial };
-    if (rSpec.floorMaterial === 'wood') {
-      applyWorldSpaceFloorUVs(floorMesh.geometry, rSpec.bounds);
+    if (roomId === 'stairLanding') {
+      const b = rSpec.bounds;
+      const mainFloor = addBox(
+        rGroup, b.xMin, b.xMax, -0.2, 0.0, vd.zMax, b.zMax,
+        floorMat, 'floor-stairLanding',
+      );
+      mainFloor.userData = { roomId: rSpec.id, label: rSpec.label, floorMaterial: rSpec.floorMaterial };
+      applyWorldSpaceFloorUVs(mainFloor.geometry, { xMin: b.xMin, xMax: b.xMax, zMin: vd.zMax, zMax: b.zMax });
+      roomFloors[roomId] = mainFloor;
+
+      const subSlabs: Array<[string, Tier2Bounds2D]> = [
+        ['floor-stairLanding-west', { xMin: b.xMin, xMax: vd.xMin, zMin: b.zMin, zMax: vd.zMax }],
+        ['floor-stairLanding-north', { xMin: vd.xMin, xMax: b.xMax, zMin: b.zMin, zMax: vd.zMin }],
+        ['floor-stairLanding-east', { xMin: vd.xMax, xMax: b.xMax, zMin: vd.zMin, zMax: vd.zMax }],
+      ];
+      for (const [slabName, sb] of subSlabs) {
+        const subMesh = addBox(rGroup, sb.xMin, sb.xMax, -0.2, 0.0, sb.zMin, sb.zMax, floorMat, slabName);
+        subMesh.userData = { roomId: rSpec.id, label: rSpec.label, floorMaterial: rSpec.floorMaterial };
+        applyWorldSpaceFloorUVs(subMesh.geometry, sb);
+      }
+    } else {
+      const floorMesh = addBox(
+        rGroup, rSpec.bounds.xMin, rSpec.bounds.xMax, -0.2, 0.0, rSpec.bounds.zMin, rSpec.bounds.zMax,
+        floorMat, `floor-${rSpec.id}`,
+      );
+      floorMesh.userData = { roomId: rSpec.id, label: rSpec.label, floorMaterial: rSpec.floorMaterial };
+      if (rSpec.floorMaterial === 'wood') {
+        applyWorldSpaceFloorUVs(floorMesh.geometry, rSpec.bounds);
+      }
+      roomFloors[roomId] = floorMesh;
     }
     rooms[roomId] = rGroup;
-    roomFloors[roomId] = floorMesh;
     shellGroup.add(rGroup);
   }
 
@@ -301,7 +345,7 @@ export function buildTier2Scene(options: BuildTier2SceneOptions = {}): BuiltTier
   buildTier2Windows(shellGroup, materials, localMats, addBox);
 
   // Half-flight stairs to Tier 3 + Stairwell void from Tier 1
-  const { stairsUpGroup, stairwellVoidGroup } = buildStairsAndVoid(spec, materials, addBox);
+  const { stairsUpGroup, stairwellVoidGroup } = buildStairsAndVoid(spec, materials, localMats, addBox);
   shellGroup.add(stairsUpGroup, stairwellVoidGroup);
 
   // Fixtures
