@@ -41,8 +41,7 @@ interface WallApertureZ {
 }
 
 const WALL_WINDOW_APERTURES: Readonly<Record<string, WallApertureZ>> = {
-  'west-living': { z0: -0.2, z1: 5.5, y0: 1.85, y1: 4.55 },
-  'primary-bath-east-marble': { z0: -8.2, z1: -4.8, y0: 2.2, y1: 4.4 },
+  'primary-bath-east-marble': { z0: -8.4, z1: -5.0, y0: 2.2, y1: 4.4 },
 };
 
 function namedGroup(name: string): Group {
@@ -110,45 +109,54 @@ function buildStairsAndVoid(
     );
   }
 
-  // Bottom black metal child safety gate at z = st.zMax
-  const gateGroup = namedGroup('stairs-safety-gate');
-  addBox(gateGroup, st.xMin, st.xMax, 0.1, 2.65, st.zMax - 0.06, st.zMax + 0.04, materials.matteBlackIron, 'safety-gate-frame');
-  stairsUpGroup.add(gateGroup);
-
-  // Stairwell Void from Tier 1 side-by-side on the East with sunken shaft, descending treads & South/East railings
+  // Stairwell Void from Tier 1 on the East: U/L-turn staircase exiting at x: 3.1..5.6, z = -4.2
   const vd = spec.stairwellVoidFromTier1;
   const stairwellVoidGroup = namedGroup('stairwellVoidFromTier1');
   const shaftMat = new MeshStandardMaterial({ color: 0x151920, roughness: 0.9, metalness: 0.05 });
   localMats.push(shaftMat);
 
-  addBox(stairwellVoidGroup, vd.xMin, vd.xMax, -2.2, -2.08, vd.zMin, vd.zMax, shaftMat, 'stairwell-void-bottom');
-  addBox(stairwellVoidGroup, vd.xMin, vd.xMin + 0.08, -2.2, 0.0, vd.zMin, vd.zMax, shaftMat, 'stairwell-void-wall-west');
-  addBox(stairwellVoidGroup, vd.xMax - 0.08, vd.xMax, -2.2, 0.0, vd.zMin, vd.zMax, shaftMat, 'stairwell-void-wall-east');
-  addBox(stairwellVoidGroup, vd.xMin + 0.08, vd.xMax - 0.08, -2.2, 0.0, vd.zMin, vd.zMin + 0.08, shaftMat, 'stairwell-void-wall-north');
-  addBox(stairwellVoidGroup, vd.xMin + 0.08, vd.xMax - 0.08, -2.2, 0.0, vd.zMax - 0.08, vd.zMax, shaftMat, 'stairwell-void-wall-south');
+  addBox(stairwellVoidGroup, vd.xMin, vd.xMax, -2.6, -2.48, vd.zMin, vd.zMax, shaftMat, 'stairwell-void-bottom');
+  addBox(stairwellVoidGroup, vd.xMin, vd.xMin + 0.08, -2.6, 0.0, vd.zMin, vd.zMax, shaftMat, 'stairwell-void-wall-west');
+  addBox(stairwellVoidGroup, vd.xMax - 0.08, vd.xMax, -2.6, 0.0, vd.zMin, vd.zMax, shaftMat, 'stairwell-void-wall-east');
+  addBox(stairwellVoidGroup, vd.xMin + 0.08, vd.xMax - 0.08, -2.6, 0.0, vd.zMin, vd.zMin + 0.08, shaftMat, 'stairwell-void-wall-north');
+  addBox(stairwellVoidGroup, vd.xMin + 0.08, vd.xMax - 0.08, -2.6, 0.0, vd.zMax - 0.08, vd.zMax, shaftMat, 'stairwell-void-wall-south');
 
-  const treadX0 = vd.xMin + 0.1;
-  const treadX1 = vd.xMax - 0.1;
-  const treadSpanZ = (vd.zMax - vd.zMin - 0.9) / 4;
-  for (let i = 0; i < 4; i += 1) {
-    const z0 = vd.zMin + 0.45 + i * treadSpanZ;
-    const z1 = z0 + treadSpanZ - 0.02;
-    const yTop = -0.35 - i * 0.45;
+  // Central stair divider core separating west/north winders from east exit flight
+  addBox(stairwellVoidGroup, 2.3, 3.1, -2.6, -0.07, -8.0, vd.zMax, materials.officeWall, 'stairwell-void-divider-core');
+  addBox(stairwellVoidGroup, 2.3, 3.1, -0.07, 0.0, -8.0, vd.zMax, materials.whiteTrim, 'stairwell-void-divider-cap');
+
+  const eastSpanZ = (vd.zMax - 0.08 - -8.0) / 5;
+  const treads: Array<[number, number, number, number, number]> = [];
+  for (let i = 0; i < 5; i += 1) {
+    const z1 = vd.zMax - 0.08 - i * eastSpanZ;
+    treads.push([3.12, vd.xMax - 0.1, z1 - eastSpanZ, z1, -0.22 - i * 0.28]);
+  }
+  treads.push(
+    [3.12, vd.xMax - 0.1, vd.zMin + 0.1, -8.0, -1.62],
+    [2.3, 3.12, vd.zMin + 0.1, -8.0, -1.86],
+    [vd.xMin + 0.1, 2.3, vd.zMin + 0.1, -8.0, -2.08],
+    [vd.xMin + 0.1, 2.28, -8.0, -6.3, -2.24],
+    [vd.xMin + 0.1, 2.28, -6.3, -4.6, -2.36],
+  );
+  treads.forEach(([tx0, tx1, tz0, tz1, yTop], i) => {
     const tread = addBox(
-      stairwellVoidGroup, treadX0, treadX1, yTop - 0.11, yTop, z0, z1,
+      stairwellVoidGroup, tx0, tx1, yTop - 0.11, yTop, tz0, tz1,
       materials.woodFloor, `stairwell-void-tread-${i}`,
     );
-    applyWorldSpaceFloorUVs(tread.geometry, { xMin: treadX0, xMax: treadX1, zMin: z0, zMax: z1 });
+    applyWorldSpaceFloorUVs(tread.geometry, { xMin: tx0, xMax: tx1, zMin: tz0, zMax: tz1 });
     addBox(
-      stairwellVoidGroup, treadX0 + 0.04, treadX1 - 0.04, yTop - 0.45, yTop - 0.11, z0, z0 + 0.12,
+      stairwellVoidGroup, tx0 + 0.02, tx1 - 0.02, Math.max(-2.48, yTop - 0.36), yTop - 0.11, tz0, tz1,
       materials.whiteTrim, `stairwell-void-riser-${i}`,
     );
-  }
+  });
+
+  // South railing wraps x: -0.1..3.1 only, leaving east stair exit (x: 3.1..5.6, z: -4.2) open
   addBox(stairwellVoidGroup, vd.xMin - 0.04, vd.xMin + 0.04, 0, 3.05, vd.zMax - 0.04, vd.zMax + 0.04, materials.matteBlackIron, 'void-post-sw');
+  addBox(stairwellVoidGroup, 3.06, 3.14, 0, 3.05, vd.zMax - 0.04, vd.zMax + 0.04, materials.matteBlackIron, 'void-post-s-mid');
   addBox(stairwellVoidGroup, vd.xMax - 0.04, vd.xMax + 0.04, 0, 3.05, vd.zMax - 0.04, vd.zMax + 0.04, materials.matteBlackIron, 'void-post-se');
   addBox(stairwellVoidGroup, vd.xMax - 0.04, vd.xMax + 0.04, 0, 3.05, vd.zMin - 0.04, vd.zMin + 0.04, materials.matteBlackIron, 'void-post-ne');
   for (const hOff of [0.8, 1.5, 2.2, 2.95]) {
-    addBox(stairwellVoidGroup, vd.xMin, vd.xMax, hOff - 0.03, hOff + 0.03, vd.zMax - 0.04, vd.zMax + 0.04, materials.matteBlackIron, `void-rail-south-${hOff}`);
+    addBox(stairwellVoidGroup, vd.xMin, 3.1, hOff - 0.03, hOff + 0.03, vd.zMax - 0.04, vd.zMax + 0.04, materials.matteBlackIron, `void-rail-south-${hOff}`);
     addBox(stairwellVoidGroup, vd.xMax - 0.04, vd.xMax + 0.04, hOff - 0.03, hOff + 0.03, vd.zMin, vd.zMax, materials.matteBlackIron, `void-rail-east-${hOff}`);
   }
 
@@ -201,6 +209,42 @@ function buildWallSegment(
   return wg;
 }
 
+function buildFramedWindowZ(
+  parent: Group, name: string, x0: number, x1: number, y0: number, y1: number, zCenter: number,
+  panels: number, trimMat: MeshStandardMaterial, glassMat: MeshStandardMaterial, addBox: AddBoxFn,
+): Group {
+  const wg = namedGroup(name);
+  addBox(wg, x0, x1, y0, y0 + 0.09, zCenter - 0.22, zCenter + 0.22, trimMat, `${name}-sill`);
+  addBox(wg, x0, x1, y1 - 0.09, y1, zCenter - 0.22, zCenter + 0.22, trimMat, `${name}-header`);
+  addBox(wg, x0, x0 + 0.1, y0 + 0.09, y1 - 0.09, zCenter - 0.22, zCenter + 0.22, trimMat, `${name}-jamb-w`);
+  addBox(wg, x1 - 0.1, x1, y0 + 0.09, y1 - 0.09, zCenter - 0.22, zCenter + 0.22, trimMat, `${name}-jamb-e`);
+  for (let p = 1; p < panels; p += 1) {
+    const mx = x0 + ((x1 - x0) * p) / panels;
+    addBox(wg, mx - 0.04, mx + 0.04, y0 + 0.09, y1 - 0.09, zCenter - 0.08, zCenter + 0.08, trimMat, `${name}-mullion-${p}`);
+  }
+  addBox(wg, x0 + 0.1, x1 - 0.1, y0 + 0.09, y1 - 0.09, zCenter - 0.04, zCenter + 0.04, glassMat, `${name}-glass`);
+  parent.add(wg);
+  return wg;
+}
+
+function buildFramedWindowX(
+  parent: Group, name: string, xCenter: number, y0: number, y1: number, z0: number, z1: number,
+  panels: number, trimMat: MeshStandardMaterial, glassMat: MeshStandardMaterial, addBox: AddBoxFn,
+): Group {
+  const wg = namedGroup(name);
+  addBox(wg, xCenter - 0.24, xCenter + 0.24, y0, y0 + 0.09, z0, z1, trimMat, `${name}-sill`);
+  addBox(wg, xCenter - 0.24, xCenter + 0.24, y1 - 0.09, y1, z0, z1, trimMat, `${name}-header`);
+  addBox(wg, xCenter - 0.24, xCenter + 0.24, y0 + 0.09, y1 - 0.09, z0, z0 + 0.1, trimMat, `${name}-jamb-n`);
+  addBox(wg, xCenter - 0.24, xCenter + 0.24, y0 + 0.09, y1 - 0.09, z1 - 0.1, z1, trimMat, `${name}-jamb-s`);
+  for (let p = 1; p < panels; p += 1) {
+    const mz = z0 + ((z1 - z0) * p) / panels;
+    addBox(wg, xCenter - 0.08, xCenter + 0.08, y0 + 0.09, y1 - 0.09, mz - 0.04, mz + 0.04, trimMat, `${name}-mullion-${p}`);
+  }
+  addBox(wg, xCenter - 0.04, xCenter + 0.04, y0 + 0.09, y1 - 0.09, z0 + 0.1, z1 - 0.1, glassMat, `${name}-glass`);
+  parent.add(wg);
+  return wg;
+}
+
 function buildTier2Windows(
   shellGroup: Group,
   materials: Tier2SceneMaterials,
@@ -211,36 +255,23 @@ function buildTier2Windows(
   const frostedGlass = new MeshStandardMaterial({
     color: 0xdff0fa, roughness: 0.44, metalness: 0.05, transparent: true, opacity: 0.56,
   });
-  localMats.push(frostedGlass);
+  const curtainMat = new MeshStandardMaterial({ color: 0xe6dfd3, roughness: 0.88, metalness: 0.02 });
+  localMats.push(frostedGlass, curtainMat);
 
-  // 1. Living Room West glazed window South of fireplace (x = -20.0, z: -0.2..5.5)
-  const westWin = namedGroup('living-west-window');
-  addBox(westWin, -20.24, -19.76, 1.85, 1.94, -0.2, 5.5, materials.whiteTrim, 'living-west-window-sill');
-  addBox(westWin, -20.24, -19.76, 4.46, 4.55, -0.2, 5.5, materials.whiteTrim, 'living-west-window-header');
-  addBox(westWin, -20.24, -19.76, 1.94, 4.46, -0.2, -0.1, materials.whiteTrim, 'living-west-window-jamb-n');
-  addBox(westWin, -20.24, -19.76, 1.94, 4.46, 5.4, 5.5, materials.whiteTrim, 'living-west-window-jamb-s');
-  addBox(westWin, -20.08, -19.92, 1.94, 4.46, 2.61, 2.69, materials.whiteTrim, 'living-west-window-mullion');
-  addBox(westWin, -20.04, -19.96, 1.94, 4.46, -0.1, 5.4, materials.glass, 'living-west-window-glass');
-  windowsGroup.add(westWin);
+  // 1. Living Room West window south of fireplace (x = -20.0, z: 2.4..9.4, y: 1.8..4.5)
+  buildFramedWindowX(windowsGroup, 'living-west-window', -20.0, 1.8, 4.5, 2.4, 9.4, 3, materials.whiteTrim, materials.glass, addBox);
 
-  // 2. Play Nook South cutaway glazed window (x: -18.5..-12.5, z = 11.0)
-  const southWin = namedGroup('south-bench-window');
-  addBox(southWin, -18.5, -12.5, 2.2, 2.29, 10.78, 11.22, materials.whiteTrim, 'south-bench-window-sill');
-  addBox(southWin, -18.5, -12.5, 4.46, 4.55, 10.78, 11.22, materials.whiteTrim, 'south-bench-window-header');
-  addBox(southWin, -18.5, -18.4, 2.29, 4.46, 10.78, 11.22, materials.whiteTrim, 'south-bench-window-jamb-w');
-  addBox(southWin, -12.6, -12.5, 2.29, 4.46, 10.78, 11.22, materials.whiteTrim, 'south-bench-window-jamb-e');
-  addBox(southWin, -15.54, -15.46, 2.29, 4.46, 10.92, 11.08, materials.whiteTrim, 'south-bench-window-mullion');
-  addBox(southWin, -18.4, -12.6, 2.29, 4.46, 10.96, 11.04, materials.glass, 'south-bench-window-glass');
-  windowsGroup.add(southWin);
+  // 2. South Living 3-panel window (z = 11.0, x: -18.8..-9.4, y: 1.8..4.5)
+  buildFramedWindowZ(windowsGroup, 'south-bench-window', -18.8, -9.4, 1.8, 4.5, 11.0, 3, materials.whiteTrim, materials.glass, addBox);
 
-  // 3. Primary En-Suite Bath East frosted window (x = 23.4, y: 2.2..4.4, z: -8.2..-4.8)
-  const bathWin = namedGroup('primary-bath-east-window');
-  addBox(bathWin, 23.26, 23.74, 2.2, 2.28, -8.2, -4.8, materials.whiteTrim, 'primary-bath-east-window-sill');
-  addBox(bathWin, 23.26, 23.74, 4.32, 4.4, -8.2, -4.8, materials.whiteTrim, 'primary-bath-east-window-header');
-  addBox(bathWin, 23.26, 23.74, 2.28, 4.32, -8.2, -8.1, materials.whiteTrim, 'primary-bath-east-window-jamb-n');
-  addBox(bathWin, 23.26, 23.74, 2.28, 4.32, -4.9, -4.8, materials.whiteTrim, 'primary-bath-east-window-jamb-s');
-  addBox(bathWin, 23.36, 23.44, 2.28, 4.32, -8.1, -4.9, frostedGlass, 'primary-bath-east-window-glass');
-  windowsGroup.add(bathWin);
+  // 3. Primary Bedroom South window behind King Bed + flanking curtain panels (z = 11.0, x: 11.8..19.2, y: 1.8..4.5)
+  const primaryWin = buildFramedWindowZ(windowsGroup, 'primary-south-window', 11.8, 19.2, 1.8, 4.5, 11.0, 3, materials.whiteTrim, materials.glass, addBox);
+  addBox(primaryWin, 11.35, 12.05, 1.8, 4.6, 10.68, 10.86, curtainMat, 'primary-south-curtain-west');
+  addBox(primaryWin, 18.95, 19.65, 1.8, 4.6, 10.68, 10.86, curtainMat, 'primary-south-curtain-east');
+  addBox(primaryWin, 11.15, 19.85, 4.56, 4.63, 10.72, 10.79, materials.matteBlackIron, 'primary-south-curtain-rod');
+
+  // 4. Primary En-Suite Bath East frosted window (x = 23.5, z: -8.4..-5.0, y: 2.2..4.4)
+  buildFramedWindowX(windowsGroup, 'primary-bath-east-window', 23.5, 2.2, 4.4, -8.4, -5.0, 1, materials.whiteTrim, frostedGlass, addBox);
 
   shellGroup.add(windowsGroup);
 }

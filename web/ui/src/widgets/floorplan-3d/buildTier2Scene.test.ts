@@ -61,27 +61,47 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
       }
     }
 
-    // Verify forest-green North primary bedroom wall (#1f3b33) and North living room slate accent wall (#38434f)
-    const greenWallBody = built.wallsById['primary-west-green-accent'].getObjectByName('primary-west-green-accent-body') as Mesh;
+    // Verify forest-green East primary bedroom wall (#1f3b33) and North living room slate accent wall (#38434f)
+    const greenWallBody = built.wallsById['primary-east-green-accent'].getObjectByName('primary-east-green-accent-body') as Mesh;
     expect((greenWallBody.material as MeshStandardMaterial).color.getHex()).toBe(0x1f3b33);
     const northSlateBody = built.wallsById['north-living-accent'].getObjectByName('north-living-accent-body') as Mesh;
     expect((northSlateBody.material as MeshStandardMaterial).color.getHex()).toBe(0x38434f);
 
-    // Verify glazed windows on Living West, Play Nook South (x: -18.5..-12.5), and frosted East window in Primary Bath
-    expect(built.shellGroup.getObjectByName('living-west-window')).toBeDefined();
+    // Verify glazed windows on Living West, South Living (3-panel), Primary Bedroom South (+ curtains), and frosted East Bath window
+    const westWin = built.shellGroup.getObjectByName('living-west-window');
+    expect(westWin).toBeDefined();
+    const westWinBox = new Box3().setFromObject(westWin!);
+    expect(westWinBox.min.z).toBeCloseTo(2.4, 2);
+    expect(westWinBox.max.z).toBeCloseTo(9.4, 2);
+    expect(westWinBox.min.y).toBeCloseTo(1.8, 2);
+    expect(westWinBox.max.y).toBeCloseTo(4.5, 2);
+
     const southWin = built.shellGroup.getObjectByName('south-bench-window');
     expect(southWin).toBeDefined();
     const southWinBox = new Box3().setFromObject(southWin!);
-    expect(southWinBox.min.x).toBeCloseTo(-18.5, 2);
-    expect(southWinBox.max.x).toBeCloseTo(-12.5, 2);
+    expect(southWinBox.min.x).toBeCloseTo(-18.8, 2);
+    expect(southWinBox.max.x).toBeCloseTo(-9.4, 2);
+    expect(southWinBox.min.y).toBeCloseTo(1.8, 2);
+    expect(southWinBox.max.y).toBeCloseTo(4.5, 2);
+    expect(built.shellGroup.getObjectByName('south-bench-window-mullion-1')).toBeDefined();
+    expect(built.shellGroup.getObjectByName('south-bench-window-mullion-2')).toBeDefined();
+
+    const primaryWin = built.shellGroup.getObjectByName('primary-south-window');
+    expect(primaryWin).toBeDefined();
+    const primaryWinBox = new Box3().setFromObject(primaryWin!);
+    expect(primaryWinBox.min.x).toBeLessThanOrEqual(11.8);
+    expect(primaryWinBox.max.x).toBeGreaterThanOrEqual(19.2);
+    expect(built.shellGroup.getObjectByName('primary-south-curtain-west')).toBeDefined();
+    expect(built.shellGroup.getObjectByName('primary-south-curtain-east')).toBeDefined();
+
     const bathWin = built.shellGroup.getObjectByName('primary-bath-east-window');
     expect(bathWin).toBeDefined();
     const bathWinGlass = built.shellGroup.getObjectByName('primary-bath-east-window-glass') as Mesh;
     expect(bathWinGlass).toBeInstanceOf(Mesh);
-    expect(bathWinGlass.position.x).toBeCloseTo(23.4, 2);
+    expect(bathWinGlass.position.x).toBeCloseTo(23.5, 2);
     expect((bathWinGlass.material as MeshStandardMaterial).transparent).toBe(true);
 
-    // Verify 7-tread stairsUpToTier3 (without floating Tier 3 portal) and sunken stairwellVoidFromTier1
+    // Verify 7-tread stairsUpToTier3 (no bottom gate) and U/L-turn stairwellVoidFromTier1
     expect(built.stairsUpGroup.userData.stepCount).toBe(7);
     expect(built.stairsUpGroup.userData.direction).toBe('-z');
     for (let i = 0; i < 7; i += 1) {
@@ -89,15 +109,20 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
       expect(tread).toBeInstanceOf(Mesh);
       expect(tread.material).toBe(built.materials.woodFloor);
     }
-    expect(built.stairsUpGroup.getObjectByName('stairs-safety-gate')).toBeDefined();
+    expect(built.stairsUpGroup.getObjectByName('stairs-safety-gate')).toBeUndefined();
     expect(built.stairsUpGroup.getObjectByName('tier3-kitchen-doorway-portal')).toBeUndefined();
 
     const vd = TIER2_LAYOUT_SPEC.stairwellVoidFromTier1;
     expect(built.stairwellVoidGroup.getObjectByName('stairwell-void-well')).toBeUndefined();
     const voidBottom = built.stairwellVoidGroup.getObjectByName('stairwell-void-bottom') as Mesh;
     expect(voidBottom).toBeInstanceOf(Mesh);
-    expect(new Box3().setFromObject(voidBottom).min.y).toBeCloseTo(-2.2, 2);
-    for (let i = 0; i < 4; i += 1) {
+    expect(new Box3().setFromObject(voidBottom).min.y).toBeCloseTo(-2.6, 2);
+    const dividerCore = built.stairwellVoidGroup.getObjectByName('stairwell-void-divider-core') as Mesh;
+    expect(dividerCore).toBeInstanceOf(Mesh);
+    const dividerBox = new Box3().setFromObject(dividerCore);
+    expect(dividerBox.min.x).toBeCloseTo(2.3, 2);
+    expect(dividerBox.max.x).toBeCloseTo(3.1, 2);
+    for (let i = 0; i < 10; i += 1) {
       const descTread = built.stairwellVoidGroup.getObjectByName(`stairwell-void-tread-${i}`) as Mesh;
       expect(descTread).toBeInstanceOf(Mesh);
       expect(descTread.position.y).toBeLessThan(0);
@@ -120,19 +145,22 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
     expect(southRail).toBeInstanceOf(Mesh);
     expect(eastRail).toBeInstanceOf(Mesh);
     expect(southRail.position.z).toBeCloseTo(vd.zMax, 2);
+    const southRailBox = new Box3().setFromObject(southRail);
+    expect(southRailBox.min.x).toBeCloseTo(vd.xMin, 2);
+    expect(southRailBox.max.x).toBeCloseTo(3.1, 2);
     expect(eastRail.position.x).toBeCloseTo(vd.xMax, 2);
     expect(built.stairwellVoidGroup.getObjectByName('void-rail-west-0.8')).toBeUndefined();
 
     built.dispose();
   });
 
-  it('builds all 27 audited fixtures with corrected orientations, open-top glass shower, SW walk-in closet, no ceiling fans, and clean disposal', () => {
+  it('builds all 31 audited fixtures with corrected orientations, open-top glass shower, reach-in closet, no ceiling fans, and clean disposal', () => {
     const built = buildTier2Scene({ background: null });
     expect(built.scene.background).toBeNull();
 
     const fixtureKeys = Object.keys(TIER2_LAYOUT_SPEC.fixtures) as Tier2FixtureKey[];
-    expect(fixtureKeys).toHaveLength(27);
-    expect(built.group.getObjectByName('fixture-southWindowBench')).toBeUndefined();
+    expect(fixtureKeys).toHaveLength(31);
+    expect(built.group.getObjectByName('fixture-southWindowBench')).toBeDefined();
     expect(built.group.getObjectByName('fixture-bathLinenCloset')).toBeUndefined();
 
     for (const key of fixtureKeys) {
@@ -163,21 +191,20 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
     const worldMap = built.fixtures.hallwayCabinetAndMap.getObjectByName('world-map-wall-art') as Mesh;
     expect(worldMap.position.x).toBeCloseTo(hm.xMax - 0.08, 2);
 
-    // 3. Primary Bedroom: North green wall gold tree-of-life art, West changing dresser accessories, SW walk-in closet
-    const bs = TIER2_LAYOUT_SPEC.fixtures.bedsideBassinet;
+    // 3. Primary Bedroom: East green wall gold tree-of-life art, North changing dresser accessories, reach-in closet
     const treeArt = built.fixtures.bedsideBassinet.getObjectByName('gold-tree-of-life-art') as Mesh;
-    expect(treeArt.rotation.x).toBeCloseTo(Math.PI / 2, 3);
-    expect(treeArt.position.z).toBeCloseTo(bs.zMin + 0.08, 2);
+    expect(treeArt.rotation.z).toBeCloseTo(Math.PI / 2, 3);
+    expect(treeArt.position.x).toBeCloseTo(23.25, 2);
     expect(built.fixtures.northWoodDresser.getObjectByName('changing-dresser-mirror')).toBeDefined();
     expect(built.fixtures.northWoodDresser.getObjectByName('baseball-cap-rack')).toBeDefined();
     expect(built.fixtures.northWoodDresser.getObjectByName('fiddle-leaf-fig-plant')).toBeDefined();
-    const closet = built.group.getObjectByName('sw-walk-in-closet');
+    const closet = built.group.getObjectByName('reach-in-closet');
     expect(closet).toBeDefined();
     const closetBox = new Box3().setFromObject(closet!);
-    expect(closetBox.min.x).toBeGreaterThanOrEqual(4.8 - 1e-4);
-    expect(closetBox.max.x).toBeLessThanOrEqual(8.2 + 1e-4);
+    expect(closetBox.min.x).toBeGreaterThanOrEqual(6.2 - 1e-4);
+    expect(closetBox.max.x).toBeLessThanOrEqual(8.5 + 1e-4);
     expect(closetBox.min.z).toBeGreaterThanOrEqual(2.8 - 1e-4);
-    expect(closetBox.max.z).toBeLessThanOrEqual(10.6 + 1e-4);
+    expect(closetBox.max.z).toBeLessThanOrEqual(11.0 + 1e-4);
 
     // 4. Primary Bath: open-top walkInGlassShower (no full ceiling slab; thin 0.06 headers on xMax & zMax) + North double vanity
     const sh = TIER2_LAYOUT_SPEC.fixtures.walkInGlassShower;
