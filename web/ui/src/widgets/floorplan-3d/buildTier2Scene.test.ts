@@ -155,12 +155,8 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
     expect(nookFrame.position.z).toBeCloseTo(TIER2_LAYOUT_SPEC.fixtures.cubeStorageShelves.zMax, 2);
     expect(new Box3().setFromObject(nookFrame).max.z).toBeLessThanOrEqual(10.78);
 
-    const playardMeshes = built.fixtures.babyPlayard.children.filter((c: Object3D): c is Mesh => c instanceof Mesh);
-    expect(playardMeshes.some((m) => {
-      const mat = m.material as MeshStandardMaterial;
-      return mat.transparent && Math.abs(mat.opacity - 0.35) < 1e-3;
-    })).toBe(true);
-    expect(playardMeshes.some((m) => (m.material as MeshStandardMaterial).color.getHex() === 0xd8d0c5)).toBe(true);
+    const benchMeshes = built.fixtures.westWindowBench.children.filter((c: Object3D): c is Mesh => c instanceof Mesh);
+    expect(benchMeshes.some((m) => (m.material as MeshStandardMaterial).color.getHex() === 0xb8bcc2)).toBe(true);
 
     // 2. Hallway East world-map wall art
     const hm = TIER2_LAYOUT_SPEC.fixtures.hallwayCabinetAndMap;
@@ -172,9 +168,9 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
     const treeArt = built.fixtures.bedsideBassinet.getObjectByName('gold-tree-of-life-art') as Mesh;
     expect(treeArt.rotation.x).toBeCloseTo(Math.PI / 2, 3);
     expect(treeArt.position.z).toBeCloseTo(bs.zMin + 0.08, 2);
-    expect(built.fixtures.eastChangingDresser.getObjectByName('changing-dresser-mirror')).toBeDefined();
-    expect(built.fixtures.eastChangingDresser.getObjectByName('baseball-cap-rack')).toBeDefined();
-    expect(built.fixtures.eastChangingDresser.getObjectByName('fiddle-leaf-fig-plant')).toBeDefined();
+    expect(built.fixtures.northWoodDresser.getObjectByName('changing-dresser-mirror')).toBeDefined();
+    expect(built.fixtures.northWoodDresser.getObjectByName('baseball-cap-rack')).toBeDefined();
+    expect(built.fixtures.northWoodDresser.getObjectByName('fiddle-leaf-fig-plant')).toBeDefined();
     const closet = built.group.getObjectByName('sw-walk-in-closet');
     expect(closet).toBeDefined();
     const closetBox = new Box3().setFromObject(closet!);

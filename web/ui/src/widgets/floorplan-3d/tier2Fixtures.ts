@@ -24,11 +24,11 @@ export interface Tier2FixturesBuildResult {
   dispose: () => void;
 }
 
-function buildLivingAndPlayFixtures(c: Tier2FixtureMaterialContext, fixtures: Record<Tier2FixtureKey, Group>, spec: Tier2LayoutSpec): void {
+function buildLivingFixtures(c: Tier2FixtureMaterialContext, fixtures: Record<Tier2FixtureKey, Group>, spec: Tier2LayoutSpec): void {
   const f = spec.fixtures;
   const [stone, firebox, ember] = [c.mat('#8a9098', 0.82), c.mat('#181b20', 0.9), c.mat('#d96b27', 0.4)];
   const [warmWood, darkWood, cream, creamCush] = [c.mat('#7c5132', 0.55), c.mat('#3d2b1f', 0.58), c.mat('#ede6da', 0.85), c.mat('#f4efe6', 0.82)];
-  const [pillowSage, pillowRust, tvScreen, gold] = [c.mat('#7d937c', 0.8), c.mat('#b86b4b', 0.8), c.mat('#14181f', 0.22, 0.35), c.mat('#c8a253', 0.35, 0.65)];
+  const [pillowSage, pillowRust, tvScreen] = [c.mat('#7d937c', 0.8), c.mat('#b86b4b', 0.8), c.mat('#14181f', 0.22, 0.35)];
 
   c.parts(fixtures.fireplaceHearth, f.fireplaceHearth, [
     [0, 1, 0, 0.08, 0, 1, stone], [0, 0.72, 0.08, 1, 0.04, 0.96, stone],
@@ -41,7 +41,7 @@ function buildLivingAndPlayFixtures(c: Tier2FixtureMaterialContext, fixtures: Re
   const tvAngled = new Group();
   tvAngled.name = 'corner-tv-angled';
   tvAngled.position.set((tvSpec.xMin + tvSpec.xMax) / 2, 0, (tvSpec.zMin + tvSpec.zMax) / 2);
-  tvAngled.rotation.y = Math.PI / 4;
+  tvAngled.rotation.y = Math.PI / 2 - 0.14;
   c.addBox(tvAngled, -1.65, 1.65, 0, 1.8, -0.62, 0.62, darkWood, 'tv-cabinet-body');
   c.addBox(tvAngled, -1.72, 1.72, 1.8, 1.94, -0.66, 0.66, warmWood, 'tv-cabinet-top');
   c.addBox(tvAngled, -1.48, -0.08, 0.2, 1.65, 0.62, 0.67, c.palette.matteBlackIron, 'tv-door-left');
@@ -67,11 +67,36 @@ function buildLivingAndPlayFixtures(c: Tier2FixtureMaterialContext, fixtures: Re
   c.addCyl(fixtures.sofaSideTable, stCx, st.heightFt * 0.92, stCz, stR, stR, st.heightFt * 0.12, warmWood, 'side-table-top');
   c.addCyl(fixtures.sofaSideTable, stCx, st.heightFt * 0.44, stCz, stR * 0.22, stR * 0.38, st.heightFt * 0.84, darkWood, 'side-table-base');
 
+  const art = f.pastelOvalWallArt;
+  const canvasFrontZ = Math.max(art.zMin + 0.08, art.zMax - 0.08);
+  c.addBox(fixtures.pastelOvalWallArt, art.xMin, art.xMax, 2.0, 4.2, art.zMin, canvasFrontZ, c.palette.whiteTrim, 'pastel-art-canvas');
+  for (const [i, hex] of ['#9ab7b0', '#d9a992', '#8da4bc', '#d2c596', '#c59b82'].entries()) {
+    const oval = c.addCyl(fixtures.pastelOvalWallArt, art.xMin + 1.1 + i * 1.6, 3.1, canvasFrontZ + 0.02, 0.44, 0.44, 0.04, c.mat(hex, 0.62), `pastel-oval-${i}`, 24);
+    oval.rotation.x = Math.PI / 2;
+    oval.scale.set(1, 1, 1.65);
+  }
+}
+
+function buildPlayNookFixtures(c: Tier2FixtureMaterialContext, fixtures: Record<Tier2FixtureKey, Group>, spec: Tier2LayoutSpec): void {
+  const f = spec.fixtures;
+  const [warmWood, darkWood, cream, creamCush] = [c.mat('#7c5132', 0.55), c.mat('#3d2b1f', 0.58), c.mat('#ede6da', 0.85), c.mat('#f4efe6', 0.82)];
+  const [pillowSage, benchCushion, gold] = [c.mat('#7d937c', 0.8), c.mat('#b8bcc2', 0.84), c.mat('#c8a253', 0.35, 0.65)];
+
+  c.parts(fixtures.westWindowBench, f.westWindowBench, [
+    [0, 0.94, 0, 0.78, 0, 1, c.palette.whiteTrim], [0.94, 1, 0.06, 0.72, 0.04, 0.48, c.palette.whiteTrim],
+    [0.94, 1, 0.06, 0.72, 0.52, 0.96, c.palette.whiteTrim], [0.04, 0.96, 0.78, 1, 0.02, 0.98, benchCushion],
+  ]);
+
+  c.parts(fixtures.southWindowBench, f.southWindowBench, [
+    [0, 1, 0, 0.78, 0.06, 1, c.palette.whiteTrim], [0.04, 0.48, 0.06, 0.72, 0, 0.06, c.palette.whiteTrim],
+    [0.52, 0.96, 0.06, 0.72, 0, 0.06, c.palette.whiteTrim], [0.02, 0.98, 0.78, 1, 0.04, 0.96, benchCushion],
+  ]);
+
   const ac = f.creamArmchair;
   const chairAngled = new Group();
   chairAngled.name = 'cream-armchair-angled';
   chairAngled.position.set((ac.xMin + ac.xMax) / 2, 0, (ac.zMin + ac.zMax) / 2);
-  chairAngled.rotation.y = Math.PI * 0.66;
+  chairAngled.rotation.y = -Math.PI * 0.78;
   c.addBox(chairAngled, -1.05, 1.05, 0, 0.32, -0.95, 0.95, darkWood, 'armchair-legs');
   c.addBox(chairAngled, -1.12, 1.12, 0.32, 1.25, -1.02, 1.02, cream, 'armchair-seat-deck');
   c.addBox(chairAngled, -1.12, 1.12, 1.25, 2.85, -1.02, -0.52, cream, 'armchair-backrest');
@@ -81,14 +106,11 @@ function buildLivingAndPlayFixtures(c: Tier2FixtureMaterialContext, fixtures: Re
   c.addBox(chairAngled, -0.52, 0.52, 1.65, 2.45, -0.5, -0.14, pillowSage, 'armchair-pillow');
   fixtures.creamArmchair.add(chairAngled);
 
-  const art = f.pastelOvalWallArt;
-  const canvasFrontZ = Math.max(art.zMin + 0.08, art.zMax - 0.08);
-  c.addBox(fixtures.pastelOvalWallArt, art.xMin, art.xMax, 2.0, 4.2, art.zMin, canvasFrontZ, c.palette.whiteTrim, 'pastel-art-canvas');
-  for (const [i, hex] of ['#9ab7b0', '#d9a992', '#8da4bc', '#d2c596', '#c59b82'].entries()) {
-    const oval = c.addCyl(fixtures.pastelOvalWallArt, art.xMin + 0.95 + i * 1.4, 3.1, canvasFrontZ + 0.02, 0.44, 0.44, 0.04, c.mat(hex, 0.62), `pastel-oval-${i}`, 24);
-    oval.rotation.x = Math.PI / 2;
-    oval.scale.set(1, 1, 1.65);
-  }
+  c.parts(fixtures.catTree, f.catTree, [
+    [0.08, 0.92, 0, 0.08, 0.08, 0.92, cream], [0.24, 0.42, 0.08, 0.68, 0.24, 0.42, c.mat('#c8b79e', 0.88)],
+    [0.58, 0.76, 0.08, 0.92, 0.58, 0.76, c.mat('#c8b79e', 0.88)], [0.12, 0.64, 0.36, 0.44, 0.12, 0.64, cream],
+    [0.16, 0.72, 0.68, 0.76, 0.16, 0.72, cream], [0.36, 0.92, 0.92, 1, 0.36, 0.92, cream],
+  ]);
 
   const cs = f.cubeStorageShelves;
   c.parts(fixtures.cubeStorageShelves, cs, [
@@ -106,24 +128,32 @@ function buildLivingAndPlayFixtures(c: Tier2FixtureMaterialContext, fixtures: Re
     }
   }
 
-  const [beigeRail, playardMesh] = [c.mat('#d8d0c5', 0.68), c.mat('#eceae4', 0.65, 0.02, 0.35)];
-  c.parts(fixtures.babyPlayard, f.babyPlayard, [
-    [0.03, 0.97, 0, 0.10, 0.03, 0.97, creamCush],
-    [0.05, 0.95, 0.10, 0.90, 0.02, 0.05, playardMesh], [0.05, 0.95, 0.10, 0.90, 0.95, 0.98, playardMesh],
-    [0.02, 0.05, 0.10, 0.90, 0.05, 0.95, playardMesh], [0.95, 0.98, 0.10, 0.90, 0.05, 0.95, playardMesh],
-    [0, 0.06, 0, 1, 0, 0.06, beigeRail], [0.94, 1, 0, 1, 0, 0.06, beigeRail], [0, 0.06, 0, 1, 0.94, 1, beigeRail], [0.94, 1, 0, 1, 0.94, 1, beigeRail],
-    [0, 1, 0.90, 1, 0, 0.06, beigeRail], [0, 1, 0.90, 1, 0.94, 1, beigeRail], [0, 0.06, 0.90, 1, 0.06, 0.94, beigeRail], [0.94, 1, 0.90, 1, 0.06, 0.94, beigeRail],
+  c.parts(fixtures.playNookEastShelves, f.playNookEastShelves, [
+    [0.88, 1, 0, 1, 0, 1, c.palette.whiteTrim], [0, 1, 0, 0.08, 0, 1, c.palette.whiteTrim],
+    [0, 0.96, 0.46, 0.53, 0, 1, c.palette.whiteTrim], [0, 1, 0.93, 1, 0, 1, c.palette.whiteTrim],
+    [0, 1, 0, 1, 0, 0.06, c.palette.whiteTrim], [0.02, 0.94, 0.08, 0.93, 0.32, 0.36, c.palette.whiteTrim],
+    [0.02, 0.94, 0.08, 0.93, 0.64, 0.68, c.palette.whiteTrim], [0, 1, 0, 1, 0.94, 1, c.palette.whiteTrim],
+    [0.08, 0.84, 0.09, 0.44, 0.08, 0.30, c.mat('#d9cbb8', 0.82)], [0.08, 0.84, 0.54, 0.90, 0.38, 0.62, c.mat('#8da4bc', 0.82)],
+    [0.08, 0.84, 0.09, 0.44, 0.70, 0.92, c.mat('#9ab7b0', 0.82)],
   ]);
 
-  c.parts(fixtures.catTree, f.catTree, [
-    [0.08, 0.92, 0, 0.08, 0.08, 0.92, cream], [0.24, 0.42, 0.08, 0.68, 0.24, 0.42, c.mat('#c8b79e', 0.88)],
-    [0.58, 0.76, 0.08, 0.92, 0.58, 0.76, c.mat('#c8b79e', 0.88)], [0.12, 0.64, 0.36, 0.44, 0.12, 0.64, cream],
-    [0.16, 0.72, 0.68, 0.76, 0.16, 0.72, cream], [0.36, 0.92, 0.92, 1, 0.36, 0.92, cream],
-  ]);
+  const at = f.playNookArtTable;
+  c.addBox(fixtures.playNookArtTable, at.xMin + 0.55, at.xMax - 0.55, 1.48, 1.62, at.zMin + 0.12, at.zMax - 0.12, c.palette.whiteTrim, 'art-table-top');
+  for (const [li, [lx, lz]] of [[at.xMin + 0.7, at.zMin + 0.25], [at.xMax - 0.7, at.zMin + 0.25], [at.xMin + 0.7, at.zMax - 0.25], [at.xMax - 0.7, at.zMax - 0.25]].entries()) {
+    c.addCyl(fixtures.playNookArtTable, lx, 0.74, lz, 0.07, 0.06, 1.48, warmWood, `art-table-leg-${li}`);
+  }
+  for (const [ci, cx0] of [at.xMin + 0.04, at.xMax - 0.78].entries()) {
+    const czMid = (at.zMin + at.zMax) / 2;
+    const isWest = ci === 0;
+    c.addBox(fixtures.playNookArtTable, cx0, cx0 + 0.74, 0.92, 1.04, czMid - 0.42, czMid + 0.42, c.palette.whiteTrim, `art-chair-seat-${ci}`);
+    c.addBox(fixtures.playNookArtTable, cx0 + 0.06, cx0 + 0.68, 0, 0.92, czMid - 0.36, czMid + 0.36, warmWood, `art-chair-base-${ci}`);
+    c.addBox(fixtures.playNookArtTable, isWest ? cx0 : cx0 + 0.62, isWest ? cx0 + 0.12 : cx0 + 0.74, 1.04, at.heightFt, czMid - 0.42, czMid + 0.42, c.palette.whiteTrim, `art-chair-back-${ci}`);
+  }
 
   const lp = f.paperLanternArcLamp;
   c.addCyl(fixtures.paperLanternArcLamp, lp.xMax - 0.3, 0.1, lp.zMax - 0.3, 0.42, 0.45, 0.18, c.palette.matteBlackIron, 'lamp-base');
   c.addCyl(fixtures.paperLanternArcLamp, lp.xMax - 0.3, lp.heightFt * 0.48, lp.zMax - 0.3, 0.04, 0.05, lp.heightFt * 0.92, c.palette.matteBlackIron, 'lamp-stem');
+  c.addBox(fixtures.paperLanternArcLamp, lp.xMin + 0.45, lp.xMax - 0.3, lp.heightFt * 0.91, lp.heightFt * 0.96, lp.zMin + 0.45, lp.zMax - 0.3, c.palette.matteBlackIron, 'lamp-arc-arm');
   c.addSphere(fixtures.paperLanternArcLamp, lp.xMin + 0.45, lp.heightFt * 0.82, lp.zMin + 0.45, 0.55, c.mat('#fbf8f1', 0.35), 'paper-lantern-globe');
 }
 
@@ -161,9 +191,15 @@ function buildLandingAndPowderFixtures(c: Tier2FixtureMaterialContext, fixtures:
   c.addBox(fixtures.hallwayCabinetAndMap, hm.xMax - 0.19, hm.xMax - 0.17, 3.35, 3.98, hm.zMin + 0.45, hm.zMin + 1.05, c.mat('#47584f', 0.75), 'world-map-west');
   c.addBox(fixtures.hallwayCabinetAndMap, hm.xMax - 0.19, hm.xMax - 0.17, 3.28, 4.02, hm.zMin + 1.25, hm.zMax - 0.42, c.mat('#47584f', 0.75), 'world-map-east');
 
+  const hc = f.hallwayCloset;
+  c.addBox(fixtures.hallwayCloset, hc.xMin, hc.xMax, 0, hc.heightFt, hc.zMin, hc.zMin + 0.14, c.palette.whiteTrim, 'hall-closet-door');
+  c.addBox(fixtures.hallwayCloset, hc.xMin + 0.14, hc.xMax - 0.14, 0.25, hc.heightFt - 0.25, hc.zMin - 0.02, hc.zMin, c.palette.whiteTrim, 'hall-closet-door-panel');
+  c.addCyl(fixtures.hallwayCloset, hc.xMax - 0.35, 2.9, hc.zMin - 0.08, 0.06, 0.06, 0.14, c.palette.matteBlackIron, 'hall-closet-knob');
+  c.addBox(fixtures.hallwayCloset, hc.xMin + 0.1, hc.xMax - 0.1, 3.45, 3.55, hc.zMin + 0.5, hc.zMax - 0.2, c.palette.whiteTrim, 'hall-closet-shelf');
+
   c.parts(fixtures.powderToilet, f.powderToilet, [
-    [0.32, 0.94, 0, 0.54, 0.24, 0.76, porcelain], [0.02, 0.36, 0.54, 0.98, 0.18, 0.82, porcelain],
-    [0, 0.34, 1.18, 1.25, 0.06, 0.94, warmWood], [0, 0.34, 1.48, 1.55, 0.06, 0.94, warmWood],
+    [0.18, 0.82, 0, 0.54, 0.30, 0.94, porcelain], [0.14, 0.86, 0.54, 0.98, 0.02, 0.36, porcelain],
+    [0.04, 0.96, 1.18, 1.25, 0, 0.34, warmWood], [0.04, 0.96, 1.48, 1.55, 0, 0.34, warmWood],
   ]);
 
   const pv = f.powderVanity;
@@ -195,50 +231,51 @@ function buildPrimarySuiteFixtures(c: Tier2FixtureMaterialContext, fixtures: Rec
 
   const bs = f.bedsideBassinet;
   c.parts(fixtures.bedsideBassinet, bs, [[0.18, 0.82, 0, 0.48, 0.22, 0.86, darkWood], [0.08, 0.92, 0.48, 0.92, 0.16, 0.92, whiteSheet]]);
-  const treeArt = c.addCyl(fixtures.bedsideBassinet, (bs.xMin + bs.xMax) / 2, 3.35, bs.zMin + 0.08, 0.95, 0.95, 0.08, gold, 'gold-tree-of-life-art', 28);
-  treeArt.rotation.x = Math.PI / 2;
+  const treeArt = c.addCyl(fixtures.bedsideBassinet, 23.25, 3.35, (bs.zMin + bs.zMax) / 2, 0.95, 0.95, 0.08, gold, 'gold-tree-of-life-art', 28);
+  treeArt.rotation.z = Math.PI / 2;
 
   const rg = f.primaryRoundRug;
-  c.addCyl(fixtures.primaryRoundRug, (rg.xMin + rg.xMax) / 2, rg.heightFt / 2, (rg.zMin + rg.zMax) / 2, (rg.xMax - rg.xMin) / 2, (rg.xMax - rg.xMin) / 2, rg.heightFt, c.mat('#ede6d8', 0.9), 'primary-round-rug-disc', 32);
+  const rugRadius = Math.min(rg.xMax - rg.xMin, rg.zMax - rg.zMin) / 2;
+  c.addCyl(fixtures.primaryRoundRug, (rg.xMin + rg.xMax) / 2, rg.heightFt / 2, (rg.zMin + rg.zMax) / 2, rugRadius, rugRadius, rg.heightFt, c.mat('#ede6d8', 0.9), 'primary-round-rug-disc', 32);
 
-  c.parts(fixtures.northWoodDresser, f.northWoodDresser, [
+  const nd = f.northWoodDresser;
+  c.parts(fixtures.northWoodDresser, nd, [
     [0, 1, 0, 0.86, 0, 0.94, darkWood], [0.04, 0.96, 0.08, 0.82, 0.94, 1, darkWood],
-    [0.72, 0.88, 0.86, 0.98, 0.28, 0.72, porcelain], [0.68, 0.92, 0.98, 1.18, 0.22, 0.78, plantGreen],
+    [0.10, 0.54, 0.86, 0.98, 0.14, 0.84, whiteSheet],
+    [0.72, 0.88, 0.86, 0.93, 0.28, 0.72, porcelain], [0.68, 0.92, 0.93, 1, 0.22, 0.78, plantGreen],
   ]);
-
-  const cd = f.eastChangingDresser;
-  c.parts(fixtures.eastChangingDresser, cd, [
-    [0, 0.94, 0, 0.86, 0.04, 0.82, darkWood], [0.94, 1, 0.08, 0.82, 0.08, 0.78, darkWood], [0.10, 0.88, 0.86, 1, 0.12, 0.72, whiteSheet],
-  ]);
-  c.addBox(fixtures.eastChangingDresser, cd.xMin, cd.xMin + 0.08, 3.15, 4.05, cd.zMin + 0.5, cd.zMin + 2.5, darkWood, 'changing-dresser-mirror');
-  c.addBox(fixtures.eastChangingDresser, cd.xMin + 0.08, cd.xMin + 0.11, 3.22, 3.98, cd.zMin + 0.58, cd.zMin + 2.42, c.palette.glass, 'changing-dresser-mirror-glass');
+  c.addBox(fixtures.northWoodDresser, nd.xMin + 1.2, nd.xMin + 3.6, 3.15, 4.1, nd.zMin, nd.zMin + 0.08, darkWood, 'changing-dresser-mirror');
+  c.addBox(fixtures.northWoodDresser, nd.xMin + 1.28, nd.xMin + 3.52, 3.22, 4.02, nd.zMin + 0.08, nd.zMin + 0.11, c.palette.glass, 'changing-dresser-mirror-glass');
   const capRack = new Group();
   capRack.name = 'baseball-cap-rack';
-  c.addBox(capRack, cd.xMin, cd.xMin + 0.06, 2.25, 3.85, cd.zMin - 0.5, cd.zMin - 0.2, c.palette.matteBlackIron, 'cap-rack-strip');
+  c.addBox(capRack, nd.xMin - 1.1, nd.xMin - 0.8, 2.25, 3.85, nd.zMin, nd.zMin + 0.06, c.palette.matteBlackIron, 'cap-rack-strip');
   for (const [ci, col] of ['#1d3557', '#2b4c3f', '#9b2226', '#c89f65'].entries()) {
-    c.addSphere(capRack, cd.xMin + 0.14, 2.45 + ci * 0.4, cd.zMin - 0.35, 0.16, c.mat(col, 0.78), `baseball-cap-${ci}`);
+    c.addSphere(capRack, nd.xMin - 0.95, 2.45 + ci * 0.4, nd.zMin + 0.14, 0.16, c.mat(col, 0.78), `baseball-cap-${ci}`);
   }
-  fixtures.eastChangingDresser.add(capRack);
+  fixtures.northWoodDresser.add(capRack);
   const figPlant = new Group();
   figPlant.name = 'fiddle-leaf-fig-plant';
-  c.addCyl(figPlant, cd.xMin + 0.85, 0.48, cd.zMax + 0.55, 0.42, 0.34, 0.96, c.mat('#c8b698', 0.85), 'fig-pot');
-  c.addCyl(figPlant, cd.xMin + 0.85, 1.75, cd.zMax + 0.55, 0.06, 0.08, 1.6, darkWood, 'fig-trunk');
-  c.addSphere(figPlant, cd.xMin + 0.85, 2.85, cd.zMax + 0.55, 0.62, plantGreen, 'fig-canopy-main');
-  c.addSphere(figPlant, cd.xMin + 0.55, 2.45, cd.zMax + 0.35, 0.42, plantGreen, 'fig-canopy-side');
-  fixtures.eastChangingDresser.add(figPlant);
+  c.addCyl(figPlant, nd.xMax + 0.8, 0.48, nd.zMin + 0.9, 0.42, 0.34, 0.96, c.mat('#c8b698', 0.85), 'fig-pot');
+  c.addCyl(figPlant, nd.xMax + 0.8, 1.75, nd.zMin + 0.9, 0.06, 0.08, 1.6, darkWood, 'fig-trunk');
+  c.addSphere(figPlant, nd.xMax + 0.8, 2.85, nd.zMin + 0.9, 0.62, plantGreen, 'fig-canopy-main');
+  c.addSphere(figPlant, nd.xMax + 0.55, 2.45, nd.zMin + 0.7, 0.42, plantGreen, 'fig-canopy-side');
+  fixtures.northWoodDresser.add(figPlant);
+
+  const dk = f.bedroomDesk;
+  c.parts(fixtures.bedroomDesk, dk, [
+    [0.24, 1, 0.92, 1, 0, 1, walnut], [0.28, 0.96, 0, 0.92, 0.04, 0.24, darkWood],
+    [0.28, 0.96, 0, 0.92, 0.76, 0.96, darkWood], [0.02, 0.36, 0.54, 0.64, 0.30, 0.70, c.mat('#626d78', 0.75)],
+    [0.02, 0.10, 0.64, 0.98, 0.32, 0.68, c.mat('#626d78', 0.75)], [0.14, 0.24, 0, 0.54, 0.45, 0.55, c.palette.matteBlackIron],
+  ]);
 
   const closet = new Group();
-  closet.name = 'sw-walk-in-closet';
-  c.addBox(closet, 4.8, 8.2, 3.45, 3.55, 2.8, 3.9, c.palette.whiteTrim, 'closet-shelf-north');
-  c.addBox(closet, 7.0, 8.2, 3.45, 3.55, 3.9, 10.6, c.palette.whiteTrim, 'closet-shelf-east');
-  const rodN = c.addCyl(closet, 6.5, 3.22, 3.35, 0.04, 0.04, 3.0, c.palette.brushedSteel, 'closet-rod-north');
-  const rodE = c.addCyl(closet, 7.55, 3.22, 7.2, 0.04, 0.04, 6.4, c.palette.brushedSteel, 'closet-rod-east');
-  rodN.rotation.z = Math.PI / 2;
-  rodE.rotation.x = Math.PI / 2;
-  for (const [gi, gCol] of ['#364559', '#d8d0c5', '#556b5d', '#6e5849'].entries()) {
-    c.addBox(closet, 7.1, 8.05, 1.7, 3.18, 4.4 + gi * 1.5, 5.4 + gi * 1.5, c.mat(gCol, 0.82), `closet-garment-e-${gi}`);
+  closet.name = 'reach-in-closet';
+  c.addBox(closet, 6.4, 8.3, 3.45, 3.55, 3.0, 10.6, c.palette.whiteTrim, 'closet-shelf-west');
+  const rodW = c.addCyl(closet, 7.25, 3.22, 6.8, 0.04, 0.04, 7.2, c.palette.brushedSteel, 'closet-rod-west');
+  rodW.rotation.x = Math.PI / 2;
+  for (const [gi, gCol] of ['#364559', '#d8d0c5', '#556b5d', '#6e5849', '#4a5c6e'].entries()) {
+    c.addBox(closet, 6.6, 7.9, 1.7, 3.18, 3.3 + gi * 1.45, 4.35 + gi * 1.45, c.mat(gCol, 0.82), `closet-garment-${gi}`);
   }
-  c.addBox(closet, 4.95, 6.85, 1.7, 3.18, 2.95, 3.8, c.mat('#4a5c6e', 0.82), 'closet-garment-n');
   root.add(closet);
 
   c.parts(fixtures.slidingClosetDoors, f.slidingClosetDoors, [
@@ -330,7 +367,8 @@ export function buildTier2Fixtures(palette: Tier1MaterialPalette, spec: Tier2Lay
     root.add(g);
   }
 
-  buildLivingAndPlayFixtures(ctx, fixtures, spec);
+  buildLivingFixtures(ctx, fixtures, spec);
+  buildPlayNookFixtures(ctx, fixtures, spec);
   buildLandingAndPowderFixtures(ctx, fixtures, spec);
   buildPrimarySuiteFixtures(ctx, fixtures, root, spec);
 
