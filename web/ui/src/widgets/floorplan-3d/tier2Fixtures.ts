@@ -1,5 +1,6 @@
 import {
-  BoxGeometry, CylinderGeometry, Group, Mesh, MeshStandardMaterial, SphereGeometry, type BufferGeometry,
+  BoxGeometry, CylinderGeometry, DataTexture, DoubleSide, Group, LinearFilter, Mesh, MeshStandardMaterial,
+  RGBAFormat, SphereGeometry, SRGBColorSpace, TorusGeometry, type BufferGeometry,
 } from 'three';
 import {
   TIER2_LAYOUT_SPEC, type Tier2FixtureKey, type Tier2FixtureSpec, type Tier2LayoutSpec,
@@ -11,6 +12,9 @@ type PartItem = readonly [number, number, number, number, number, number, MeshSt
 interface Tier2FixtureMaterialContext {
   palette: Tier1MaterialPalette;
   mat: (color: string | number, roughness?: number, metalness?: number, opacity?: number) => MeshStandardMaterial;
+  trackMat: (m: MeshStandardMaterial) => MeshStandardMaterial;
+  trackTex: (t: DataTexture) => DataTexture;
+  addMesh: (p: Group, geom: BufferGeometry, m: MeshStandardMaterial, cx: number, cy: number, cz: number, name?: string) => Mesh;
   addBox: (p: Group, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, m: MeshStandardMaterial, name?: string) => Mesh;
   addCyl: (p: Group, cx: number, cy: number, cz: number, rT: number, rB: number, h: number, m: MeshStandardMaterial, name?: string, segs?: number) => Mesh;
   addSphere: (p: Group, cx: number, cy: number, cz: number, r: number, m: MeshStandardMaterial, name?: string) => Mesh;
@@ -22,6 +26,35 @@ export interface Tier2FixturesBuildResult {
   fixtures: Readonly<Record<Tier2FixtureKey, Group>>;
   ceilingFansGroup: Group;
   dispose: () => void;
+}
+
+function createBlueWhiteRugTexture(): DataTexture {
+  const size = 256;
+  const data = new Uint8Array(size * size * 4);
+  const [navy, slate, ivory] = [[38, 67, 102], [79, 115, 150], [243, 241, 235]] as const;
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const edge = Math.min(x, size - 1 - x, y, size - 1 - y);
+      let rgb: readonly [number, number, number] = ivory;
+      if (edge < 10 || (edge >= 25 && edge < 28)) rgb = navy;
+      else if (edge >= 14 && edge < 21) rgb = slate;
+      else if (edge >= 28) {
+        const dist = Math.abs((x % 32) / 32 - 0.5) + Math.abs((y % 32) / 32 - 0.5);
+        if (Math.abs(dist - 0.5) < 0.055) rgb = navy;
+        else if (Math.abs(dist - 0.5) < 0.095 || dist < 0.11) rgb = slate;
+      }
+      const weave = (x * 3 + y * 5) % 4 === 0 ? -6 : (x + y) % 2 === 0 ? 3 : -2;
+      const idx = (y * size + x) * 4;
+      for (let c = 0; c < 3; c += 1) data[idx + c] = Math.max(0, Math.min(255, rgb[c] + weave));
+      data[idx + 3] = 255;
+    }
+  }
+  const tex = new DataTexture(data, size, size, RGBAFormat);
+  tex.colorSpace = SRGBColorSpace;
+  tex.minFilter = LinearFilter;
+  tex.magFilter = LinearFilter;
+  tex.needsUpdate = true;
+  return tex;
 }
 
 function buildLivingFixtures(c: Tier2FixtureMaterialContext, fixtures: Record<Tier2FixtureKey, Group>, spec: Tier2LayoutSpec): void {
@@ -50,9 +83,11 @@ function buildLivingFixtures(c: Tier2FixtureMaterialContext, fixtures: Record<Ti
   c.addBox(tvAngled, -1.52, 1.52, 2.15, 4.05, -0.06, 0.06, tvScreen, 'tv-panel');
   fixtures.cornerTvConsole.add(tvAngled);
 
-  c.parts(fixtures.livingAreaRug, f.livingAreaRug, [
-    [0, 1, 0, 0.5, 0, 1, c.mat('#ded6c8', 0.92)], [0.04, 0.96, 0.5, 1, 0.04, 0.96, c.mat('#ebe5da', 0.9)],
-  ]);
+  const rg = f.livingAreaRug;
+  const rugTex = c.trackTex(createBlueWhiteRugTexture());
+  const rugTopMat = c.trackMat(new MeshStandardMaterial({ map: rugTex, roughness: 0.9, metalness: 0.02 }));
+  c.addBox(fixtures.livingAreaRug, rg.xMin, rg.xMax, 0, rg.heightFt * 0.45, rg.zMin, rg.zMax, c.mat('#264366', 0.92), 'living-area-rug-backing');
+  c.addBox(fixtures.livingAreaRug, rg.xMin + 0.06, rg.xMax - 0.06, rg.heightFt * 0.45, rg.heightFt, rg.zMin + 0.06, rg.zMax - 0.06, rugTopMat, 'living-area-rug-top');
 
   c.parts(fixtures.creamSofa, f.creamSofa, [
     [0.04, 0.96, 0, 0.10, 0.04, 0.96, darkWood], [0, 1, 0.10, 0.36, 0, 1, cream], [0.74, 1, 0.36, 0.96, 0, 1, cream],
@@ -214,7 +249,7 @@ function buildLandingAndPowderFixtures(c: Tier2FixtureMaterialContext, fixtures:
 
 function buildPrimarySuiteFixtures(c: Tier2FixtureMaterialContext, fixtures: Record<Tier2FixtureKey, Group>, root: Group, spec: Tier2LayoutSpec): void {
   const f = spec.fixtures;
-  const [darkWood, walnut, beigeHead, whiteSheet] = [c.mat('#422d20', 0.56), c.mat('#6e472b', 0.52), c.mat('#cfc5b4', 0.82), c.mat('#f7f6f2', 0.78)];
+  const [warmWood, darkWood, walnut, beigeHead, whiteSheet, creamCush] = [c.mat('#7c5132', 0.55), c.mat('#422d20', 0.56), c.mat('#6e472b', 0.52), c.mat('#cfc5b4', 0.82), c.mat('#f7f6f2', 0.78), c.mat('#f4efe6', 0.82)];
   const [porcelain, gold, showerGlass, plantGreen] = [c.mat('#f8fafc', 0.26, 0.08), c.mat('#d4af37', 0.32, 0.72), c.mat('#a8d5ec', 0.12, 0.1, 0.32), c.mat('#356844', 0.72)];
 
   c.parts(fixtures.primaryKingBed, f.primaryKingBed, [
@@ -230,8 +265,25 @@ function buildPrimarySuiteFixtures(c: Tier2FixtureMaterialContext, fixtures: Rec
   }
 
   const bs = f.bedsideBassinet;
-  c.parts(fixtures.bedsideBassinet, bs, [[0.18, 0.82, 0, 0.48, 0.22, 0.86, darkWood], [0.08, 0.92, 0.48, 0.92, 0.16, 0.92, whiteSheet]]);
-  const treeArt = c.addCyl(fixtures.bedsideBassinet, 23.25, 3.35, (bs.zMin + bs.zMax) / 2, 0.95, 0.95, 0.08, gold, 'gold-tree-of-life-art', 28);
+  const [bx, bz] = [(bs.xMin + bs.xMax) / 2, (bs.zMin + bs.zMax) / 2];
+  const [rx, rz] = [(bs.xMax - bs.xMin) * 0.42, (bs.zMax - bs.zMin) * 0.44];
+  const zScale = rz / rx;
+  for (const [li, [sx, sz]] of [[-1, -1], [1, -1], [-1, 1], [1, 1]].entries()) {
+    const leg = c.addCyl(fixtures.bedsideBassinet, bx + sx * rx * 0.74, 0.77, bz + sz * rz * 0.7, 0.045, 0.055, 1.62, warmWood, `bassinet-leg-${li}`, 12);
+    leg.rotation.z = sx * 0.14;
+    leg.rotation.x = -sz * 0.18;
+  }
+  c.addCyl(fixtures.bedsideBassinet, bx, 0.485, bz, rx * 0.78, rx * 0.78, 0.07, warmWood, 'bassinet-lower-shelf', 28).scale.set(1, 1, zScale);
+  c.addCyl(fixtures.bedsideBassinet, bx, 1.51, bz, rx * 0.94, rx * 0.92, 0.06, warmWood, 'bassinet-cradle-base', 28).scale.set(1, 1, zScale);
+  const bMeshMat = c.trackMat(new MeshStandardMaterial({ color: '#e4e7eb', roughness: 0.85, metalness: 0.02, transparent: true, opacity: 0.78, side: DoubleSide }));
+  c.addMesh(fixtures.bedsideBassinet, new CylinderGeometry(rx, rx * 0.94, 0.92, 32, 1, true), bMeshMat, bx, 1.96, bz, 'bassinet-cradle-mesh').scale.set(1, 1, zScale);
+  c.addCyl(fixtures.bedsideBassinet, bx, 1.62, bz, rx * 0.88, rx * 0.88, 0.16, creamCush, 'bassinet-mattress', 28).scale.set(1, 1, zScale);
+  c.addCyl(fixtures.bedsideBassinet, bx, 1.7, bz + rz * 0.24, rx * 0.82, rx * 0.82, 0.08, c.mat('#c5d4dd', 0.86), 'bassinet-blanket', 24).scale.set(0.95, 1, zScale * 0.6);
+  const bRail = c.addMesh(fixtures.bedsideBassinet, new TorusGeometry(rx, 0.055, 12, 36), warmWood, bx, 2.43, bz, 'bassinet-top-rail');
+  bRail.rotation.x = Math.PI / 2;
+  bRail.scale.set(1, zScale, 0.85);
+  c.addMesh(fixtures.bedsideBassinet, new SphereGeometry(rx * 0.98, 24, 14, Math.PI, Math.PI, 0, Math.PI * 0.46), bMeshMat, bx, 2.42, bz - rz * 0.36, 'bassinet-canopy').scale.set(1, 0.28, zScale * 0.58);
+  const treeArt = c.addCyl(fixtures.bedsideBassinet, 23.25, 3.35, bz, 0.95, 0.95, 0.08, gold, 'gold-tree-of-life-art', 28);
   treeArt.rotation.z = Math.PI / 2;
 
   const rg = f.primaryRoundRug;
@@ -283,13 +335,12 @@ function buildPrimarySuiteFixtures(c: Tier2FixtureMaterialContext, fixtures: Rec
   ]);
 
   const sh = f.walkInGlassShower;
+  const shMidZ = (sh.zMin + sh.zMax) / 2;
   c.addBox(fixtures.walkInGlassShower, sh.xMin, sh.xMax, 0, 0.14, sh.zMin, sh.zMax, c.mat('#2b3036', 0.84), 'shower-pebble-pan');
   c.addBox(fixtures.walkInGlassShower, sh.xMax - 0.14, sh.xMax, 0, 0.22, sh.zMin, sh.zMax, c.palette.whiteTrim, 'shower-curb-east');
-  c.addBox(fixtures.walkInGlassShower, sh.xMin, sh.xMax, 0, 0.22, sh.zMax - 0.14, sh.zMax, c.palette.whiteTrim, 'shower-curb-south');
   c.addBox(fixtures.walkInGlassShower, sh.xMax - 0.06, sh.xMax, 0.22, sh.heightFt - 0.06, sh.zMin, sh.zMax, showerGlass, 'shower-glass-east');
-  c.addBox(fixtures.walkInGlassShower, sh.xMin, sh.xMax, 0.22, sh.heightFt - 0.06, sh.zMax - 0.06, sh.zMax, showerGlass, 'shower-glass-south');
   c.addBox(fixtures.walkInGlassShower, sh.xMax - 0.06, sh.xMax, sh.heightFt - 0.06, sh.heightFt, sh.zMin, sh.zMax, c.palette.matteBlackIron, 'shower-header-east');
-  c.addBox(fixtures.walkInGlassShower, sh.xMin, sh.xMax, sh.heightFt - 0.06, sh.heightFt, sh.zMax - 0.06, sh.zMax, c.palette.matteBlackIron, 'shower-header-south');
+  c.addBox(fixtures.walkInGlassShower, sh.xMax - 0.1, sh.xMax + 0.06, 2.0, 3.3, shMidZ - 0.04, shMidZ + 0.04, c.palette.matteBlackIron, 'shower-door-handle');
   c.addBox(fixtures.walkInGlassShower, sh.xMin + 1.6, sh.xMin + 2.4, 3.85, 4.05, sh.zMin + 0.1, sh.zMin + 0.9, c.palette.matteBlackIron, 'shower-rain-head');
 
   c.parts(fixtures.primaryBathToilet, f.primaryBathToilet, [
@@ -317,14 +368,16 @@ function buildPrimarySuiteFixtures(c: Tier2FixtureMaterialContext, fixtures: Rec
 export function buildTier2Fixtures(palette: Tier1MaterialPalette, spec: Tier2LayoutSpec = TIER2_LAYOUT_SPEC): Tier2FixturesBuildResult {
   const geometries: BufferGeometry[] = [];
   const localMats: MeshStandardMaterial[] = [];
+  const localTexs: DataTexture[] = [];
   const cache = new Map<string, MeshStandardMaterial>();
 
+  const trackMat = (m: MeshStandardMaterial): MeshStandardMaterial => { localMats.push(m); return m; };
+  const trackTex = (t: DataTexture): DataTexture => { localTexs.push(t); return t; };
   const mat = (color: string | number, roughness = 0.72, metalness = 0.06, opacity = 1): MeshStandardMaterial => {
     const key = `${String(color)}|${roughness}|${metalness}|${opacity}`;
     const existing = cache.get(key);
     if (existing) return existing;
-    const created = new MeshStandardMaterial({ color, roughness, metalness, transparent: opacity < 1, opacity });
-    localMats.push(created);
+    const created = trackMat(new MeshStandardMaterial({ color, roughness, metalness, transparent: opacity < 1, opacity }));
     cache.set(key, created);
     return created;
   };
@@ -353,7 +406,7 @@ export function buildTier2Fixtures(palette: Tier1MaterialPalette, spec: Tier2Lay
     }
   };
 
-  const ctx: Tier2FixtureMaterialContext = { palette, mat, addBox, addCyl, addSphere, parts };
+  const ctx: Tier2FixtureMaterialContext = { palette, mat, trackMat, trackTex, addMesh: trackMesh, addBox, addCyl, addSphere, parts };
   const root = new Group();
   root.name = 'tier2-fixtures';
 
@@ -383,6 +436,7 @@ export function buildTier2Fixtures(palette: Tier1MaterialPalette, spec: Tier2Lay
     dispose: () => {
       for (const g of geometries) g.dispose();
       for (const m of localMats) m.dispose();
+      for (const t of localTexs) t.dispose();
     },
   };
 }

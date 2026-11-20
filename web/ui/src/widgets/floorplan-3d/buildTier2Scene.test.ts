@@ -1,4 +1,4 @@
-import { Box3, Color, Mesh, type MeshStandardMaterial, type Object3D } from 'three';
+import { Box3, Color, DataTexture, Mesh, type MeshStandardMaterial, type Object3D } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { buildTier2Scene, type BuiltTier2Scene, type Tier2SceneMaterials } from './buildTier2Scene';
 import { TIER2_LAYOUT_SPEC, type Tier2FixtureKey, type Tier2RoomId } from './tier2LayoutSpec';
@@ -176,9 +176,17 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
       expect(meshes.length).toBeGreaterThanOrEqual(1);
     }
 
-    // 1. Living & Play Nook: vertical pastel ovals on canvas, South wall 2x2 prints inside wall face, beige/mesh playard (opacity 0.35)
+    // 1. Living & Play Nook: vertical pastel ovals on canvas, South wall 2x2 prints inside wall face, blue/white patterned DataTexture rug
     const oval0 = built.fixtures.pastelOvalWallArt.getObjectByName('pastel-oval-0') as Mesh;
     expect(oval0.rotation.x).toBeCloseTo(Math.PI / 2, 3);
+    const rugTop = built.fixtures.livingAreaRug.getObjectByName('living-area-rug-top') as Mesh;
+    expect(rugTop).toBeInstanceOf(Mesh);
+    const rugTopMat = rugTop.material as MeshStandardMaterial;
+    expect(rugTopMat.map).toBeInstanceOf(DataTexture);
+    const rugTex = rugTopMat.map as DataTexture;
+    expect(rugTex.image.width).toBe(256);
+    expect(rugTex.image.height).toBe(256);
+    const rugTexSpy = vi.spyOn(rugTex, 'dispose');
     const nookFrame = built.fixtures.cubeStorageShelves.getObjectByName('nook-grid-frame-0-0') as Mesh;
     expect(nookFrame.position.z).toBeCloseTo(TIER2_LAYOUT_SPEC.fixtures.cubeStorageShelves.zMax, 2);
     expect(new Box3().setFromObject(nookFrame).max.z).toBeLessThanOrEqual(10.78);
@@ -191,8 +199,18 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
     const worldMap = built.fixtures.hallwayCabinetAndMap.getObjectByName('world-map-wall-art') as Mesh;
     expect(worldMap.position.x).toBeCloseTo(hm.xMax - 0.08, 2);
 
-    // 3. Primary Bedroom: East green wall gold tree-of-life art, North changing dresser accessories, reach-in closet
-    const treeArt = built.fixtures.bedsideBassinet.getObjectByName('gold-tree-of-life-art') as Mesh;
+    // 3. Primary Bedroom: East green wall gold tree-of-life art, oval open-top bassinet, North changing dresser accessories, reach-in closet
+    const bassinetGroup = built.fixtures.bedsideBassinet;
+    for (let i = 0; i < 4; i += 1) {
+      expect(bassinetGroup.getObjectByName(`bassinet-leg-${i}`)).toBeInstanceOf(Mesh);
+    }
+    expect(bassinetGroup.getObjectByName('bassinet-lower-shelf')).toBeInstanceOf(Mesh);
+    expect(bassinetGroup.getObjectByName('bassinet-cradle-mesh')).toBeInstanceOf(Mesh);
+    expect(bassinetGroup.getObjectByName('bassinet-mattress')).toBeInstanceOf(Mesh);
+    expect(bassinetGroup.getObjectByName('bassinet-blanket')).toBeInstanceOf(Mesh);
+    expect(bassinetGroup.getObjectByName('bassinet-top-rail')).toBeInstanceOf(Mesh);
+    expect(bassinetGroup.getObjectByName('bassinet-canopy')).toBeInstanceOf(Mesh);
+    const treeArt = bassinetGroup.getObjectByName('gold-tree-of-life-art') as Mesh;
     expect(treeArt.rotation.z).toBeCloseTo(Math.PI / 2, 3);
     expect(treeArt.position.x).toBeCloseTo(23.25, 2);
     expect(built.fixtures.northWoodDresser.getObjectByName('changing-dresser-mirror')).toBeDefined();
@@ -206,7 +224,7 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
     expect(closetBox.min.z).toBeGreaterThanOrEqual(2.8 - 1e-4);
     expect(closetBox.max.z).toBeLessThanOrEqual(11.0 + 1e-4);
 
-    // 4. Primary Bath: open-top walkInGlassShower (no full ceiling slab; thin 0.06 headers on xMax & zMax) + North double vanity
+    // 4. Primary Bath: open-top full-span walkInGlassShower (no south glass/header/curb; east glass & header span to -2.7) + handle
     const sh = TIER2_LAYOUT_SPEC.fixtures.walkInGlassShower;
     const showerGroup = built.fixtures.walkInGlassShower;
     const showerMeshes = showerGroup.children.filter((c: Object3D): c is Mesh => c instanceof Mesh);
@@ -220,10 +238,15 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
       return box.min.y > 4.0 && (box.max.x - box.min.x) > 1.0 && (box.max.z - box.min.z) > 1.0;
     });
     expect(hasSolidRoof).toBe(false);
+    expect(showerGroup.getObjectByName('shower-glass-south')).toBeUndefined();
+    expect(showerGroup.getObjectByName('shower-header-south')).toBeUndefined();
+    expect(showerGroup.getObjectByName('shower-curb-south')).toBeUndefined();
+    const eastGlass = showerGroup.getObjectByName('shower-glass-east') as Mesh;
     const eastHeader = showerGroup.getObjectByName('shower-header-east') as Mesh;
-    const southHeader = showerGroup.getObjectByName('shower-header-south') as Mesh;
     expect(eastHeader.position.x).toBeCloseTo(sh.xMax - 0.03, 2);
-    expect(southHeader.position.z).toBeCloseTo(sh.zMax - 0.03, 2);
+    expect(new Box3().setFromObject(eastGlass).max.z).toBeCloseTo(-2.7, 2);
+    expect(new Box3().setFromObject(eastHeader).max.z).toBeCloseTo(-2.7, 2);
+    expect(showerGroup.getObjectByName('shower-door-handle')).toBeInstanceOf(Mesh);
 
     const vv = TIER2_LAYOUT_SPEC.fixtures.walnutDoubleVanity;
     const vanityGroup = built.fixtures.walnutDoubleVanity;
@@ -250,6 +273,7 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
     built.dispose();
     expect(geomSpy).toHaveBeenCalled();
     expect(matSpy).toHaveBeenCalled();
+    expect(rugTexSpy).toHaveBeenCalledTimes(1);
     expect(floorGeomSpy).toHaveBeenCalledTimes(1);
   });
 });
