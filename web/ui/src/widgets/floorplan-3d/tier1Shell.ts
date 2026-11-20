@@ -5,7 +5,7 @@ import {
 } from 'three';
 import {
   FOYER_STAIRCASE, TIER1_HA_BINDINGS, TIER1_ROOMS, TIER1_WALLS, UPPER_FLOOR_MASSING, wallHeightAtZ,
-  type RoomId, type UpperMassingId, type WallDoorwayCutoutSpec, type WallSegmentSpec,
+  type ExteriorWallFace, type RoomId, type UpperMassingId, type WallDoorwayCutoutSpec, type WallSegmentSpec,
 } from './tier1LayoutSpec';
 
 export interface Tier1MaterialPalette {
@@ -14,6 +14,7 @@ export interface Tier1MaterialPalette {
   trellisRug: MeshStandardMaterial; pastelCirclesRug: MeshStandardMaterial;
   wrigleyArt: MeshStandardMaterial; collectorCardArt: MeshStandardMaterial; brockStudiosSign: MeshStandardMaterial;
   officeWall: MeshStandardMaterial; garageWall: MeshStandardMaterial; foyerSlateWall: MeshStandardMaterial;
+  exteriorSiding: MeshStandardMaterial;
   whiteTrim: MeshStandardMaterial; glass: MeshStandardMaterial; brushedSteel: MeshStandardMaterial;
   matteBlackIron: MeshStandardMaterial; concreteCurb: MeshStandardMaterial; foyerThreshold: MeshStandardMaterial;
   upperMassingSouth: MeshStandardMaterial; upperMassingNorth: MeshStandardMaterial;
@@ -84,6 +85,18 @@ function drawHoneyWoodPlanks(ctx: CanvasRenderingContext2D, w: number, h: number
     ctx.beginPath();
     for (const j of joints) { ctx.moveTo(j + 0.5, y0); ctx.lineTo(j + 0.5, y0 + plankH); }
     ctx.stroke();
+  }
+}
+
+function drawGrayBlueLapSiding(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+  const courseH = 32;
+  for (let y = 0, idx = 0; y < h; y += courseH, idx += 1) {
+    ctx.fillStyle = idx % 2 === 0 ? '#5f7283' : '#66798a';
+    ctx.fillRect(0, y, w, courseH);
+    ctx.fillStyle = 'rgba(200, 216, 230, 0.14)';
+    ctx.fillRect(0, y, w, 2);
+    ctx.fillStyle = 'rgba(32, 44, 56, 0.26)';
+    ctx.fillRect(0, y + courseH - 2, w, 2);
   }
 }
 
@@ -165,6 +178,7 @@ export function createTier1Materials(): Tier1MaterialPalette {
     officeWall: mat({ color: '#f3efe8', roughness: 0.88 }),
     garageWall: mat({ color: '#eceee9', roughness: 0.88 }),
     foyerSlateWall: mat({ color: '#2c323b', roughness: 0.86 }),
+    exteriorSiding: texMat(256, 256, '#637687', drawGrayBlueLapSiding, 0.78, [3, 3]),
     whiteTrim: mat({ color: '#f8f8f6', roughness: 0.52 }),
     glass: mat({ color: '#9ac7e3', transparent: true, opacity: 0.36, roughness: 0.12, metalness: 0.1 }),
     brushedSteel: mat({ color: '#c8cfd6', roughness: 0.32, metalness: 0.78 }),
@@ -184,6 +198,54 @@ export function createTier1Materials(): Tier1MaterialPalette {
 
 type PrismFn = (parent: Group, x0: number, x1: number, z0: number, z1: number, yb0: number, yb1: number, yt0: number, yt1: number, mat: MeshStandardMaterial, name?: string) => Mesh;
 
+function addSplitWallBody(
+  wg: Group, wall: WallSegmentSpec, z0: number, z1: number, yBot: number,
+  h0: number, h1: number, cap: number, mainMat: MeshStandardMaterial,
+  palette: Tier1MaterialPalette, addPrism: PrismFn,
+): void {
+  const [xMin, xMax] = [wall.xMin, wall.xMax];
+  if (wall.foyerSideColor) {
+    const xm = (xMin + xMax) / 2;
+    addPrism(wg, xMin, xm, z0, z1, yBot, yBot, h0 - cap, h1 - cap, xm < 0 ? mainMat : palette.foyerSlateWall);
+    addPrism(wg, xm, xMax, z0, z1, yBot, yBot, h0 - cap, h1 - cap, xm < 0 ? palette.foyerSlateWall : mainMat);
+    return;
+  }
+  const exteriorFace: ExteriorWallFace | undefined = wall.exteriorFace;
+  if (!exteriorFace) {
+    addPrism(wg, xMin, xMax, z0, z1, yBot, yBot, h0 - cap, h1 - cap, mainMat);
+    return;
+  }
+  if (exteriorFace === 'west' || exteriorFace === 'east') {
+    const xm = (xMin + xMax) / 2;
+    const westExt = exteriorFace === 'west';
+    addPrism(wg, xMin, xm, z0, z1, yBot, yBot, h0 - cap, h1 - cap, westExt ? palette.exteriorSiding : mainMat, `${wall.id}-${westExt ? 'exterior' : 'interior'}`);
+    addPrism(wg, xm, xMax, z0, z1, yBot, yBot, h0 - cap, h1 - cap, westExt ? mainMat : palette.exteriorSiding, `${wall.id}-${westExt ? 'interior' : 'exterior'}`);
+    return;
+  }
+  const zm = (z0 + z1) / 2;
+  const hm = wallHeightAtZ(wall, zm);
+  const northExt = exteriorFace === 'north';
+  addPrism(wg, xMin, xMax, z0, zm, yBot, yBot, h0 - cap, hm - cap, northExt ? palette.exteriorSiding : mainMat, `${wall.id}-${northExt ? 'exterior' : 'interior'}`);
+  addPrism(wg, xMin, xMax, zm, z1, yBot, yBot, hm - cap, h1 - cap, northExt ? mainMat : palette.exteriorSiding, `${wall.id}-${northExt ? 'interior' : 'exterior'}`);
+}
+
+function addWallBaseboard(wg: Group, wall: WallSegmentSpec, z0: number, z1: number, trimMat: MeshStandardMaterial, addPrism: PrismFn): void {
+  const name = `${wall.id}-baseboard`;
+  if (!wall.exteriorFace) {
+    addPrism(wg, wall.xMin - 0.015, wall.xMax + 0.015, z0, z1, 0, 0, 0.25, 0.25, trimMat, name);
+    return;
+  }
+  if (wall.exteriorFace === 'west' || wall.exteriorFace === 'east') {
+    const xm = (wall.xMin + wall.xMax) / 2;
+    const [bx0, bx1] = wall.exteriorFace === 'west' ? [xm, wall.xMax + 0.015] : [wall.xMin - 0.015, xm];
+    addPrism(wg, bx0, bx1, z0, z1, 0, 0, 0.25, 0.25, trimMat, name);
+    return;
+  }
+  const zm = (z0 + z1) / 2;
+  const [bz0, bz1] = wall.exteriorFace === 'north' ? [zm, z1 + 0.015] : [z0 - 0.015, zm];
+  addPrism(wg, wall.xMin + 0.01, wall.xMax - 0.01, bz0, bz1, 0, 0, 0.25, 0.25, trimMat, name);
+}
+
 function buildWallGroup(wall: WallSegmentSpec, palette: Tier1MaterialPalette, addPrism: PrismFn): Group {
   const wg = namedGroup(wall.id);
   const mainMat = wall.id === 'cutaway-south-garage-curb' ? palette.concreteCurb
@@ -198,16 +260,10 @@ function buildWallGroup(wall: WallSegmentSpec, palette: Tier1MaterialPalette, ad
     if (Math.min(h0, h1) <= yBot + 0.02) continue;
     const hasTrim = Math.min(h0, h1) >= 1.0;
     const cap = hasTrim ? 0.07 : 0;
-    if (wall.foyerSideColor) {
-      const xm = (wall.xMin + wall.xMax) / 2;
-      addPrism(wg, wall.xMin, xm, z0, z1, yBot, yBot, h0 - cap, h1 - cap, xm < 0 ? mainMat : palette.foyerSlateWall);
-      addPrism(wg, xm, wall.xMax, z0, z1, yBot, yBot, h0 - cap, h1 - cap, xm < 0 ? palette.foyerSlateWall : mainMat);
-    } else {
-      addPrism(wg, wall.xMin, wall.xMax, z0, z1, yBot, yBot, h0 - cap, h1 - cap, mainMat);
-    }
+    addSplitWallBody(wg, wall, z0, z1, yBot, h0, h1, cap, mainMat, palette, addPrism);
     if (hasTrim) {
       addPrism(wg, wall.xMin, wall.xMax, z0, z1, h0 - cap, h1 - cap, h0, h1, palette.whiteTrim, `${wall.id}-cap`);
-      if (!door) addPrism(wg, wall.xMin - 0.015, wall.xMax + 0.015, z0, z1, 0, 0, 0.25, 0.25, palette.whiteTrim, `${wall.id}-baseboard`);
+      if (!door) addWallBaseboard(wg, wall, z0, z1, palette.whiteTrim, addPrism);
     }
   }
   return wg;

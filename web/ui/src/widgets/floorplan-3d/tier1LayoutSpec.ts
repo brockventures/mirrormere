@@ -79,6 +79,8 @@ export interface WallDoorwayCutoutSpec {
   yMax: number;
 }
 
+export type ExteriorWallFace = 'north' | 'south' | 'west' | 'east';
+
 export interface WallSegmentSpec {
   id: string;
   label: string;
@@ -91,6 +93,7 @@ export interface WallSegmentSpec {
   thickness: number;
   color: string;
   foyerSideColor?: string;
+  exteriorFace?: ExteriorWallFace;
   doorways: readonly WallDoorwayCutoutSpec[];
 }
 
@@ -188,14 +191,14 @@ export const TIER1_ROOMS: Readonly<Record<RoomId, RoomBoundsSpec>> = {
 };
 
 export const TIER1_WALLS: readonly WallSegmentSpec[] = [
-  { id: 'outer-west-office', label: 'Office Outer West Wall', xMin: -20.4, xMax: -20.0, zMin: -11.0, zMax: 11.0, heightStart: 8.6, heightEnd: 8.6, thickness: 0.4, color: '#f3efe6', doorways: [] },
-  { id: 'outer-north-office-main', label: 'Office Outer North Back Wall (West-Center)', xMin: -20.4, xMax: -8.2, zMin: -11.4, zMax: -11.0, heightStart: 8.6, heightEnd: 8.6, thickness: 0.4, color: '#f3efe6', doorways: [] },
-  { id: 'outer-north-wetbar-west-cheek', label: 'Wet-Bar Alcove West Cheek Wall', xMin: -8.6, xMax: -8.2, zMin: -12.6, zMax: -11.0, heightStart: 8.6, heightEnd: 8.6, thickness: 0.4, color: '#f3efe6', doorways: [] },
-  { id: 'outer-north-wetbar-back', label: 'Wet-Bar Alcove Recessed North Wall', xMin: -8.6, xMax: -3.5, zMin: -13.0, zMax: -12.6, heightStart: 8.6, heightEnd: 8.6, thickness: 0.4, color: '#e8e3d8', doorways: [] },
-  { id: 'outer-north-wetbar-east-cheek', label: 'Wet-Bar Alcove East Cheek Wall', xMin: -3.8, xMax: -3.5, zMin: -12.6, zMax: -11.0, heightStart: 8.6, heightEnd: 8.6, thickness: 0.3, color: '#f3efe6', doorways: [] },
-  { id: 'outer-north-foyer', label: 'Entry Foyer Outer North Wall', xMin: -3.5, xMax: 3.5, zMin: -11.4, zMax: -11.0, heightStart: 8.6, heightEnd: 8.6, thickness: 0.4, color: '#2c323b', doorways: [] },
-  { id: 'outer-north-garage', label: 'Garage Outer North Back Wall', xMin: 3.5, xMax: 23.9, zMin: -11.4, zMax: -11.0, heightStart: 8.6, heightEnd: 8.6, thickness: 0.4, color: '#eceee9', doorways: [] },
-  { id: 'outer-east-garage', label: 'Garage Outer East Wall', xMin: 23.5, xMax: 23.9, zMin: -11.0, zMax: 11.0, heightStart: 8.6, heightEnd: 8.6, thickness: 0.4, color: '#eceee9', doorways: [] },
+  { id: 'outer-west-office', label: 'Office Outer West Wall', xMin: -20.4, xMax: -20.0, zMin: -11.0, zMax: 11.0, heightStart: 8.6, heightEnd: 8.6, thickness: 0.4, color: '#f3efe6', exteriorFace: 'west', doorways: [] },
+  { id: 'outer-north-office-main', label: 'Office Outer North Back Wall (West-Center)', xMin: -20.4, xMax: -8.2, zMin: -11.4, zMax: -11.0, heightStart: 8.6, heightEnd: 8.6, thickness: 0.4, color: '#f3efe6', exteriorFace: 'north', doorways: [] },
+  { id: 'outer-north-wetbar-west-cheek', label: 'Wet-Bar Alcove West Cheek Wall', xMin: -8.6, xMax: -8.2, zMin: -12.6, zMax: -11.0, heightStart: 8.6, heightEnd: 8.6, thickness: 0.4, color: '#f3efe6', exteriorFace: 'west', doorways: [] },
+  { id: 'outer-north-wetbar-back', label: 'Wet-Bar Alcove Recessed North Wall', xMin: -8.6, xMax: -3.5, zMin: -13.0, zMax: -12.6, heightStart: 8.6, heightEnd: 8.6, thickness: 0.4, color: '#e8e3d8', exteriorFace: 'north', doorways: [] },
+  { id: 'outer-north-wetbar-east-cheek', label: 'Wet-Bar Alcove East Cheek Wall', xMin: -3.8, xMax: -3.5, zMin: -12.6, zMax: -11.0, heightStart: 8.6, heightEnd: 8.6, thickness: 0.3, color: '#f3efe6', exteriorFace: 'east', doorways: [] },
+  { id: 'outer-north-foyer', label: 'Entry Foyer Outer North Wall', xMin: -3.5, xMax: 3.5, zMin: -11.4, zMax: -11.0, heightStart: 8.6, heightEnd: 8.6, thickness: 0.4, color: '#2c323b', exteriorFace: 'north', doorways: [] },
+  { id: 'outer-north-garage', label: 'Garage Outer North Back Wall', xMin: 3.5, xMax: 23.9, zMin: -11.4, zMax: -11.0, heightStart: 8.6, heightEnd: 8.6, thickness: 0.4, color: '#eceee9', exteriorFace: 'north', doorways: [] },
+  { id: 'outer-east-garage', label: 'Garage Outer East Wall', xMin: 23.5, xMax: 23.9, zMin: -11.0, zMax: 11.0, heightStart: 8.6, heightEnd: 8.6, thickness: 0.4, color: '#eceee9', exteriorFace: 'east', doorways: [] },
   {
     id: 'interior-west-foyer',
     label: 'Office / Entry Foyer Tapered Partition',
@@ -224,7 +227,7 @@ export const TIER1_WALLS: readonly WallSegmentSpec[] = [
     foyerSideColor: '#2c323b',
     doorways: [{ id: 'foyer-ne-garage-door', zMin: -8.5, zMax: -5.8, yMin: 0.0, yMax: 6.8 }],
   },
-  { id: 'cutaway-south-office', label: 'Office South Street-Facing Cutaway Wall', xMin: -20.4, xMax: -3.5, zMin: 10.8, zMax: 11.2, heightStart: 1.4, heightEnd: 1.4, thickness: 0.4, color: '#f3efe6', doorways: [] },
+  { id: 'cutaway-south-office', label: 'Office South Street-Facing Cutaway Wall', xMin: -20.4, xMax: -3.5, zMin: 10.8, zMax: 11.2, heightStart: 1.4, heightEnd: 1.4, thickness: 0.4, color: '#f3efe6', exteriorFace: 'south', doorways: [] },
   { id: 'cutaway-south-foyer-sill', label: 'Entry Foyer South Threshold Sill', xMin: -3.5, xMax: 3.5, zMin: 10.82, zMax: 11.18, heightStart: 0.18, heightEnd: 0.18, thickness: 0.36, color: '#3a404a', doorways: [] },
   { id: 'cutaway-south-garage-curb', label: 'Garage South Flush Concrete Threshold Curb', xMin: 5.5, xMax: 21.5, zMin: 10.82, zMax: 11.18, heightStart: 0.18, heightEnd: 0.18, thickness: 0.36, color: '#b8bec4', doorways: [] },
 ];

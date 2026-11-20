@@ -27,6 +27,9 @@ describe('tier1Shell — Honey-Wood Materials, Cutaway Shell, L-Turn Staircase, 
     expect(palette.oakFloor.map?.repeat.toArray()).toEqual([4, 4]);
     expect(`#${palette.officeWall.color.getHexString()}`).toBe('#f3efe8');
     expect(`#${palette.foyerSlateWall.color.getHexString()}`).toBe('#2c323b');
+    expect(palette.exteriorSiding.map).toBeInstanceOf(DataTexture);
+    expect(palette.exteriorSiding.roughness).toBeCloseTo(0.78, 5);
+    expect(palette.exteriorSiding.map?.repeat.toArray()).toEqual([3, 3]);
     expect(palette.glass.transparent).toBe(true);
     expect(palette.brushedSteel.metalness).toBeGreaterThan(0.5);
     expect(palette.matteBlackIron.metalness).toBeGreaterThan(0.5);
@@ -77,6 +80,11 @@ describe('tier1Shell — Honey-Wood Materials, Cutaway Shell, L-Turn Staircase, 
       expect(strokeStylesSeen).toContain('rgba(71, 42, 18, 0.24)');
       expect(strokeStylesSeen).toContain('rgba(68, 40, 18, 0.22)');
       expect(stubCtx.fillText).toHaveBeenCalledWith('BROCK STUDIOS', 256, 64);
+      expect(canvasPalette.exteriorSiding.map).toBeInstanceOf(CanvasTexture);
+      expect(fillStylesSeen).toContain('#5f7283');
+      expect(fillStylesSeen).toContain('#66798a');
+      expect(fillStylesSeen).toContain('rgba(200, 216, 230, 0.14)');
+      expect(fillStylesSeen).toContain('rgba(32, 44, 56, 0.26)');
       canvasPalette.dispose();
     } finally {
       ctxSpy.mockRestore();
@@ -143,6 +151,51 @@ describe('tier1Shell — Honey-Wood Materials, Cutaway Shell, L-Turn Staircase, 
     );
     expect(eastPartMeshes.some((m: Mesh) => m.material === palette.foyerSlateWall)).toBe(true);
     expect(eastPartMeshes.some((m: Mesh) => new Box3().setFromObject(m).min.y >= 6.79)).toBe(true);
+    expect(eastPartMeshes.some((m: Mesh) => m.material === palette.exteriorSiding)).toBe(false);
+
+    // Exterior perimeter walls split into gray-blue lap siding outside + preserved interior color inside
+    const expectedExteriorWalls: ReadonlyArray<{ id: string; interiorMat: MeshStandardMaterial; side: 'west' | 'east' | 'north' | 'south' }> = [
+      { id: 'outer-west-office', interiorMat: palette.officeWall, side: 'west' },
+      { id: 'outer-north-office-main', interiorMat: palette.officeWall, side: 'north' },
+      { id: 'outer-north-wetbar-west-cheek', interiorMat: palette.officeWall, side: 'west' },
+      { id: 'outer-north-wetbar-back', interiorMat: palette.officeWall, side: 'north' },
+      { id: 'outer-north-wetbar-east-cheek', interiorMat: palette.officeWall, side: 'east' },
+      { id: 'outer-north-foyer', interiorMat: palette.foyerSlateWall, side: 'north' },
+      { id: 'outer-north-garage', interiorMat: palette.garageWall, side: 'north' },
+      { id: 'outer-east-garage', interiorMat: palette.garageWall, side: 'east' },
+      { id: 'cutaway-south-office', interiorMat: palette.officeWall, side: 'south' },
+    ];
+    for (const { id, interiorMat, side } of expectedExteriorWalls) {
+      const wg = shell.wallsById[id];
+      const extMesh = wg.getObjectByName(`${id}-exterior`) as Mesh | undefined;
+      const intMesh = wg.getObjectByName(`${id}-interior`) as Mesh | undefined;
+      const baseboard = wg.getObjectByName(`${id}-baseboard`) as Mesh | undefined;
+      expect(extMesh).toBeDefined();
+      expect(intMesh).toBeDefined();
+      expect(baseboard).toBeDefined();
+      expect(extMesh!.material).toBe(palette.exteriorSiding);
+      expect(intMesh!.material).toBe(interiorMat);
+      const extBox = new Box3().setFromObject(extMesh!);
+      const intBox = new Box3().setFromObject(intMesh!);
+      const baseBox = new Box3().setFromObject(baseboard!);
+      if (side === 'west') {
+        expect(extBox.max.x).toBeCloseTo(intBox.min.x, 5);
+        expect(baseBox.min.x).toBeGreaterThan(extBox.min.x);
+      } else if (side === 'east') {
+        expect(extBox.min.x).toBeCloseTo(intBox.max.x, 5);
+        expect(baseBox.max.x).toBeLessThan(extBox.max.x);
+      } else if (side === 'north') {
+        expect(extBox.max.z).toBeCloseTo(intBox.min.z, 5);
+        expect(baseBox.min.z).toBeGreaterThan(extBox.min.z);
+      } else {
+        expect(extBox.min.z).toBeCloseTo(intBox.max.z, 5);
+        expect(baseBox.max.z).toBeLessThan(extBox.max.z);
+      }
+    }
+    for (const nonExtId of ['interior-west-foyer', 'interior-east-foyer', 'cutaway-south-foyer-sill', 'cutaway-south-garage-curb']) {
+      const meshes = shell.wallsById[nonExtId].children.filter((c: Object3D): c is Mesh => c instanceof Mesh);
+      expect(meshes.some((m: Mesh) => m.material === palette.exteriorSiding)).toBe(false);
+    }
 
     // L-shaped 13-tread staircase + corner landing
     expect(shell.stairTreads).toHaveLength(13);
