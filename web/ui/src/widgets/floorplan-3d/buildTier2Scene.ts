@@ -40,8 +40,18 @@ interface WallApertureZ {
   y1: number;
 }
 
+interface WallDoorwayCutoutX {
+  x0: number;
+  x1: number;
+  y0: number;
+}
+
 const WALL_WINDOW_APERTURES: Readonly<Record<string, WallApertureZ>> = {
   'primary-bath-east-marble': { z0: -8.4, z1: -5.0, y0: 2.2, y1: 4.4 },
+};
+
+const WALL_DOORWAY_CUTOUTS: Readonly<Record<string, WallDoorwayCutoutX>> = {
+  'stairwell-north-accent': { x0: -3.35, x1: -0.35, y0: 4.55 },
 };
 
 function namedGroup(name: string): Group {
@@ -98,10 +108,16 @@ function buildStairsAndVoid(
     );
   }
 
+  const topThreshold = addBox(
+    stairsUpGroup, -3.35, -0.35, st.topElevationFt - 0.11, st.topElevationFt, -11.22, st.zMin,
+    materials.woodFloor, 'tier2-stair-top-threshold',
+  );
+  applyWorldSpaceFloorUVs(topThreshold.geometry, { xMin: -3.35, xMax: -0.35, zMin: -11.22, zMax: st.zMin });
+
   // Matte-black horizontal iron railings along east edge of upward stairs
   const railX = st.xMax - 0.06;
   addBox(stairsUpGroup, railX - 0.04, railX + 0.04, 0, 3.0, st.zMax - 0.12, st.zMax - 0.04, materials.matteBlackIron, 'stairs-post-bottom');
-  addBox(stairsUpGroup, railX - 0.04, railX + 0.04, st.topElevationFt, st.topElevationFt + 3.0, st.zMin + 0.04, st.zMin + 0.12, materials.matteBlackIron, 'stairs-post-top');
+  addBox(stairsUpGroup, railX - 0.04, railX + 0.04, st.topElevationFt, Math.min(st.topElevationFt + 2.0, 6.55), st.zMin + 0.04, st.zMin + 0.12, materials.matteBlackIron, 'stairs-post-top');
   for (const hOff of [0.8, 1.5, 2.2, 2.9]) {
     addBox(
       stairsUpGroup, railX - 0.03, railX + 0.03, st.topElevationFt * 0.5 + hOff - 0.03, st.topElevationFt * 0.5 + hOff + 0.03,
@@ -194,37 +210,47 @@ function buildWallSegment(
 
   const capH = 0.07;
   const bodyTop = Math.max(0.2, wall.heightFt - capH);
-  const addWallSpan = (ya: number, yb: number, za: number, zb: number, suffix: string): void => {
+  const addWallSpan = (xa: number, xb: number, ya: number, yb: number, za: number, zb: number, suffix: string): void => {
     const face = wall.exteriorFace;
     if (face === 'west' || face === 'east') {
-      const xm = (x0 + x1) / 2;
+      const xm = (xa + xb) / 2;
       const westExt = face === 'west';
-      addBox(wg, x0, xm, ya, yb, za, zb, westExt ? materials.exteriorSiding : wallMat, `${wall.id}-${suffix}${westExt ? '-ext' : ''}`);
-      addBox(wg, xm, x1, ya, yb, za, zb, westExt ? wallMat : materials.exteriorSiding, `${wall.id}-${suffix}${westExt ? '' : '-ext'}`);
+      addBox(wg, xa, xm, ya, yb, za, zb, westExt ? materials.exteriorSiding : wallMat, `${wall.id}-${suffix}${westExt ? '-ext' : ''}`);
+      addBox(wg, xm, xb, ya, yb, za, zb, westExt ? wallMat : materials.exteriorSiding, `${wall.id}-${suffix}${westExt ? '' : '-ext'}`);
       return;
     }
     if (face === 'north' || face === 'south') {
       const zm = (za + zb) / 2;
       const northExt = face === 'north';
-      addBox(wg, x0, x1, ya, yb, za, zm, northExt ? materials.exteriorSiding : wallMat, `${wall.id}-${suffix}${northExt ? '-ext' : ''}`);
-      addBox(wg, x0, x1, ya, yb, zm, zb, northExt ? wallMat : materials.exteriorSiding, `${wall.id}-${suffix}${northExt ? '' : '-ext'}`);
+      addBox(wg, xa, xb, ya, yb, za, zm, northExt ? materials.exteriorSiding : wallMat, `${wall.id}-${suffix}${northExt ? '-ext' : ''}`);
+      addBox(wg, xa, xb, ya, yb, zm, zb, northExt ? wallMat : materials.exteriorSiding, `${wall.id}-${suffix}${northExt ? '' : '-ext'}`);
       return;
     }
-    addBox(wg, x0, x1, ya, yb, za, zb, wallMat, `${wall.id}-${suffix}`);
+    addBox(wg, xa, xb, ya, yb, za, zb, wallMat, `${wall.id}-${suffix}`);
   };
 
   const ap = WALL_WINDOW_APERTURES[wall.id];
+  const door = WALL_DOORWAY_CUTOUTS[wall.id];
   if (ap && !isHorizontal && ap.z0 > z0 && ap.z1 < z1) {
-    addWallSpan(0, bodyTop, z0, ap.z0, 'body');
-    addWallSpan(0, bodyTop, ap.z1, z1, 'body-south');
-    addWallSpan(0, ap.y0, ap.z0, ap.z1, 'sill');
+    addWallSpan(x0, x1, 0, bodyTop, z0, ap.z0, 'body');
+    addWallSpan(x0, x1, 0, bodyTop, ap.z1, z1, 'body-south');
+    addWallSpan(x0, x1, 0, ap.y0, ap.z0, ap.z1, 'sill');
     if (ap.y1 < bodyTop) {
-      addWallSpan(ap.y1, bodyTop, ap.z0, ap.z1, 'header');
+      addWallSpan(x0, x1, ap.y1, bodyTop, ap.z0, ap.z1, 'header');
     }
+    addBox(wg, x0, x1, bodyTop, wall.heightFt, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
+  } else if (door && isHorizontal && door.x0 > x0 && door.x1 < x1) {
+    addWallSpan(x0, door.x0, 0, bodyTop, z0, z1, 'body-west');
+    addWallSpan(door.x1, x1, 0, bodyTop, z0, z1, 'body');
+    addWallSpan(door.x0, door.x1, 0, door.y0, z0, z1, 'sill');
+    addBox(wg, x0, door.x0, bodyTop, wall.heightFt, z0, z1, materials.whiteTrim, `${wall.id}-cap-west`);
+    addBox(wg, door.x1, x1, bodyTop, wall.heightFt, z0, z1, materials.whiteTrim, `${wall.id}-cap-east`);
+    addBox(wg, -3.42, -3.30, door.y0, wall.heightFt, z0 - 0.02, z1 + 0.02, materials.whiteTrim, 'tier3-doorway-jamb-w');
+    addBox(wg, -0.40, -0.28, door.y0, wall.heightFt, z0 - 0.02, z1 + 0.02, materials.whiteTrim, 'tier3-doorway-jamb-e');
   } else {
-    addWallSpan(0, bodyTop, z0, z1, 'body');
+    addWallSpan(x0, x1, 0, bodyTop, z0, z1, 'body');
+    addBox(wg, x0, x1, bodyTop, wall.heightFt, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
   }
-  addBox(wg, x0, x1, bodyTop, wall.heightFt, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
   return wg;
 }
 

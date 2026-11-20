@@ -88,7 +88,7 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
       }
     }
 
-    // Verify 8.5 ft back perimeter wall heights and full upper header on primary-bath-east-marble aperture
+    // Verify 6.6 ft back perimeter wall heights, Floor 3 stair doorway, and upper header on primary-bath-east-marble aperture
     for (const tallId of [
       'west-living-north',
       'north-living-accent',
@@ -97,9 +97,25 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
       'primary-bath-east-marble',
     ]) {
       const box = new Box3().setFromObject(built.wallsById[tallId]);
-      expect(box.max.y).toBeCloseTo(8.5, 2);
+      expect(box.max.y).toBeCloseTo(6.6, 2);
     }
     expect(new Box3().setFromObject(built.wallsById['primary-east-green-accent']).max.y).toBeCloseTo(4.8, 2);
+
+    const stairNorthWall = built.wallsById['stairwell-north-accent'];
+    const jambW = stairNorthWall.getObjectByName('tier3-doorway-jamb-w') as Mesh;
+    const jambE = stairNorthWall.getObjectByName('tier3-doorway-jamb-e') as Mesh;
+    expect(jambW).toBeInstanceOf(Mesh);
+    expect(jambE).toBeInstanceOf(Mesh);
+    expect(jambW.material).toBe(built.materials.whiteTrim);
+    expect(jambE.material).toBe(built.materials.whiteTrim);
+    expect(new Box3().setFromObject(jambW).min.y).toBeCloseTo(4.55, 2);
+    expect(new Box3().setFromObject(jambW).max.y).toBeCloseTo(6.6, 2);
+    expect(new Box3().setFromObject(jambE).min.y).toBeCloseTo(4.55, 2);
+    expect(new Box3().setFromObject(jambE).max.y).toBeCloseTo(6.6, 2);
+    expect(stairNorthWall.getObjectByName('stairwell-north-accent-cap')).toBeUndefined();
+    expect(stairNorthWall.getObjectByName('stairwell-north-accent-cap-west')).toBeInstanceOf(Mesh);
+    expect(stairNorthWall.getObjectByName('stairwell-north-accent-cap-east')).toBeInstanceOf(Mesh);
+
     const bathEastWall = built.wallsById['primary-bath-east-marble'];
     for (const part of ['body', 'body-south', 'sill', 'header']) {
       const intPart = bathEastWall.getObjectByName(`primary-bath-east-marble-${part}`) as Mesh;
@@ -110,7 +126,7 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
     }
     const bathHeaderBox = new Box3().setFromObject(bathEastWall.getObjectByName('primary-bath-east-marble-header')!);
     expect(bathHeaderBox.min.y).toBeCloseTo(4.4, 2);
-    expect(bathHeaderBox.max.y).toBeCloseTo(8.43, 2);
+    expect(bathHeaderBox.max.y).toBeCloseTo(6.53, 2);
 
     // Verify glazed windows on Living West, South Living (3-panel), Primary Bedroom South (+ curtains), and frosted East Bath window
     const westWin = built.shellGroup.getObjectByName('living-west-window');
@@ -156,6 +172,17 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
     }
     expect(built.stairsUpGroup.getObjectByName('stairs-safety-gate')).toBeUndefined();
     expect(built.stairsUpGroup.getObjectByName('tier3-kitchen-doorway-portal')).toBeUndefined();
+    const topThreshold = built.stairsUpGroup.getObjectByName('tier2-stair-top-threshold') as Mesh;
+    expect(topThreshold).toBeInstanceOf(Mesh);
+    expect(topThreshold.material).toBe(built.materials.woodFloor);
+    const topThresholdBox = new Box3().setFromObject(topThreshold);
+    expect(topThresholdBox.min.x).toBeCloseTo(-3.35, 2);
+    expect(topThresholdBox.max.x).toBeCloseTo(-0.35, 2);
+    expect(topThresholdBox.max.y).toBeCloseTo(4.55, 2);
+    expect(topThresholdBox.min.z).toBeCloseTo(-11.22, 2);
+    expect(topThresholdBox.max.z).toBeCloseTo(TIER2_LAYOUT_SPEC.stairsUpToTier3.zMin, 2);
+    const postTop = built.stairsUpGroup.getObjectByName('stairs-post-top') as Mesh;
+    expect(new Box3().setFromObject(postTop).max.y).toBeLessThanOrEqual(6.55 + 1e-4);
 
     const vd = TIER2_LAYOUT_SPEC.stairwellVoidFromTier1;
     expect(built.stairwellVoidGroup.getObjectByName('stairwell-void-well')).toBeUndefined();
@@ -221,7 +248,9 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
       expect(meshes.length).toBeGreaterThanOrEqual(1);
     }
 
-    // 1. Living & Play Nook: vertical pastel ovals on canvas, South wall 2x2 prints inside wall face, blue/white patterned DataTexture rug
+    // 1. Living & Play Nook: full-height 6.6 ft fireplace chimney, vertical pastel ovals on canvas, South wall 2x2 prints inside wall face, blue/white patterned DataTexture rug
+    const hearthBox = new Box3().setFromObject(built.fixtures.fireplaceHearth);
+    expect(hearthBox.max.y).toBeCloseTo(6.6, 2);
     const oval0 = built.fixtures.pastelOvalWallArt.getObjectByName('pastel-oval-0') as Mesh;
     expect(oval0.rotation.x).toBeCloseTo(Math.PI / 2, 3);
     const rugTop = built.fixtures.livingAreaRug.getObjectByName('living-area-rug-top') as Mesh;

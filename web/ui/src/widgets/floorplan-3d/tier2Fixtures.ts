@@ -64,10 +64,10 @@ function buildLivingFixtures(c: Tier2FixtureMaterialContext, fixtures: Record<Ti
   const [pillowSage, pillowRust, tvScreen] = [c.mat('#7d937c', 0.8), c.mat('#b86b4b', 0.8), c.mat('#14181f', 0.22, 0.35)];
 
   c.parts(fixtures.fireplaceHearth, f.fireplaceHearth, [
-    [0, 1, 0, 0.08, 0, 1, stone], [0, 0.72, 0.08, 1, 0.04, 0.96, stone],
-    [0.54, 0.74, 0.12, 0.52, 0.22, 0.78, firebox], [0.58, 0.70, 0.14, 0.22, 0.32, 0.68, ember],
-    [0, 0.88, 0.60, 0.67, 0.02, 0.98, warmWood], [0.72, 0.77, 0.71, 0.96, 0.20, 0.80, c.palette.matteBlackIron],
-    [0.77, 0.79, 0.73, 0.94, 0.23, 0.77, c.mat('#5d7a8c', 0.55)],
+    [0, 1, 0, 0.06, 0, 1, stone], [0, 0.72, 0.06, 1, 0.04, 0.96, stone],
+    [0.54, 0.74, 0.09, 0.38, 0.22, 0.78, firebox], [0.58, 0.70, 0.11, 0.17, 0.32, 0.68, ember],
+    [0, 0.88, 0.44, 0.50, 0.02, 0.98, warmWood], [0.72, 0.77, 0.54, 0.76, 0.20, 0.80, c.palette.matteBlackIron],
+    [0.77, 0.79, 0.56, 0.74, 0.23, 0.77, c.mat('#5d7a8c', 0.55)],
   ]);
 
   const tvSpec = f.cornerTvConsole;

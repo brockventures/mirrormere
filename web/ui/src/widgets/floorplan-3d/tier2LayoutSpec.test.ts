@@ -105,15 +105,15 @@ describe('tier2LayoutSpec — Envelope, 7 Non-Overlapping Rooms, Side-by-Side St
       TIER2_LAYOUT_SPEC.walls.map((wall: Tier2WallSpec) => [wall.id, wall]),
     );
 
-    expect(wallById.get('west-living-north')).toMatchObject({ x1: -20.0, z1: -11.0, x2: -20.0, z2: 2.0, heightFt: 8.5, exteriorFace: 'west' });
+    expect(wallById.get('west-living-north')).toMatchObject({ x1: -20.0, z1: -11.0, x2: -20.0, z2: 2.0, heightFt: 6.6, exteriorFace: 'west' });
     expect(wallById.get('west-living-window-cutaway')).toMatchObject({ x1: -20.0, z1: 2.0, x2: -20.0, z2: 11.0, heightFt: 1.8, exteriorFace: 'west' });
-    expect(wallById.get('north-living-accent')).toMatchObject({ x1: -20.0, z1: -11.0, x2: -3.5, z2: -11.0, heightFt: 8.5, colorHex: 0x38434f, exteriorFace: 'north' });
+    expect(wallById.get('north-living-accent')).toMatchObject({ x1: -20.0, z1: -11.0, x2: -3.5, z2: -11.0, heightFt: 6.6, colorHex: 0x38434f, exteriorFace: 'north' });
     expect(wallById.get('south-living-window-cutaway')).toMatchObject({ x1: -20.0, z1: 11.0, x2: -9.0, z2: 11.0, heightFt: 1.8, exteriorFace: 'south' });
     expect(wallById.get('south-playnook-wall')).toMatchObject({ x1: -9.0, z1: 11.0, x2: 6.2, z2: 11.0, heightFt: 4.6, exteriorFace: 'south' });
     expect(wallById.get('south-primary-cutaway')).toMatchObject({ x1: 6.2, z1: 11.0, x2: 23.5, z2: 11.0, heightFt: 1.8, exteriorFace: 'south' });
     expect(wallById.get('living-stair-west-wall')).toMatchObject({ x1: -3.5, z1: -11.0, x2: -3.5, z2: -4.4, heightFt: 4.4, thicknessFt: 0.35 });
     expect(wallById.get('stairwell-center-divider')).toMatchObject({ x1: -0.2, z1: -10.8, x2: -0.2, z2: -4.4, heightFt: 4.4, thicknessFt: 0.35 });
-    expect(wallById.get('stairwell-north-accent')).toMatchObject({ x1: -3.5, z1: -11.0, x2: 5.8, z2: -11.0, heightFt: 8.5, colorHex: 0x353d47, exteriorFace: 'north' });
+    expect(wallById.get('stairwell-north-accent')).toMatchObject({ x1: -3.5, z1: -11.0, x2: 5.8, z2: -11.0, heightFt: 6.6, colorHex: 0x353d47, exteriorFace: 'north' });
     expect(wallById.get('powder-west')).toMatchObject({ x1: 5.8, z1: -11.0, x2: 5.8, z2: -6.2, heightFt: 4.2 });
     expect(wallById.get('powder-south')).toMatchObject({ x1: 5.8, z1: -6.2, x2: 6.6, z2: -6.2, heightFt: 4.2 });
     expect(wallById.get('hall-closet-west')).toMatchObject({ x1: 5.8, z1: 0.2, x2: 5.8, z2: 2.8, heightFt: 4.4 });
@@ -123,8 +123,8 @@ describe('tier2LayoutSpec — Envelope, 7 Non-Overlapping Rooms, Side-by-Side St
     expect(wallById.get('primary-bath-south')).toMatchObject({ x1: 8.5, z1: -2.5, x2: 19.2, z2: -2.5, heightFt: 4.6 });
     expect(wallById.get('primary-bath-south-east-stub')).toMatchObject({ x1: 22.0, z1: -2.5, x2: 23.5, z2: -2.5, heightFt: 4.6 });
     expect(wallById.get('primary-bath-west')).toMatchObject({ x1: 8.5, z1: -11.0, x2: 8.5, z2: -2.5, heightFt: 4.4 });
-    expect(wallById.get('primary-bath-north-marble')).toMatchObject({ x1: 5.8, z1: -11.0, x2: 23.5, z2: -11.0, heightFt: 8.5, colorHex: 0xebeef2, exteriorFace: 'north' });
-    expect(wallById.get('primary-bath-east-marble')).toMatchObject({ x1: 23.5, z1: -11.0, x2: 23.5, z2: -2.5, heightFt: 8.5, colorHex: 0xebeef2, exteriorFace: 'east' });
+    expect(wallById.get('primary-bath-north-marble')).toMatchObject({ x1: 5.8, z1: -11.0, x2: 23.5, z2: -11.0, heightFt: 6.6, colorHex: 0xebeef2, exteriorFace: 'north' });
+    expect(wallById.get('primary-bath-east-marble')).toMatchObject({ x1: 23.5, z1: -11.0, x2: 23.5, z2: -2.5, heightFt: 6.6, colorHex: 0xebeef2, exteriorFace: 'east' });
     expect(wallById.get('primary-east-green-accent')).toMatchObject({ x1: 23.5, z1: -2.5, x2: 23.5, z2: 11.0, heightFt: 4.8, colorHex: 0x1f3b33, exteriorFace: 'east' });
 
     for (const interiorId of [
@@ -161,7 +161,7 @@ describe('tier2LayoutSpec — Envelope, 7 Non-Overlapping Rooms, Side-by-Side St
     }
 
     const f = TIER2_LAYOUT_SPEC.fixtures;
-    expect(f.fireplaceHearth).toMatchObject({ roomId: 'livingRoom', xMin: -19.9, xMax: -17.9, zMin: -5.2, zMax: -0.6, heightFt: 4.8 });
+    expect(f.fireplaceHearth).toMatchObject({ roomId: 'livingRoom', xMin: -19.9, xMax: -17.9, zMin: -5.2, zMax: -0.6, heightFt: 6.6 });
     expect(f.cornerTvConsole).toMatchObject({ roomId: 'livingRoom', xMin: -19.6, xMax: -17.0, zMin: -10.4, zMax: -6.2, heightFt: 4.2 });
     expect(f.creamSofa).toMatchObject({ roomId: 'livingRoom', xMin: -8.2, xMax: -4.4, zMin: -8.4, zMax: 0.4, heightFt: 2.9 });
     expect(f.westWindowBench).toMatchObject({ roomId: 'playNook', xMin: -19.7, xMax: -17.8, zMin: 2.8, zMax: 9.4, heightFt: 1.6 });
