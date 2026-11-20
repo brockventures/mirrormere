@@ -194,16 +194,35 @@ function buildWallSegment(
 
   const capH = 0.07;
   const bodyTop = Math.max(0.2, wall.heightFt - capH);
+  const addWallSpan = (ya: number, yb: number, za: number, zb: number, suffix: string): void => {
+    const face = wall.exteriorFace;
+    if (face === 'west' || face === 'east') {
+      const xm = (x0 + x1) / 2;
+      const westExt = face === 'west';
+      addBox(wg, x0, xm, ya, yb, za, zb, westExt ? materials.exteriorSiding : wallMat, `${wall.id}-${suffix}${westExt ? '-ext' : ''}`);
+      addBox(wg, xm, x1, ya, yb, za, zb, westExt ? wallMat : materials.exteriorSiding, `${wall.id}-${suffix}${westExt ? '' : '-ext'}`);
+      return;
+    }
+    if (face === 'north' || face === 'south') {
+      const zm = (za + zb) / 2;
+      const northExt = face === 'north';
+      addBox(wg, x0, x1, ya, yb, za, zm, northExt ? materials.exteriorSiding : wallMat, `${wall.id}-${suffix}${northExt ? '-ext' : ''}`);
+      addBox(wg, x0, x1, ya, yb, zm, zb, northExt ? wallMat : materials.exteriorSiding, `${wall.id}-${suffix}${northExt ? '' : '-ext'}`);
+      return;
+    }
+    addBox(wg, x0, x1, ya, yb, za, zb, wallMat, `${wall.id}-${suffix}`);
+  };
+
   const ap = WALL_WINDOW_APERTURES[wall.id];
   if (ap && !isHorizontal && ap.z0 > z0 && ap.z1 < z1) {
-    addBox(wg, x0, x1, 0, bodyTop, z0, ap.z0, wallMat, `${wall.id}-body`);
-    addBox(wg, x0, x1, 0, bodyTop, ap.z1, z1, wallMat, `${wall.id}-body-south`);
-    addBox(wg, x0, x1, 0, ap.y0, ap.z0, ap.z1, wallMat, `${wall.id}-sill`);
+    addWallSpan(0, bodyTop, z0, ap.z0, 'body');
+    addWallSpan(0, bodyTop, ap.z1, z1, 'body-south');
+    addWallSpan(0, ap.y0, ap.z0, ap.z1, 'sill');
     if (ap.y1 < bodyTop) {
-      addBox(wg, x0, x1, ap.y1, bodyTop, ap.z0, ap.z1, wallMat, `${wall.id}-header`);
+      addWallSpan(ap.y1, bodyTop, ap.z0, ap.z1, 'header');
     }
   } else {
-    addBox(wg, x0, x1, 0, bodyTop, z0, z1, wallMat, `${wall.id}-body`);
+    addWallSpan(0, bodyTop, z0, z1, 'body');
   }
   addBox(wg, x0, x1, bodyTop, wall.heightFt, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
   return wg;

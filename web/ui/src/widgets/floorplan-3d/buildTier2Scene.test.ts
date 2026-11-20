@@ -61,11 +61,56 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
       }
     }
 
-    // Verify forest-green East primary bedroom wall (#1f3b33) and North living room slate accent wall (#38434f)
+    // Verify forest-green East primary bedroom wall (#1f3b33), North living room slate accent wall (#38434f),
+    // stairwell slate (#353d47), primary bath marble (#ebeef2), and gray-blue exteriorSiding on perimeter walls
     const greenWallBody = built.wallsById['primary-east-green-accent'].getObjectByName('primary-east-green-accent-body') as Mesh;
     expect((greenWallBody.material as MeshStandardMaterial).color.getHex()).toBe(0x1f3b33);
     const northSlateBody = built.wallsById['north-living-accent'].getObjectByName('north-living-accent-body') as Mesh;
     expect((northSlateBody.material as MeshStandardMaterial).color.getHex()).toBe(0x38434f);
+    const stairSlateBody = built.wallsById['stairwell-north-accent'].getObjectByName('stairwell-north-accent-body') as Mesh;
+    expect((stairSlateBody.material as MeshStandardMaterial).color.getHex()).toBe(0x353d47);
+    const bathNorthBody = built.wallsById['primary-bath-north-marble'].getObjectByName('primary-bath-north-marble-body') as Mesh;
+    expect((bathNorthBody.material as MeshStandardMaterial).color.getHex()).toBe(0xebeef2);
+
+    for (const wallSpec of TIER2_LAYOUT_SPEC.walls) {
+      const wg = built.wallsById[wallSpec.id];
+      const extBody = wg.getObjectByName(`${wallSpec.id}-body-ext`) as Mesh | undefined;
+      const intBody = wg.getObjectByName(`${wallSpec.id}-body`) as Mesh;
+      if (wallSpec.exteriorFace) {
+        expect(extBody).toBeInstanceOf(Mesh);
+        expect(extBody!.material).toBe(built.materials.exteriorSiding);
+        if (wallSpec.exteriorFace === 'west') expect(extBody!.position.x).toBeLessThan(intBody.position.x);
+        if (wallSpec.exteriorFace === 'east') expect(extBody!.position.x).toBeGreaterThan(intBody.position.x);
+        if (wallSpec.exteriorFace === 'north') expect(extBody!.position.z).toBeLessThan(intBody.position.z);
+        if (wallSpec.exteriorFace === 'south') expect(extBody!.position.z).toBeGreaterThan(intBody.position.z);
+      } else {
+        expect(extBody).toBeUndefined();
+      }
+    }
+
+    // Verify 8.5 ft back perimeter wall heights and full upper header on primary-bath-east-marble aperture
+    for (const tallId of [
+      'west-living-north',
+      'north-living-accent',
+      'stairwell-north-accent',
+      'primary-bath-north-marble',
+      'primary-bath-east-marble',
+    ]) {
+      const box = new Box3().setFromObject(built.wallsById[tallId]);
+      expect(box.max.y).toBeCloseTo(8.5, 2);
+    }
+    expect(new Box3().setFromObject(built.wallsById['primary-east-green-accent']).max.y).toBeCloseTo(4.8, 2);
+    const bathEastWall = built.wallsById['primary-bath-east-marble'];
+    for (const part of ['body', 'body-south', 'sill', 'header']) {
+      const intPart = bathEastWall.getObjectByName(`primary-bath-east-marble-${part}`) as Mesh;
+      const extPart = bathEastWall.getObjectByName(`primary-bath-east-marble-${part}-ext`) as Mesh;
+      expect((intPart.material as MeshStandardMaterial).color.getHex()).toBe(0xebeef2);
+      expect(extPart.material).toBe(built.materials.exteriorSiding);
+      expect(extPart.position.x).toBeGreaterThan(intPart.position.x);
+    }
+    const bathHeaderBox = new Box3().setFromObject(bathEastWall.getObjectByName('primary-bath-east-marble-header')!);
+    expect(bathHeaderBox.min.y).toBeCloseTo(4.4, 2);
+    expect(bathHeaderBox.max.y).toBeCloseTo(8.43, 2);
 
     // Verify glazed windows on Living West, South Living (3-panel), Primary Bedroom South (+ curtains), and frosted East Bath window
     const westWin = built.shellGroup.getObjectByName('living-west-window');

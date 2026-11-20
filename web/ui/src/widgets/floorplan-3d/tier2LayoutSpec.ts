@@ -65,6 +65,7 @@ export interface Tier2WallSpec {
   heightFt: number;
   thicknessFt: number;
   colorHex?: number;
+  exteriorFace?: 'north' | 'south' | 'west' | 'east';
 }
 
 export interface Tier2StairsUpSpec extends Tier2Bounds2D {
@@ -155,15 +156,15 @@ export const TIER2_LAYOUT_SPEC: Tier2LayoutSpec = {
     },
   },
   walls: [
-    { id: 'west-living-north', x1: -20.0, z1: -11.0, x2: -20.0, z2: 2.0, heightFt: 4.8, thicknessFt: 0.45 },
-    { id: 'west-living-window-cutaway', x1: -20.0, z1: 2.0, x2: -20.0, z2: 11.0, heightFt: 1.8, thicknessFt: 0.45 },
-    { id: 'north-living-accent', x1: -20.0, z1: -11.0, x2: -3.5, z2: -11.0, heightFt: 4.8, thicknessFt: 0.45, colorHex: 0x38434f },
-    { id: 'south-living-window-cutaway', x1: -20.0, z1: 11.0, x2: -9.0, z2: 11.0, heightFt: 1.8, thicknessFt: 0.45 },
-    { id: 'south-playnook-wall', x1: -9.0, z1: 11.0, x2: 6.2, z2: 11.0, heightFt: 4.6, thicknessFt: 0.45 },
-    { id: 'south-primary-cutaway', x1: 6.2, z1: 11.0, x2: 23.5, z2: 11.0, heightFt: 1.8, thicknessFt: 0.45 },
+    { id: 'west-living-north', x1: -20.0, z1: -11.0, x2: -20.0, z2: 2.0, heightFt: 8.5, thicknessFt: 0.45, exteriorFace: 'west' },
+    { id: 'west-living-window-cutaway', x1: -20.0, z1: 2.0, x2: -20.0, z2: 11.0, heightFt: 1.8, thicknessFt: 0.45, exteriorFace: 'west' },
+    { id: 'north-living-accent', x1: -20.0, z1: -11.0, x2: -3.5, z2: -11.0, heightFt: 8.5, thicknessFt: 0.45, colorHex: 0x38434f, exteriorFace: 'north' },
+    { id: 'south-living-window-cutaway', x1: -20.0, z1: 11.0, x2: -9.0, z2: 11.0, heightFt: 1.8, thicknessFt: 0.45, exteriorFace: 'south' },
+    { id: 'south-playnook-wall', x1: -9.0, z1: 11.0, x2: 6.2, z2: 11.0, heightFt: 4.6, thicknessFt: 0.45, exteriorFace: 'south' },
+    { id: 'south-primary-cutaway', x1: 6.2, z1: 11.0, x2: 23.5, z2: 11.0, heightFt: 1.8, thicknessFt: 0.45, exteriorFace: 'south' },
     { id: 'living-stair-west-wall', x1: -3.5, z1: -11.0, x2: -3.5, z2: -4.4, heightFt: 4.4, thicknessFt: 0.35 },
     { id: 'stairwell-center-divider', x1: -0.2, z1: -10.8, x2: -0.2, z2: -4.4, heightFt: 4.4, thicknessFt: 0.35 },
-    { id: 'stairwell-north-accent', x1: -3.5, z1: -11.0, x2: 5.8, z2: -11.0, heightFt: 4.8, thicknessFt: 0.45, colorHex: 0x353d47 },
+    { id: 'stairwell-north-accent', x1: -3.5, z1: -11.0, x2: 5.8, z2: -11.0, heightFt: 8.5, thicknessFt: 0.45, colorHex: 0x353d47, exteriorFace: 'north' },
     { id: 'powder-west', x1: 5.8, z1: -11.0, x2: 5.8, z2: -6.2, heightFt: 4.2, thicknessFt: 0.35 },
     { id: 'powder-south', x1: 5.8, z1: -6.2, x2: 6.6, z2: -6.2, heightFt: 4.2, thicknessFt: 0.35 },
     { id: 'hall-closet-west', x1: 5.8, z1: 0.2, x2: 5.8, z2: 2.8, heightFt: 4.4, thicknessFt: 0.35 },
@@ -173,9 +174,9 @@ export const TIER2_LAYOUT_SPEC: Tier2LayoutSpec = {
     { id: 'primary-bath-south', x1: 8.5, z1: -2.5, x2: 19.2, z2: -2.5, heightFt: 4.6, thicknessFt: 0.35 },
     { id: 'primary-bath-south-east-stub', x1: 22.0, z1: -2.5, x2: 23.5, z2: -2.5, heightFt: 4.6, thicknessFt: 0.35 },
     { id: 'primary-bath-west', x1: 8.5, z1: -11.0, x2: 8.5, z2: -2.5, heightFt: 4.4, thicknessFt: 0.35 },
-    { id: 'primary-bath-north-marble', x1: 5.8, z1: -11.0, x2: 23.5, z2: -11.0, heightFt: 4.8, thicknessFt: 0.45, colorHex: 0xebeef2 },
-    { id: 'primary-bath-east-marble', x1: 23.5, z1: -11.0, x2: 23.5, z2: -2.5, heightFt: 4.8, thicknessFt: 0.45, colorHex: 0xebeef2 },
-    { id: 'primary-east-green-accent', x1: 23.5, z1: -2.5, x2: 23.5, z2: 11.0, heightFt: 4.8, thicknessFt: 0.45, colorHex: 0x1f3b33 },
+    { id: 'primary-bath-north-marble', x1: 5.8, z1: -11.0, x2: 23.5, z2: -11.0, heightFt: 8.5, thicknessFt: 0.45, colorHex: 0xebeef2, exteriorFace: 'north' },
+    { id: 'primary-bath-east-marble', x1: 23.5, z1: -11.0, x2: 23.5, z2: -2.5, heightFt: 8.5, thicknessFt: 0.45, colorHex: 0xebeef2, exteriorFace: 'east' },
+    { id: 'primary-east-green-accent', x1: 23.5, z1: -2.5, x2: 23.5, z2: 11.0, heightFt: 4.8, thicknessFt: 0.45, colorHex: 0x1f3b33, exteriorFace: 'east' },
   ],
   stairsUpToTier3: {
     xMin: -3.4,
