@@ -158,3 +158,124 @@ def test_load_config_file_port_zero(tmp_path):
     loaded = app.load_config_file(str(cfg_file))
     assert str(loaded["port"]) == "0"
 
+
+def _make_silent_wav_bytes(seconds: float, sample_rate: int = 16000, channels: int = 1) -> bytes:
+    """Fast synthesized silent 16-bit PCM WAV for boundary and rejection tests."""
+    n_frames = int(seconds * sample_rate)
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(channels)
+        w.setsampwidth(2)
+        w.setframerate(sample_rate)
+        w.writeframes(b"\x00\x00" * (n_frames * channels))
+    return buf.getvalue()
+
+
+def test_embed_oversized_body_content_length_is_413(app_module, client, monkeypatch):
+    monkeypatch.setattr(app_module, "MAX_BODY_BYTES", 1024)
+    encode_called = False
+
+    def fail_encode(*args, **kwargs):
+        nonlocal encode_called
+        encode_called = True
+        raise AssertionError("encode_batch must not be called for oversized body")
+
+    monkeypatch.setattr(app_module._model, "encode_batch", fail_encode)
+
+    resp = client.post("/embed", content=b"x" * 2048)
+    assert resp.status_code == 413
+    assert "too large" in resp.json()["error"].lower()
+    assert not encode_called
+
+
+def test_embed_oversized_streamed_body_is_413(app_module, client, monkeypatch):
+    monkeypatch.setattr(app_module, "MAX_BODY_BYTES", 1024)
+
+    def chunk_gen():
+        for _ in range(4):
+            yield b"a" * 512
+
+    resp = client.post("/embed", content=chunk_gen())
+    assert resp.status_code == 413
+    assert "too large" in resp.json()["error"].lower()
+
+
+def test_embed_default_10mib_body_cap_is_413(app_module, client):
+    assert app_module.MAX_BODY_BYTES == 10 * 1024 * 1024
+    resp = client.post(
+        "/embed",
+        content=b"",
+        headers={"content-length": str(app_module.MAX_BODY_BYTES + 1)},
+    )
+    assert resp.status_code == 413
+    assert "too large" in resp.json()["error"].lower()
+
+
+def test_embed_excessive_duration_rejected_before_sf_read_and_lock(app_module, client, monkeypatch):
+    import soundfile as sf
+
+    wav = _make_silent_wav_bytes(31.0, sample_rate=8000, channels=1)
+
+    def forbid_read(*args, **kwargs):
+        raise AssertionError("sf.read must not be called when sf.info detects duration > 30s")
+
+    def forbid_encode(*args, **kwargs):
+        raise AssertionError("encode_batch must not be called for over-duration audio")
+
+    monkeypatch.setattr(sf, "read", forbid_read)
+    monkeypatch.setattr(app_module._model, "encode_batch", forbid_encode)
+
+    resp = client.post("/embed", content=wav)
+    assert resp.status_code in (400, 413)
+    assert resp.status_code == 413
+    assert "too long" in resp.json()["error"].lower()
+
+
+def test_embed_excessive_channels_rejected_before_sf_read_and_lock(app_module, client, monkeypatch):
+    import soundfile as sf
+
+    wav = _make_silent_wav_bytes(1.0, sample_rate=16000, channels=4)
+
+    def forbid_read(*args, **kwargs):
+        raise AssertionError("sf.read must not be called when sf.info detects channels > 2")
+
+    def forbid_encode(*args, **kwargs):
+        raise AssertionError("encode_batch must not be called for >2 channel audio")
+
+    monkeypatch.setattr(sf, "read", forbid_read)
+    monkeypatch.setattr(app_module._model, "encode_batch", forbid_encode)
+
+    resp = client.post("/embed", content=wav)
+    assert resp.status_code == 400
+    assert "channel" in resp.json()["error"].lower()
+
+
+@pytest.mark.parametrize("bad_rate", [4000, 192000])
+def test_embed_invalid_sample_rate_rejected_before_sf_read_and_lock(
+    app_module, client, monkeypatch, bad_rate
+):
+    import soundfile as sf
+
+    wav = _make_silent_wav_bytes(1.0, sample_rate=bad_rate, channels=1)
+
+    def forbid_read(*args, **kwargs):
+        raise AssertionError("sf.read must not be called when sf.info detects invalid sample rate")
+
+    def forbid_encode(*args, **kwargs):
+        raise AssertionError("encode_batch must not be called for invalid sample rate")
+
+    monkeypatch.setattr(sf, "read", forbid_read)
+    monkeypatch.setattr(app_module._model, "encode_batch", forbid_encode)
+
+    resp = client.post("/embed", content=wav)
+    assert resp.status_code == 400
+    assert "sample rate" in resp.json()["error"].lower()
+
+
+def test_embed_valid_8k_boundary_succeeds(client):
+    wav = _make_wav_bytes(1.0, sample_rate=8000, channels=1)
+    resp = client.post("/embed", content=wav)
+    assert resp.status_code == 200
+    assert len(resp.json()["embedding"]) == 192
+
+

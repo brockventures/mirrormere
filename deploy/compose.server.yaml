@@ -35,8 +35,8 @@ services:
     image: ghcr.io/azylman/mirrormere-voice-fingerprinter:latest
     container_name: mirrormere-voice-fingerprinter
     restart: unless-stopped
-    ports:
-      - "9096:9096" # Speaker-embedding server
+    expose:
+      - "9096" # Speaker-embedding server (internal Docker network only)
     environment:
       - MDE_PORT=9096
       - MDE_BIND=0.0.0.0
@@ -83,8 +83,8 @@ services:
     image: ghcr.io/azylman/mirrormere-hass-proxy:latest
     container_name: mirrormere-hass-proxy
     restart: unless-stopped
-    ports:
-      - "8095:8095" # Fast-path voice intent proxy
+    expose:
+      - "8095" # Fast-path voice intent proxy (internal Docker network only)
     environment:
       - HASS_TOKEN=${HASS_TOKEN:-}
     volumes:

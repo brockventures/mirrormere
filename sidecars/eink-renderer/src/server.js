@@ -21,7 +21,13 @@ function createServer(options = {}) {
       return res.end();
     }
 
-    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    let url;
+    try {
+      url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    } catch {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ status: 'error', error: 'bad request: invalid URL or Host header' }));
+    }
 
     // Healthcheck endpoint for container supervision
     if (url.pathname === '/healthz' || url.pathname === '/health') {

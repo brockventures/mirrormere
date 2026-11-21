@@ -111,7 +111,16 @@ SAVEDIR = Path(os.environ.get("MDE_SAVEDIR") or _file_cfg.get("savedir") or "/mo
 THREADS = int(os.environ.get("MDE_THREADS") or _file_cfg.get("threads") or str(os.cpu_count() or 1))
 TARGET_SAMPLE_RATE = 16000
 MIN_DURATION_SEC = 0.5
+MAX_DURATION_SEC = 30.0
+MIN_SAMPLE_RATE = 8000
+MAX_SAMPLE_RATE = 96000
+MAX_CHANNELS = 2
+MAX_BODY_BYTES = 10 * 1024 * 1024  # 10 MiB hard request body limit
 WARMUP_SEC = 1.0  # 1s of near-silence, just enough to exercise the full path
+
+
+class PayloadTooLargeError(ValueError):
+    """Raised when an audio payload exceeds size or duration limits."""
 
 _model = None
 _model_lock = threading.Lock()
@@ -167,23 +176,72 @@ def _load_model() -> None:
 
 def _decode_and_resample(body: bytes):
     """Returns a 1-D float32 numpy array at TARGET_SAMPLE_RATE, mono.
-    Raises ValueError on anything not decodable as audio."""
+    Raises ValueError on anything not decodable as audio or outside bounds,
+    and PayloadTooLargeError when audio duration exceeds MAX_DURATION_SEC."""
     import numpy as np
     import soundfile as sf
     import torch
     import torchaudio
 
     try:
-        data, sample_rate = sf.read(io.BytesIO(body), dtype="float32", always_2d=True)
+        info = sf.info(io.BytesIO(body))
+    except Exception as exc:
+        raise ValueError(f"could not decode audio: {exc}") from exc
+
+    if info.samplerate < MIN_SAMPLE_RATE or info.samplerate > MAX_SAMPLE_RATE:
+        raise ValueError(
+            f"unsupported sample rate: {info.samplerate}Hz "
+            f"(allowed {MIN_SAMPLE_RATE}..{MAX_SAMPLE_RATE}Hz)"
+        )
+
+    if info.channels < 1 or info.channels > MAX_CHANNELS:
+        raise ValueError(
+            f"unsupported channel count: {info.channels} (max {MAX_CHANNELS})"
+        )
+
+    if info.frames > 0:
+        header_duration = info.frames / float(info.samplerate)
+        if header_duration > MAX_DURATION_SEC:
+            raise PayloadTooLargeError(
+                f"audio too long: {header_duration:.2f}s > {MAX_DURATION_SEC}s"
+            )
+        if header_duration < MIN_DURATION_SEC:
+            raise ValueError(
+                f"audio too short: {header_duration:.2f}s < {MIN_DURATION_SEC}s"
+            )
+
+    max_frames = int(MAX_DURATION_SEC * info.samplerate)
+    try:
+        data, sample_rate = sf.read(
+            io.BytesIO(body),
+            frames=max_frames + 1,
+            dtype="float32",
+            always_2d=True,
+        )
     except Exception as exc:
         raise ValueError(f"could not decode audio: {exc}") from exc
 
     if data.size == 0:
         raise ValueError("empty audio")
 
+    if sample_rate < MIN_SAMPLE_RATE or sample_rate > MAX_SAMPLE_RATE:
+        raise ValueError(
+            f"unsupported sample rate: {sample_rate}Hz "
+            f"(allowed {MIN_SAMPLE_RATE}..{MAX_SAMPLE_RATE}Hz)"
+        )
+
+    if data.shape[1] < 1 or data.shape[1] > MAX_CHANNELS:
+        raise ValueError(
+            f"unsupported channel count: {data.shape[1]} (max {MAX_CHANNELS})"
+        )
+
     mono = data.mean(axis=1)  # downmix any channel count to 1
 
     duration = len(mono) / float(sample_rate)
+    if duration > MAX_DURATION_SEC:
+        raise PayloadTooLargeError(
+            f"audio too long: {duration:.2f}s > {MAX_DURATION_SEC}s"
+        )
     if duration < MIN_DURATION_SEC:
         raise ValueError(f"audio too short: {duration:.2f}s < {MIN_DURATION_SEC}s")
 
@@ -237,13 +295,40 @@ async def health():
 
 @app.post("/embed")
 async def embed(request: Request):
-    body = await request.body()
+    content_length_hdr = request.headers.get("content-length")
+    if content_length_hdr is not None:
+        try:
+            content_length = int(content_length_hdr)
+        except ValueError:
+            return JSONResponse({"error": "invalid Content-Length header"}, status_code=400)
+        if content_length < 0:
+            return JSONResponse({"error": "invalid Content-Length header"}, status_code=400)
+        if content_length > MAX_BODY_BYTES:
+            return JSONResponse(
+                {"error": f"payload too large: {content_length} bytes > {MAX_BODY_BYTES} bytes"},
+                status_code=413,
+            )
+
+    buf = bytearray()
+    async for chunk in request.stream():
+        if not chunk:
+            continue
+        if len(buf) + len(chunk) > MAX_BODY_BYTES:
+            return JSONResponse(
+                {"error": f"payload too large: exceeds {MAX_BODY_BYTES} bytes"},
+                status_code=413,
+            )
+        buf.extend(chunk)
+    body = bytes(buf)
+
     if not body:
         return JSONResponse({"error": "empty body"}, status_code=400)
     if _model is None:
         return JSONResponse({"error": _load_error or "model not loaded"}, status_code=503)
     try:
         result = await run_in_threadpool(_embed_sync, body)
+    except PayloadTooLargeError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=413)
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
     except Exception as exc:

@@ -47,6 +47,8 @@ const SETTLE_MIN_WAIT_MS = 300; // floor: preserves the previous fixed-delay beh
 const SETTLE_POLL_INTERVAL_MS = 100;
 const DEFAULT_LOAD_EVENT_TIMEOUT_MS = 10000; // cap on waiting for Page.loadEventFired after navigate
 const SETTLE_PAINT_DELAY_MS = 150; // extra settle time for paint after the predicate passes
+const DEFAULT_CDP_HTTP_TIMEOUT_MS = 5000; // per-request timeout on Chromium's /json/* HTTP endpoints
+const DEFAULT_CAPTURE_TIMEOUT_MS = 30000; // hard overall cap on a single CDP WebSocket capture
 
 const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -135,6 +137,8 @@ class CaptureService {
       || DEFAULT_SETTLE_TIMEOUT_MS;
 
     this.loadEventTimeoutMs = options.loadEventTimeoutMs || DEFAULT_LOAD_EVENT_TIMEOUT_MS;
+    this.cdpHttpTimeoutMs = options.cdpHttpTimeoutMs || DEFAULT_CDP_HTTP_TIMEOUT_MS;
+    this.captureTimeoutMs = options.captureTimeoutMs || DEFAULT_CAPTURE_TIMEOUT_MS;
     this.sleep = options.sleep || defaultSleep;
 
     // In-flight coalescing promise to prevent rendering stampedes
@@ -250,16 +254,65 @@ class CaptureService {
       const ws = new WebSocket(wsUrl);
       let id = 1;
       const callbacks = new Map();
+      const eventListeners = new Map(); // CDP event method -> Set<fn>
+      let closedNormally = false;
+      let settled = false;
+      let abortLoad = null;
+
+      const closeWsSafely = () => {
+        try {
+          ws.close();
+        } catch {
+          // Ignore errors when closing an already-closed or failed socket
+        }
+      };
+
+      const rejectPendingCallbacks = (err) => {
+        for (const [, cb] of callbacks) {
+          cb.reject(err);
+        }
+        callbacks.clear();
+      };
+
+      const finish = (err, value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(captureTimer);
+        if (err) {
+          reject(err);
+        } else {
+          resolve(value);
+        }
+      };
+
+      const captureTimer = setTimeout(() => {
+        const timeoutErr = new Error(`CDP capture timed out after ${this.captureTimeoutMs}ms`);
+        closedNormally = true;
+        rejectPendingCallbacks(timeoutErr);
+        if (abortLoad) abortLoad();
+        eventListeners.clear();
+        closeWsSafely();
+        finish(timeoutErr);
+      }, this.captureTimeoutMs);
 
       const send = (method, params = {}) => {
         return new Promise((res, rej) => {
+          if (settled) {
+            return rej(new Error('CDP capture already aborted'));
+          }
           const msgId = id++;
           callbacks.set(msgId, { resolve: res, reject: rej });
-          ws.send(JSON.stringify({ id: msgId, method, params }));
+          try {
+            ws.send(JSON.stringify({ id: msgId, method, params }));
+          } catch (err) {
+            callbacks.delete(msgId);
+            rej(err);
+          }
         });
       };
 
       ws.onmessage = (event) => {
+        if (settled) return;
         const msg = JSON.parse(event.data);
         if (msg.method && eventListeners.has(msg.method)) {
           for (const fn of Array.from(eventListeners.get(msg.method))) fn(msg.params);
@@ -275,29 +328,40 @@ class CaptureService {
         }
       };
 
-      let closedNormally = false;
-      const eventListeners = new Map(); // CDP event method -> Set<fn>
       const onEvent = (method, fn) => {
         if (!eventListeners.has(method)) eventListeners.set(method, new Set());
         eventListeners.get(method).add(fn);
-        return () => eventListeners.get(method).delete(fn);
+        return () => {
+          const listeners = eventListeners.get(method);
+          if (listeners) listeners.delete(fn);
+        };
       };
 
       ws.onerror = (err) => {
-        reject(err);
+        const error = err instanceof Error ? err : new Error('CDP WebSocket error');
+        closedNormally = true;
+        rejectPendingCallbacks(error);
+        if (abortLoad) abortLoad();
+        eventListeners.clear();
+        closeWsSafely();
+        finish(error);
       };
 
       ws.onclose = () => {
         if (!closedNormally) {
-          for (const [, cb] of callbacks) {
-            cb.reject(new Error('CDP WebSocket closed unexpectedly'));
-          }
-          callbacks.clear();
-          reject(new Error('CDP WebSocket closed unexpectedly'));
+          const closeErr = new Error('CDP WebSocket closed unexpectedly');
+          rejectPendingCallbacks(closeErr);
+          if (abortLoad) abortLoad();
+          eventListeners.clear();
+          finish(closeErr);
         }
       };
 
       ws.onopen = async () => {
+        if (settled) {
+          closeWsSafely();
+          return;
+        }
         try {
           await send('Page.enable');
           await send('Emulation.setDeviceMetricsOverride', {
@@ -318,6 +382,10 @@ class CaptureService {
           const loadPromise = new Promise((r) => { resolveLoad = r; });
           const offLoad = onEvent('Page.loadEventFired', () => { loadFired = true; resolveLoad(); });
           let loadTimer;
+          abortLoad = () => {
+            clearTimeout(loadTimer);
+            resolveLoad();
+          };
           try {
             await send('Page.navigate', { url: this.displayURL });
             await Promise.race([
@@ -325,9 +393,11 @@ class CaptureService {
               new Promise((r) => { loadTimer = setTimeout(r, this.loadEventTimeoutMs); }),
             ]);
           } finally {
+            abortLoad = null;
             clearTimeout(loadTimer);
             offLoad();
           }
+          if (settled) return;
           if (!loadFired) {
             // eslint-disable-next-line no-console
             console.warn(
@@ -343,6 +413,7 @@ class CaptureService {
           // placeholder ("--:-- ------ --°") instead of real widget content.
           await pollForSettle(
             async () => {
+              if (settled) return true;
               const evalRes = await send('Runtime.evaluate', {
                 expression: SETTLE_PREDICATE_EXPRESSION,
                 returnByValue: true,
@@ -361,6 +432,7 @@ class CaptureService {
               },
             }
           );
+          if (settled) return;
 
           // Query .dither bounding client rects
           const evalRes = await send('Runtime.evaluate', {
@@ -394,12 +466,15 @@ class CaptureService {
 
           const pngBuffer = Buffer.from(screenshotRes.data, 'base64');
           closedNormally = true;
-          ws.close();
-          resolve({ pngBuffer, ditherRects });
+          eventListeners.clear();
+          closeWsSafely();
+          finish(null, { pngBuffer, ditherRects });
         } catch (err) {
           closedNormally = true;
-          ws.close();
-          reject(err);
+          rejectPendingCallbacks(err);
+          eventListeners.clear();
+          closeWsSafely();
+          finish(err);
         }
       };
     });
@@ -412,42 +487,54 @@ class CaptureService {
    */
   async getOrCreateTarget() {
     return new Promise((resolve, reject) => {
-      const req = http.get(`${this.cdpURL}/json/list`, (res) => {
-        let body = '';
-        res.on('data', (chunk) => { body += chunk; });
-        res.on('end', () => {
-          try {
-            assertOk(res, body, '/json/list');
-            const list = JSON.parse(body);
-            const page = list.find((t) => t.type === 'page');
-            if (page) {
-              return resolve(page);
-            }
-            // Create new page if none exists. Current Chromium rejects a GET
-            // here ("Using unsafe HTTP verb GET to invoke /json/new. This
-            // action supports only PUT verb.") - must be a PUT.
-            const newReq = http.request(
-              `${this.cdpURL}/json/new?${encodeURIComponent(this.displayURL)}`,
-              { method: 'PUT' },
-              (newRes) => {
-                let newBody = '';
-                newRes.on('data', (chunk) => { newBody += chunk; });
-                newRes.on('end', () => {
-                  try {
-                    assertOk(newRes, newBody, '/json/new');
-                    resolve(JSON.parse(newBody));
-                  } catch (e) {
-                    reject(e);
-                  }
-                });
+      const req = http.get(
+        `${this.cdpURL}/json/list`,
+        { timeout: this.cdpHttpTimeoutMs },
+        (res) => {
+          let body = '';
+          res.on('data', (chunk) => { body += chunk; });
+          res.on('error', reject);
+          res.on('end', () => {
+            try {
+              assertOk(res, body, '/json/list');
+              const list = JSON.parse(body);
+              const page = list.find((t) => t.type === 'page');
+              if (page) {
+                return resolve(page);
               }
-            );
-            newReq.on('error', reject);
-            newReq.end();
-          } catch (e) {
-            reject(e);
-          }
-        });
+              // Create new page if none exists. Current Chromium rejects a GET
+              // here ("Using unsafe HTTP verb GET to invoke /json/new. This
+              // action supports only PUT verb.") - must be a PUT.
+              const newReq = http.request(
+                `${this.cdpURL}/json/new?${encodeURIComponent(this.displayURL)}`,
+                { method: 'PUT', timeout: this.cdpHttpTimeoutMs },
+                (newRes) => {
+                  let newBody = '';
+                  newRes.on('data', (chunk) => { newBody += chunk; });
+                  newRes.on('error', reject);
+                  newRes.on('end', () => {
+                    try {
+                      assertOk(newRes, newBody, '/json/new');
+                      resolve(JSON.parse(newBody));
+                    } catch (e) {
+                      reject(e);
+                    }
+                  });
+                }
+              );
+              newReq.on('timeout', () => {
+                newReq.destroy(new Error(`CDP /json/new request timed out after ${this.cdpHttpTimeoutMs}ms`));
+              });
+              newReq.on('error', reject);
+              newReq.end();
+            } catch (e) {
+              reject(e);
+            }
+          });
+        }
+      );
+      req.on('timeout', () => {
+        req.destroy(new Error(`CDP /json/list request timed out after ${this.cdpHttpTimeoutMs}ms`));
       });
       req.on('error', reject);
     });
@@ -462,4 +549,6 @@ module.exports = {
   SETTLE_MIN_WAIT_MS,
   SETTLE_POLL_INTERVAL_MS,
   SETTLE_PAINT_DELAY_MS,
+  DEFAULT_CDP_HTTP_TIMEOUT_MS,
+  DEFAULT_CAPTURE_TIMEOUT_MS,
 };
