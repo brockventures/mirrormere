@@ -170,7 +170,7 @@ export const TIER3_LAYOUT_SPEC: Tier3LayoutSpec = {
     nookWhiteBuffet: { id: 'nookWhiteBuffet', roomId: 'breakfastNook', label: 'White Nook Sideboard Buffet', xMin: -19.8, xMax: -18.0, zMin: -9.2, zMax: -4.6, heightFt: 5.4 },
     hearthWallDisplay: { id: 'hearthWallDisplay', roomId: 'breakfastNook', label: 'Hearth Wall Display & Shelving', xMin: -19.2, xMax: -9.8, zMin: 9.2, zMax: 10.8, heightFt: 5.0 },
     // Kitchen
-    northKitchenCounters: { id: 'northKitchenCounters', roomId: 'kitchen', label: 'North Kitchen Counters & Sink', xMin: -9.4, xMax: 5.7, zMin: -10.8, zMax: -8.4, heightFt: 6.2 },
+    northKitchenCounters: { id: 'northKitchenCounters', roomId: 'kitchen', label: 'North Kitchen Counters & Sink', xMin: -9.4, xMax: 5.7, zMin: -10.8, zMax: -6.8, heightFt: 6.2 },
     eastRangeAndHood: { id: 'eastRangeAndHood', roomId: 'kitchen', label: 'East Range, Oven & Vent Hood', xMin: 3.3, xMax: 5.7, zMin: -8.6, zMax: -4.0, heightFt: 6.5 },
     stainlessFridge: { id: 'stainlessFridge', roomId: 'kitchen', label: 'Stainless French-Door Refrigerator', xMin: 2.8, xMax: 5.7, zMin: -3.8, zMax: -0.5, heightFt: 6.2 },
     kitchenIsland: { id: 'kitchenIsland', roomId: 'kitchen', label: 'Center Kitchen Island & Stools', xMin: -8.3, xMax: 0.9, zMin: -3.7, zMax: 1.8, heightFt: 3.1 },

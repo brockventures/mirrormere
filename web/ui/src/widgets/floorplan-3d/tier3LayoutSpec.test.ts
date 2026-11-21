@@ -155,7 +155,8 @@ describe('tier3LayoutSpec — Envelope, 6 Non-Overlapping Rooms, Stairway Thresh
     expect(f.nookWhiteBuffet).toMatchObject({ roomId: 'breakfastNook', xMin: -19.8, xMax: -18.0, zMin: -9.2, zMax: -4.6, heightFt: 5.4 });
     expect(f.hearthWallDisplay).toMatchObject({ roomId: 'breakfastNook', xMin: -19.2, xMax: -9.8, zMin: 9.2, zMax: 10.8, heightFt: 5.0 });
 
-    expect(f.northKitchenCounters).toMatchObject({ roomId: 'kitchen', xMin: -9.4, xMax: 5.7, zMin: -10.8, zMax: -8.4, heightFt: 6.2 });
+    expect(f.northKitchenCounters).toMatchObject({ roomId: 'kitchen', xMin: -9.4, xMax: 5.7, zMin: -10.8, zMax: -6.8, heightFt: 6.2 });
+    expect(f.kitchenIsland.zMin - f.northKitchenCounters.zMax).toBeGreaterThan(3.0);
     expect(f.eastRangeAndHood).toMatchObject({ roomId: 'kitchen', xMin: 3.3, xMax: 5.7, zMin: -8.6, zMax: -4.0, heightFt: 6.5 });
     expect(f.stainlessFridge).toMatchObject({ roomId: 'kitchen', xMin: 2.8, xMax: 5.7, zMin: -3.8, zMax: -0.5, heightFt: 6.2 });
     expect(f.stainlessFridge.zMax).toBeLessThanOrEqual(TIER3_LAYOUT_SPEC.rooms.hallBath.bounds.zMax);

@@ -80,7 +80,23 @@ describe('tier3Fixtures — Floor 3 3D Fixtures (Nook, Kitchen, Hall Bath, Rosie
     expect(built.fixtures.northKitchenCounters.getObjectByName('north-west-drawer-pull-2')).toBeInstanceOf(Mesh);
     expect(built.fixtures.northKitchenCounters.getObjectByName('north-east-drawer-pull-2')).toBeInstanceOf(Mesh);
     expect(built.fixtures.northKitchenCounters.getObjectByName('north-upper-pull--7.56')).toBeInstanceOf(Mesh);
-    expect(built.fixtures.northKitchenCounters.getObjectByName('sink-blue-mat')).toBeInstanceOf(Mesh);
+    const sinkRugBorder = built.fixtures.northKitchenCounters.getObjectByName('sink-blue-mat-border') as Mesh;
+    const sinkRugBody = built.fixtures.northKitchenCounters.getObjectByName('sink-blue-mat') as Mesh;
+    expect(sinkRugBorder).toBeInstanceOf(Mesh);
+    expect(sinkRugBody).toBeInstanceOf(Mesh);
+    const rugBorderBox = new Box3().setFromObject(sinkRugBorder);
+    const rugBodyBox = new Box3().setFromObject(sinkRugBody);
+    expect(rugBorderBox.min.x).toBeCloseTo(-5.0, 2);
+    expect(rugBorderBox.max.x).toBeCloseTo(-1.8, 2);
+    expect(rugBorderBox.min.z).toBeCloseTo(-8.76, 2);
+    expect(rugBorderBox.max.z).toBeCloseTo(-6.96, 2);
+    expect(rugBodyBox.min.x).toBeCloseTo(-4.88, 2);
+    expect(rugBodyBox.max.x).toBeCloseTo(-1.92, 2);
+    expect(rugBodyBox.min.z).toBeCloseTo(-8.64, 2);
+    expect(rugBodyBox.max.z).toBeCloseTo(-7.08, 2);
+    expect(rugBodyBox.max.z - rugBodyBox.min.z).toBeGreaterThan(1.5);
+    expect(rugBorderBox.max.z).toBeLessThanOrEqual(TIER3_LAYOUT_SPEC.fixtures.northKitchenCounters.zMax);
+    expect(TIER3_LAYOUT_SPEC.fixtures.kitchenIsland.zMin - rugBorderBox.max.z).toBeGreaterThan(3.0);
     const rangeBox = new Box3().setFromObject(built.fixtures.eastRangeAndHood);
     expect(rangeBox.min.z).toBeGreaterThanOrEqual(-8.86 - 1e-4);
     expect(rangeBox.max.z).toBeLessThanOrEqual(-3.3 + 1e-4);
@@ -147,15 +163,46 @@ describe('tier3Fixtures — Floor 3 3D Fixtures (Nook, Kitchen, Hall Bath, Rosie
     expect(built.fixtures.tallWhitePantry.getObjectByName('pantry-door-3')).toBeInstanceOf(Mesh);
     expect(built.fixtures.tallWhitePantry.getObjectByName('pantry-pull-3')).toBeInstanceOf(Mesh);
 
-    // Hall Bath: tub curtain, round mirror, 3-globe vanity light, toilet art cleanly north of z = -0.6
+    // Hall Bath: tub curtain, round mirror, 3-globe vanity light, realistic elongated east-facing toilet, art north of z = -0.6
     expect(built.fixtures.hallBathTub.getObjectByName('hall-shower-curtain')).toBeInstanceOf(Mesh);
     expect(built.fixtures.hallBathVanity.getObjectByName('hall-vanity-mirror')).toBeInstanceOf(Mesh);
     expect(built.fixtures.hallBathVanity.getObjectByName('hall-vanity-globe-2')).toBeInstanceOf(Mesh);
     const toiletBox = new Box3().setFromObject(built.fixtures.hallBathToilet);
+    expect(toiletBox.min.x).toBeGreaterThanOrEqual(6.2 - 1e-4);
+    expect(toiletBox.max.x).toBeLessThanOrEqual(7.8 + 1e-4);
+    expect(toiletBox.min.z).toBeGreaterThanOrEqual(-2.8 - 1e-4);
     expect(toiletBox.max.z).toBeLessThanOrEqual(-0.6 + 1e-4);
+    for (const toiletPart of [
+      'hall-toilet-tank',
+      'hall-toilet-tank-lid',
+      'hall-toilet-flush-lever',
+      'hall-toilet-trapway',
+      'hall-toilet-pedestal',
+      'hall-toilet-bowl',
+      'hall-toilet-seat',
+      'hall-toilet-lid',
+    ]) {
+      expect(built.fixtures.hallBathToilet.getObjectByName(toiletPart)).toBeInstanceOf(Mesh);
+    }
+    const toiletTankBox = new Box3().setFromObject(built.fixtures.hallBathToilet.getObjectByName('hall-toilet-tank')!);
+    const toiletBowl = built.fixtures.hallBathToilet.getObjectByName('hall-toilet-bowl') as Mesh;
+    const toiletBowlBox = new Box3().setFromObject(toiletBowl);
+    expect(toiletBowl.geometry).toBeInstanceOf(CylinderGeometry);
+    expect(toiletBowl.scale.x).toBeGreaterThan(toiletBowl.scale.z);
+    expect(toiletBowlBox.max.x).toBeGreaterThan(toiletTankBox.max.x);
     expect(built.fixtures.hallBathToilet.getObjectByName('hall-bath-art-print')).toBeInstanceOf(Mesh);
 
-    // Rosie's Room: rainbow arches, world map, 6-cube storage shelf, round mustard-sun rug, framed south closet sliding doors, single white gable-roofed house bookshelf
+    // Rosie's Room: twin bed in south portion, white nightstand + lamp on north side of bed, rainbow arches, world map, 6-cube shelf, sun rug, closet & house bookshelf
+    const rosieNightstand = built.fixtures.rosieTwinBed.getObjectByName('rosie-nightstand') as Mesh;
+    const rosieBedFrame = built.fixtures.rosieTwinBed.getObjectByName('rosie-bed-frame') as Mesh;
+    expect(rosieNightstand).toBeInstanceOf(Mesh);
+    expect(rosieBedFrame).toBeInstanceOf(Mesh);
+    expect(rosieNightstand.material).toBe(palette.whiteTrim);
+    const nightstandBox = new Box3().setFromObject(rosieNightstand);
+    const bedFrameBox = new Box3().setFromObject(rosieBedFrame);
+    expect(nightstandBox.max.z).toBeLessThan(bedFrameBox.min.z);
+    expect(nightstandBox.min.z).toBeGreaterThanOrEqual(TIER3_LAYOUT_SPEC.fixtures.rosieTwinBed.zMin - 1e-4);
+    expect(bedFrameBox.max.z).toBeLessThanOrEqual(TIER3_LAYOUT_SPEC.fixtures.rosieTwinBed.zMax + 1e-4);
     expect(built.fixtures.rosieRainbowAndMap.getObjectByName('rosie-rainbow-arch-0')).toBeInstanceOf(Mesh);
     expect(built.fixtures.rosieRainbowAndMap.getObjectByName('rosie-rainbow-arch-2')).toBeInstanceOf(Mesh);
     const mapFrameBox = new Box3().setFromObject(built.fixtures.rosieRainbowAndMap.getObjectByName('rosie-map-frame')!);

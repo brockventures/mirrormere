@@ -7,7 +7,7 @@ import {
 } from './tier3LayoutSpec';
 import type { Tier1MaterialPalette } from './tier1Shell';
 
-type PartItem = readonly [number, number, number, number, number, number, MeshStandardMaterial];
+type PartItem = readonly [number, number, number, number, number, number, MeshStandardMaterial, string?];
 type BoxItem = readonly [number, number, number, number, number, number, MeshStandardMaterial, string?];
 
 interface Tier3FixtureContext {
@@ -143,13 +143,13 @@ function buildNookFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3Fixture
 }
 
 function buildKitchenAndHallFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3FixtureKey, Group>): void {
-  const [quartz, subway, ovenGlass, barBrown, playBirch, blueRug, seamMat] = [
+  const [quartz, subway, ovenGlass, barBrown, playBirch, blueRug, creamBorder, seamMat] = [
     c.mat('#f4f3ef', 0.26, 0.04), c.mat('#4c545c', 0.46, 0.06), c.mat('#1a1e24', 0.2, 0.35),
-    c.mat('#4a3222', 0.65), c.mat('#dfd4c2', 0.66), c.mat('#4a7294', 0.9), c.mat('#cbd5e1', 0.78),
+    c.mat('#4a3222', 0.65), c.mat('#dfd4c2', 0.66), c.mat('#4a7294', 0.9), c.mat('#ebe4d6', 0.92), c.mat('#cbd5e1', 0.78),
   ];
   const [wt, bs, bk] = [c.palette.whiteTrim, c.palette.brushedSteel, c.palette.matteBlackIron];
 
-  // 4. North Kitchen Counters, Dishwasher (x -7..-5) + Sink (-4.6..-2.2) + Upper/Lower Pulls & Blue Mat
+  // 4. North Kitchen Counters, Dishwasher (x -7..-5) + Sink (-4.6..-2.2) + Upper/Lower Pulls & Sink Rug
   const nk = fixtures.northKitchenCounters;
   c.boxes(nk, [
     [-9.4, 5.7, 0, 2.92, -10.75, -8.98, wt, 'north-lower-cabinets'], [-7.0, -5.0, 0.18, 2.86, -8.98, -8.88, bs, 'dishwasher-front'],
@@ -157,7 +157,8 @@ function buildKitchenAndHallFixtures(c: Tier3FixtureContext, fixtures: Record<Ti
     [-9.4, 5.7, 3.06, 4.45, -10.78, -10.68, subway, 'north-subway-backsplash'], [-4.6, -2.2, 2.90, 3.08, -10.32, -9.16, bs, 'kitchen-sink-basin'],
     [-3.44, -3.36, 3.08, 4.08, -10.54, -10.44, bk, 'faucet-stem'], [-3.44, -3.36, 3.98, 4.08, -10.44, -9.96, bk, 'faucet-arm'],
     [-9.4, -5.4, 4.45, 6.20, -10.75, -9.65, wt, 'north-upper-cabs-w'], [-1.5, 5.7, 4.45, 6.20, -10.75, -9.65, wt, 'north-upper-cabs-e'],
-    [4.6, 5.7, 4.45, 6.20, -9.65, -8.80, wt, 'north-upper-corner-e'], [-4.7, -2.1, 0, 0.04, -8.80, -8.42, blueRug, 'sink-blue-mat'],
+    [4.6, 5.7, 4.45, 6.20, -9.65, -8.80, wt, 'north-upper-corner-e'],
+    [-5.0, -1.8, 0, 0.032, -8.76, -6.96, creamBorder, 'sink-blue-mat-border'], [-4.88, -1.92, 0.008, 0.042, -8.64, -7.08, blueRug, 'sink-blue-mat'],
     [-3.42, -3.38, 0.16, 2.82, -8.99, -8.96, seamMat, 'north-sink-seam'], [-1.02, -0.98, 0.16, 2.82, -8.99, -8.96, seamMat, 'north-east-base-seam'],
     [-7.42, -7.38, 4.52, 6.14, -9.66, -9.63, seamMat, 'north-upper-w-seam'], [0.48, 0.52, 4.52, 6.14, -9.66, -9.63, seamMat, 'north-upper-e-seam-0'],
     [2.58, 2.62, 4.52, 6.14, -9.66, -9.63, seamMat, 'north-upper-e-seam-1'],
@@ -268,20 +269,27 @@ function buildHallBathFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3Fix
 
   // 12. White Toilet + Framed Print on West Wall
   const ht = fixtures.hallBathToilet;
-  c.parts(ht, f.hallBathToilet, [[0.06, 0.42, 0.30, 0.58, 0.24, 0.76, porcelain], [0.24, 0.94, 0, 0.30, 0.26, 0.74, porcelain]]);
-  c.boxes(ht, [[6.22, 6.30, 2.85, 4.15, -2.45, -0.95, c.palette.matteBlackIron, 'hall-bath-art-frame'], [6.29, 6.33, 2.98, 4.02, -2.32, -1.08, c.mat('#6b8b88', 0.7), 'hall-bath-art-print']]);
+  c.boxes(ht, [
+    [6.24, 6.76, 1.32, 2.52, -2.28, -1.12, porcelain, 'hall-toilet-tank'], [6.21, 6.80, 2.52, 2.62, -2.32, -1.08, porcelain, 'hall-toilet-tank-lid'],
+    [6.76, 6.84, 2.34, 2.40, -2.20, -2.02, c.palette.brushedSteel, 'hall-toilet-flush-lever'], [6.38, 7.02, 0, 1.32, -1.94, -1.46, porcelain, 'hall-toilet-trapway'],
+    [6.22, 6.30, 2.85, 4.15, -2.45, -0.95, c.palette.matteBlackIron, 'hall-bath-art-frame'], [6.29, 6.33, 2.98, 4.02, -2.32, -1.08, c.mat('#6b8b88', 0.7), 'hall-bath-art-print'],
+  ]);
+  c.addCyl(ht, 7.12, 0.48, -1.70, 0.28, 0.38, 0.96, porcelain, 'hall-toilet-pedestal', 20);
+  c.addCyl(ht, 7.20, 1.15, -1.70, 0.46, 0.28, 0.52, porcelain, 'hall-toilet-bowl', 24).scale.set(1.22, 1, 0.86);
+  c.addCyl(ht, 7.20, 1.44, -1.70, 0.48, 0.48, 0.06, c.mat('#e2e8f0', 0.35), 'hall-toilet-seat', 24).scale.set(1.22, 1, 0.86);
+  c.addCyl(ht, 7.20, 1.50, -1.70, 0.45, 0.47, 0.06, porcelain, 'hall-toilet-lid', 24).scale.set(1.22, 1, 0.86);
 }
 
 function buildRosieFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3FixtureKey, Group>, spec: Tier3LayoutSpec): void {
   const f = spec.fixtures;
   const [warmWood, whiteSheet, stripePink, cream] = [c.mat('#7c5132', 0.55), c.mat('#f7f6f2', 0.78), c.mat('#dfa8ae', 0.8), c.mat('#f4efe6', 0.82)];
 
-  // 13. Rosie Twin Bed (headboard east) + Striped Bedding + Nightstand + Glowing Lamp
+  // 13. Rosie Twin Bed (headboard east) + Striped Bedding + White North-Side Nightstand + Glowing Lamp
   c.parts(fixtures.rosieTwinBed, f.rosieTwinBed, [
-    [0.02, 0.98, 0, 0.28, 0.02, 0.70, warmWood], [0.92, 1.0, 0.22, 1.0, 0.02, 0.70, warmWood],
-    [0.04, 0.92, 0.28, 0.56, 0.05, 0.67, whiteSheet], [0.06, 0.44, 0.54, 0.60, 0.05, 0.67, stripePink],
-    [0.72, 0.90, 0.56, 0.68, 0.14, 0.58, whiteSheet], [0.76, 0.98, 0, 0.58, 0.73, 0.98, warmWood],
-    [0.84, 0.92, 0.58, 0.74, 0.81, 0.90, c.palette.whiteTrim], [0.80, 0.96, 0.74, 0.94, 0.77, 0.94, c.mat('#fff3d4', 0.3)],
+    [0.02, 0.98, 0, 0.28, 0.30, 0.98, warmWood, 'rosie-bed-frame'], [0.92, 1.0, 0.22, 1.0, 0.30, 0.98, warmWood, 'rosie-bed-headboard'],
+    [0.04, 0.92, 0.28, 0.56, 0.33, 0.95, whiteSheet, 'rosie-bed-mattress'], [0.06, 0.44, 0.54, 0.60, 0.33, 0.95, stripePink, 'rosie-bed-blanket'],
+    [0.72, 0.90, 0.56, 0.68, 0.42, 0.86, whiteSheet, 'rosie-bed-pillow'], [0.76, 0.98, 0, 0.58, 0.02, 0.27, c.palette.whiteTrim, 'rosie-nightstand'],
+    [0.84, 0.92, 0.58, 0.74, 0.10, 0.19, c.palette.whiteTrim, 'rosie-lamp-base'], [0.80, 0.96, 0.74, 0.94, 0.06, 0.23, c.mat('#fff3d4', 0.3), 'rosie-lamp-shade'],
   ]);
 
   // 14. Rainbow Mural Arches + Framed World Map Art + White 6-Cube (3x2) Storage Shelf on East Wall
@@ -424,7 +432,7 @@ export function buildTier3Fixtures(palette: Tier1MaterialPalette, spec: Tier3Lay
   const addSphere: Tier3FixtureContext['addSphere'] = (p, cx, cy, cz, r, m, name) => trackMesh(p, new SphereGeometry(r, 16, 12), m, cx, cy, cz, name);
   const parts: Tier3FixtureContext['parts'] = (p, s, items) => {
     const [dx, dy, dz] = [s.xMax - s.xMin, s.heightFt, s.zMax - s.zMin];
-    for (const [ux0, ux1, uy0, uy1, uz0, uz1, m] of items) addBox(p, s.xMin + dx * ux0, s.xMin + dx * ux1, dy * uy0, dy * uy1, s.zMin + dz * uz0, s.zMin + dz * uz1, m);
+    for (const [ux0, ux1, uy0, uy1, uz0, uz1, m, name] of items) addBox(p, s.xMin + dx * ux0, s.xMin + dx * ux1, dy * uy0, dy * uy1, s.zMin + dz * uz0, s.zMin + dz * uz1, m, name);
   };
   const ctx: Tier3FixtureContext = { palette, mat, trackMat, trackTex, addMesh: trackMesh, addBox, boxes, addCyl, addSphere, parts };
   const [root, fixtures, ceilingFansGroup] = [new Group(), {} as Record<Tier3FixtureKey, Group>, new Group()];
