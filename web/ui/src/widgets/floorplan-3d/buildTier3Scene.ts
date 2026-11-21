@@ -36,25 +36,14 @@ export interface BuildTier3SceneOptions {
   wallMode?: Tier3WallMode;
 }
 
-interface WallApertureX {
-  x0: number;
-  x1: number;
-  y0: number;
-  y1: number;
-}
-
-interface WallApertureZ {
-  z0: number;
-  z1: number;
-  y0: number;
-  y1: number;
-}
+interface WallApertureX { x0: number; x1: number; y0: number; y1: number; }
+interface WallApertureZ { z0: number; z1: number; y0: number; y1: number; }
 
 const WALL_APERTURES_X: Readonly<Record<string, WallApertureX>> = {
   'north-nook-patio': { x0: -18.5, x1: -10.5, y0: 0.0, y1: 6.1 },
   'north-kitchen': { x0: -5.0, x1: -1.8, y0: 3.3, y1: 5.5 },
   'north-hall-bath': { x0: 7.0, x1: 10.8, y0: 4.2, y1: 5.8 },
-  'north-rosie-mint': { x0: 14.4, x1: 20.4, y0: 1.8, y1: 5.6 },
+  'north-rosie-mint': { x0: 14.4, x1: 20.4, y0: 0.0, y1: 6.1 },
 };
 
 const WALL_APERTURES_Z: Readonly<Record<string, WallApertureZ>> = {
@@ -149,27 +138,17 @@ function buildWallSegment(
   if (apX && isHorizontal && apX.x0 > x0 && apX.x1 < x1 && apX.y1 <= wallHeight) {
     addWallSpan(x0, apX.x0, 0, bodyTop, z0, z1, 'body');
     addWallSpan(apX.x1, x1, 0, bodyTop, z0, z1, 'body-east');
-    if (apX.y0 > 0.05) {
-      addWallSpan(apX.x0, apX.x1, 0, apX.y0, z0, z1, 'sill');
-    }
-    if (apX.y1 < bodyTop) {
-      addWallSpan(apX.x0, apX.x1, apX.y1, bodyTop, z0, z1, 'header');
-    }
-    addBox(wg, x0, x1, bodyTop, wallHeight, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
+    if (apX.y0 > 0.05) addWallSpan(apX.x0, apX.x1, 0, apX.y0, z0, z1, 'sill');
+    if (apX.y1 < bodyTop) addWallSpan(apX.x0, apX.x1, apX.y1, bodyTop, z0, z1, 'header');
   } else if (apZ && !isHorizontal && apZ.z0 > z0 && apZ.z1 < z1 && apZ.y1 <= wallHeight) {
     addWallSpan(x0, x1, 0, bodyTop, z0, apZ.z0, 'body');
     addWallSpan(x0, x1, 0, bodyTop, apZ.z1, z1, 'body-south');
-    if (apZ.y0 > 0.05) {
-      addWallSpan(x0, x1, 0, apZ.y0, apZ.z0, apZ.z1, 'sill');
-    }
-    if (apZ.y1 < bodyTop) {
-      addWallSpan(x0, x1, apZ.y1, bodyTop, apZ.z0, apZ.z1, 'header');
-    }
-    addBox(wg, x0, x1, bodyTop, wallHeight, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
+    if (apZ.y0 > 0.05) addWallSpan(x0, x1, 0, apZ.y0, apZ.z0, apZ.z1, 'sill');
+    if (apZ.y1 < bodyTop) addWallSpan(x0, x1, apZ.y1, bodyTop, apZ.z0, apZ.z1, 'header');
   } else {
     addWallSpan(x0, x1, 0, bodyTop, z0, z1, 'body');
-    addBox(wg, x0, x1, bodyTop, wallHeight, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
   }
+  addBox(wg, x0, x1, bodyTop, wallHeight, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
   return wg;
 }
 
@@ -241,11 +220,31 @@ function buildTier3Windows(
   const nookWestWin = buildFramedWindowX(windowsGroup, 'nook-west-window', -20.0, 1.8, 4.5, -1.3, 8.3, 3, materials.whiteTrim, materials.glass, addBox);
   addBox(nookWestWin, -19.86, -19.66, 4.18, 4.52, -1.35, 8.35, valanceMat, 'nook-west-roller-valance');
 
-  // 5. Rosie north window + blush-pink curtains (#d8b6bc) on north-rosie-mint (x 14.4..20.4, z -11, y 1.8..5.6)
-  const rosieWin = buildFramedWindowZ(windowsGroup, 'rosie-north-window', 14.4, 20.4, 1.8, 5.6, -11.0, 2, materials.whiteTrim, materials.glass, addBox);
-  addBox(rosieWin, 13.75, 14.65, 1.6, 5.72, -10.74, -10.56, blushCurtainMat, 'rosie-north-curtain-west');
-  addBox(rosieWin, 20.15, 21.05, 1.6, 5.72, -10.74, -10.56, blushCurtainMat, 'rosie-north-curtain-east');
-  addBox(rosieWin, 13.55, 21.25, 5.68, 5.75, -10.72, -10.64, materials.matteBlackIron, 'rosie-north-curtain-rod');
+  // 5. Rosie north full-height double French patio doors + full-length blush-pink curtains (#d8b6bc)
+  const rosieDoors = namedGroup('rosie-north-french-doors');
+  addBox(rosieDoors, 14.4, 20.4, 0.0, 0.06, -11.22, -10.78, materials.whiteTrim, 'rosie-north-french-doors-threshold');
+  addBox(rosieDoors, 14.4, 20.4, 5.98, 6.1, -11.22, -10.78, materials.whiteTrim, 'rosie-north-french-doors-header');
+  addBox(rosieDoors, 14.4, 14.52, 0.06, 5.98, -11.22, -10.78, materials.whiteTrim, 'rosie-north-french-doors-jamb-w');
+  addBox(rosieDoors, 20.28, 20.4, 0.06, 5.98, -11.22, -10.78, materials.whiteTrim, 'rosie-north-french-doors-jamb-e');
+  for (const side of ['w', 'e'] as const) {
+    const isWest = side === 'w';
+    const [px0, px1] = isWest ? [14.52, 17.39] : [17.41, 20.28];
+    const [gx0, gx1] = isWest ? [14.72, 17.20] : [17.60, 20.08];
+    const [ox0, ox1] = isWest ? [14.52, 14.72] : [20.08, 20.28];
+    const [mx0, mx1] = isWest ? [17.20, 17.39] : [17.41, 17.60];
+    const hx = isWest ? 17.28 : 17.52;
+    addBox(rosieDoors, ox0, ox1, 0.06, 5.98, -11.08, -10.92, materials.whiteTrim, `rosie-north-french-doors-stile-${side}`);
+    addBox(rosieDoors, mx0, mx1, 0.06, 5.98, -11.08, -10.92, materials.whiteTrim, `rosie-north-french-doors-mullion-${side}`);
+    addBox(rosieDoors, px0, px1, 0.06, 0.46, -11.08, -10.92, materials.whiteTrim, `rosie-north-french-doors-rail-bottom-${side}`);
+    addBox(rosieDoors, px0, px1, 5.68, 5.98, -11.08, -10.92, materials.whiteTrim, `rosie-north-french-doors-rail-top-${side}`);
+    addBox(rosieDoors, gx0, gx1, 0.46, 5.68, -11.04, -10.96, materials.glass, `rosie-north-french-doors-glass-${side}`);
+    addBox(rosieDoors, hx - 0.03, hx + 0.03, 2.55, 3.35, -10.92, -10.82, materials.matteBlackIron, `rosie-north-french-doors-handle-${side}-int`);
+    addBox(rosieDoors, hx - 0.03, hx + 0.03, 2.55, 3.35, -11.18, -11.08, materials.matteBlackIron, `rosie-north-french-doors-handle-${side}-ext`);
+  }
+  addBox(rosieDoors, 13.70, 14.55, 0.05, 6.2, -10.74, -10.52, blushCurtainMat, 'rosie-north-curtain-west');
+  addBox(rosieDoors, 20.25, 21.10, 0.05, 6.2, -10.74, -10.52, blushCurtainMat, 'rosie-north-curtain-east');
+  addBox(rosieDoors, 13.50, 21.30, 6.16, 6.23, -10.70, -10.62, materials.matteBlackIron, 'rosie-north-curtain-rod');
+  windowsGroup.add(rosieDoors);
 
   // 6. Isaac east window + warm peach curtains (#e2b695) on east-isaac-navy (omitted in half-wall mode so nothing floats above 2.2 ft)
   if (wallMode !== 'half') {
@@ -393,22 +392,29 @@ export function buildTier3Scene(options: BuildTier3SceneOptions = {}): BuiltTier
     rooms[fSpec.roomId].add(fixturesBuilt.fixtures[key]);
   }
 
-  // Balanced lighting (HemisphereLight, DirectionalLight, 4 room PointLights)
+  // Balanced lighting (HemisphereLight, DirectionalLight with full-floor shadow frustum, 4 room PointLights)
   const lightsGroup = namedGroup('tier3-lights');
-  const hemi = new HemisphereLight('#fffaf0', '#47505c', 0.95);
+  const hemi = new HemisphereLight('#fffaf0', '#47505c', 1.05);
   hemi.position.set(0, 24, 0);
-  const sun = new DirectionalLight('#fff6e8', 1.35);
+  const sun = new DirectionalLight('#fff6e8', 1.1);
   sun.position.set(12, 28, 18);
   sun.castShadow = true;
-  const nookPt = new PointLight('#ffe9c8', 0.85, 28, 1.4);
-  nookPt.position.set(-14.5, 7.2, 0.0);
-  const kitchenPt = new PointLight('#fff2dc', 0.88, 28, 1.4);
-  kitchenPt.position.set(-1.5, 7.2, -1.0);
-  const bathPt = new PointLight('#f5f9ff', 0.82, 22, 1.4);
-  bathPt.position.set(9.0, 7.2, -4.5);
-  const kidsPt = new PointLight('#ffe9c8', 0.85, 28, 1.4);
-  kidsPt.position.set(17.5, 7.2, 0.5);
-  lightsGroup.add(hemi, sun, sun.target, nookPt, kitchenPt, bathPt, kidsPt);
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -28, right: 28, top: 20, bottom: -20, near: 2, far: 65 });
+  Object.assign(sun.shadow, { bias: -0.0006, normalBias: 0.04, radius: 2.5 });
+  sun.shadow.camera.updateProjectionMatrix();
+  lightsGroup.add(hemi, sun, sun.target);
+  const roomPointSpecs: ReadonlyArray<[string, number, number, number, number]> = [
+    ['#ffe9c8', 0.85, -14.5, 0.0, 28],
+    ['#fff2dc', 0.88, -1.5, -1.0, 28],
+    ['#f5f9ff', 0.82, 9.0, -4.5, 22],
+    ['#ffe9c8', 0.85, 17.5, 0.5, 28],
+  ];
+  for (const [col, inten, px, pz, dist] of roomPointSpecs) {
+    const pt = new PointLight(col, inten, dist, 1.4);
+    pt.position.set(px, 7.2, pz);
+    lightsGroup.add(pt);
+  }
   shellGroup.add(lightsGroup);
 
   const scene = new Scene();
@@ -418,16 +424,8 @@ export function buildTier3Scene(options: BuildTier3SceneOptions = {}): BuiltTier
   scene.updateMatrixWorld(true);
 
   return {
-    scene,
-    group,
-    shellGroup,
-    rooms,
-    roomFloors,
-    wallsById,
-    stairsDownGroup,
-    fixtures: fixturesBuilt.fixtures,
-    ceilingFansGroup: fixturesBuilt.ceilingFansGroup,
-    materials,
+    scene, group, shellGroup, rooms, roomFloors, wallsById, stairsDownGroup,
+    fixtures: fixturesBuilt.fixtures, ceilingFansGroup: fixturesBuilt.ceilingFansGroup, materials,
     dispose: () => {
       for (const g of geometries) g.dispose();
       fixturesBuilt.dispose();

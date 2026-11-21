@@ -122,10 +122,34 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
     expect(nwwBox.max.y).toBeCloseTo(4.52, 2);
     expect(nookWestWin.getObjectByName('nook-west-roller-valance')).toBeInstanceOf(Mesh);
 
-    // 5. Rosie north window + blush-pink curtains (#d8b6bc)
+    // 5. Rosie north full-height double French patio doors (y 0..6.1, no sill wall) + full-length blush-pink curtains (#d8b6bc)
+    const rosieWall = built.wallsById['north-rosie-mint'];
+    expect(rosieWall.getObjectByName('north-rosie-mint-sill')).toBeUndefined();
+    expect(rosieWall.getObjectByName('north-rosie-mint-header')).toBeInstanceOf(Mesh);
+    const rosieDoors = built.shellGroup.getObjectByName('rosie-north-french-doors')!;
+    expect(rosieDoors).toBeDefined();
+    expect(built.shellGroup.getObjectByName('rosie-north-window')).toBeUndefined();
+    const rosieThresholdBox = new Box3().setFromObject(rosieDoors.getObjectByName('rosie-north-french-doors-threshold')!);
+    expect(rosieThresholdBox.min.x).toBeCloseTo(14.4, 2);
+    expect(rosieThresholdBox.max.x).toBeCloseTo(20.4, 2);
+    expect(rosieThresholdBox.min.y).toBeCloseTo(0.0, 2);
+    const rosieHeaderBox = new Box3().setFromObject(rosieDoors.getObjectByName('rosie-north-french-doors-header')!);
+    expect(rosieHeaderBox.max.y).toBeCloseTo(6.1, 2);
+    expect(rosieDoors.getObjectByName('rosie-north-french-doors-glass-w')).toBeInstanceOf(Mesh);
+    expect(rosieDoors.getObjectByName('rosie-north-french-doors-glass-e')).toBeInstanceOf(Mesh);
+    expect(rosieDoors.getObjectByName('rosie-north-french-doors-mullion-w')).toBeInstanceOf(Mesh);
+    expect(rosieDoors.getObjectByName('rosie-north-french-doors-mullion-e')).toBeInstanceOf(Mesh);
+    const rosieHandleW = rosieDoors.getObjectByName('rosie-north-french-doors-handle-w-int') as Mesh;
+    expect(rosieHandleW).toBeInstanceOf(Mesh);
+    expect(rosieHandleW.material).toBe(built.materials.matteBlackIron);
+    expect(rosieDoors.getObjectByName('rosie-north-french-doors-handle-e-int')).toBeInstanceOf(Mesh);
+
     const rosieCurtain = built.shellGroup.getObjectByName('rosie-north-curtain-west') as Mesh;
     expect(rosieCurtain).toBeInstanceOf(Mesh);
     expect((rosieCurtain.material as MeshStandardMaterial).color.getHex()).toBe(0xd8b6bc);
+    const rosieCurtainBox = new Box3().setFromObject(rosieCurtain);
+    expect(rosieCurtainBox.min.y).toBeCloseTo(0.05, 2);
+    expect(rosieCurtainBox.max.y).toBeCloseTo(6.2, 2);
     expect(built.shellGroup.getObjectByName('rosie-north-curtain-east')).toBeInstanceOf(Mesh);
 
     // 6. Isaac east window + warm peach curtains (#e2b695)
@@ -162,19 +186,41 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
       expect(tBox.max.z).toBeLessThanOrEqual(12.2 + 1e-4);
     }
 
-    // Balanced lighting: 1 HemisphereLight, 1 DirectionalLight, 4 PointLights
+    // Balanced lighting: 1 HemisphereLight, 1 DirectionalLight with full Floor 3 shadow frustum, 4 PointLights
     const lightsGroup = built.shellGroup.getObjectByName('tier3-lights')!;
+    let hemiLight: HemisphereLight | undefined;
+    let sunLight: DirectionalLight | undefined;
     let hemiCount = 0;
     let dirCount = 0;
     let pointCount = 0;
     lightsGroup.traverse((obj: Object3D) => {
-      if (obj instanceof HemisphereLight) hemiCount += 1;
-      if (obj instanceof DirectionalLight) dirCount += 1;
+      if (obj instanceof HemisphereLight) {
+        hemiCount += 1;
+        hemiLight = obj;
+      }
+      if (obj instanceof DirectionalLight) {
+        dirCount += 1;
+        sunLight = obj;
+      }
       if (obj instanceof PointLight) pointCount += 1;
     });
     expect(hemiCount).toBe(1);
     expect(dirCount).toBe(1);
     expect(pointCount).toBe(4);
+    expect(hemiLight!.intensity).toBeCloseTo(1.05, 4);
+    expect(sunLight!.intensity).toBeCloseTo(1.1, 4);
+    expect(sunLight!.castShadow).toBe(true);
+    expect(sunLight!.shadow.mapSize.x).toBe(2048);
+    expect(sunLight!.shadow.mapSize.y).toBe(2048);
+    expect(sunLight!.shadow.camera.left).toBe(-28);
+    expect(sunLight!.shadow.camera.right).toBe(28);
+    expect(sunLight!.shadow.camera.top).toBe(20);
+    expect(sunLight!.shadow.camera.bottom).toBe(-20);
+    expect(sunLight!.shadow.camera.near).toBe(2);
+    expect(sunLight!.shadow.camera.far).toBe(65);
+    expect(sunLight!.shadow.bias).toBeCloseTo(-0.0006, 6);
+    expect(sunLight!.shadow.normalBias).toBeCloseTo(0.04, 4);
+    expect(sunLight!.shadow.radius).toBeCloseTo(2.5, 4);
 
     // 22 fixtures reparented into their room groups
     const fixtureKeys = Object.keys(TIER3_LAYOUT_SPEC.fixtures) as Tier3FixtureKey[];
@@ -214,10 +260,10 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
 
     for (const halfId of [
       'south-nook-wall', 'south-kitchen-wall', 'east-isaac-navy',
-      'kitchen-bath-west', 'hall-bath-south', 'bath-rosie-divider', 'rosie-hall-west', 'rosie-isaac-divider',
-      'rosie-closet-west', 'rosie-closet-north-w', 'rosie-closet-north-e',
-      'upper-hall-south', 'pantry-closet-divider', 'pantry-south-return', 'kitchen-play-east',
-      'isaac-closet-jamb-n', 'isaac-hall-west',
+      'kitchen-bath-west', 'hall-bath-south', 'bath-rosie-divider',
+      'pantry-north-wall', 'pantry-back-divider',
+      'isaac-closet-north', 'isaac-closet-east',
+      'rosie-isaac-divider', 'rosie-closet-west',
     ]) {
       const box = new Box3().setFromObject(built.wallsById[halfId]);
       expect(box.max.y).toBeCloseTo(2.2, 2);
@@ -227,6 +273,7 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
     expect(built.shellGroup.getObjectByName('isaac-east-curtain-north')).toBeUndefined();
     expect(built.shellGroup.getObjectByName('nook-patio-door')).toBeDefined();
     expect(built.shellGroup.getObjectByName('kitchen-sink-window')).toBeDefined();
+    expect(built.shellGroup.getObjectByName('rosie-north-french-doors')).toBeDefined();
     expect(new Box3().setFromObject(built.stairsDownGroup.getObjectByName('tier3-stair-jamb-w')!).max.y).toBeCloseTo(2.6, 2);
 
     built.dispose();
