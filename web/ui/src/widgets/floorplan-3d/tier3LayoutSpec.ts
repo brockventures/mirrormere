@@ -111,13 +111,13 @@ export const TIER3_LAYOUT_SPEC: Tier3LayoutSpec = {
     hallBath: {
       id: 'hallBath',
       label: 'Hall Bath',
-      bounds: { xMin: 6.0, xMax: 11.8, zMin: -11.0, zMax: 1.5 },
+      bounds: { xMin: 6.0, xMax: 11.8, zMin: -11.0, zMax: 0.5 },
       floorMaterial: 'slate-tile',
     },
     upperHall: {
       id: 'upperHall',
       label: 'Upper Hallway',
-      bounds: { xMin: 6.0, xMax: 11.8, zMin: 1.5, zMax: 11.0 },
+      bounds: { xMin: 6.0, xMax: 11.8, zMin: 0.5, zMax: 11.0 },
       floorMaterial: 'wood',
     },
     rosieBedroom: {
@@ -151,12 +151,20 @@ export const TIER3_LAYOUT_SPEC: Tier3LayoutSpec = {
     { id: 'south-kitchen-wall', x1: -0.3, z1: 11.0, x2: 11.8, z2: 11.0, heightFt: 4.6, thicknessFt: 0.45, exteriorFace: 'south' },
     { id: 'south-isaac-cutaway', x1: 11.8, z1: 11.0, x2: 23.5, z2: 11.0, heightFt: 1.8, thicknessFt: 0.45, colorHex: 0x2f5573, exteriorFace: 'south' },
     // Interior partitions
-    { id: 'kitchen-bath-west', x1: 6.0, z1: -11.0, x2: 6.0, z2: 1.5, heightFt: 4.6, thicknessFt: 0.35 },
-    { id: 'hall-bath-south', x1: 6.0, z1: 1.5, x2: 8.8, z2: 1.5, heightFt: 4.4, thicknessFt: 0.35 },
+    { id: 'kitchen-bath-west', x1: 6.0, z1: -11.0, x2: 6.0, z2: 0.5, heightFt: 4.6, thicknessFt: 0.35 },
+    { id: 'hall-bath-south', x1: 6.0, z1: 0.5, x2: 8.8, z2: 0.5, heightFt: 4.4, thicknessFt: 0.35 },
     { id: 'bath-rosie-divider', x1: 11.8, z1: -11.0, x2: 11.8, z2: -2.4, heightFt: 4.6, thicknessFt: 0.35, colorHex: 0x42a88c },
-    { id: 'rosie-hall-west', x1: 11.8, z1: -2.4, x2: 11.8, z2: 0.5, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x42a88c },
+    { id: 'rosie-hall-west', x1: 11.8, z1: -2.4, x2: 11.8, z2: -2.0, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x42a88c },
     { id: 'rosie-isaac-divider', x1: 11.8, z1: 0.5, x2: 23.5, z2: 0.5, heightFt: 4.6, thicknessFt: 0.35, colorHex: 0x2f5573 },
-    { id: 'isaac-hall-west', x1: 11.8, z1: 3.4, x2: 11.8, z2: 11.0, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x2f5573 },
+    { id: 'rosie-closet-west', x1: 17.4, z1: -1.8, x2: 17.4, z2: 0.5, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x42a88c },
+    { id: 'rosie-closet-north-w', x1: 17.4, z1: -1.8, x2: 18.4, z2: -1.8, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x42a88c },
+    { id: 'rosie-closet-north-e', x1: 22.3, z1: -1.8, x2: 23.5, z2: -1.8, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x42a88c },
+    { id: 'upper-hall-south', x1: 6.0, z1: 4.2, x2: 11.8, z2: 4.2, heightFt: 4.4, thicknessFt: 0.35 },
+    { id: 'pantry-closet-divider', x1: 8.6, z1: 4.2, x2: 8.6, z2: 11.0, heightFt: 4.4, thicknessFt: 0.35 },
+    { id: 'pantry-south-return', x1: 6.0, z1: 7.9, x2: 8.6, z2: 7.9, heightFt: 4.4, thicknessFt: 0.35 },
+    { id: 'kitchen-play-east', x1: 6.0, z1: 7.9, x2: 6.0, z2: 11.0, heightFt: 4.4, thicknessFt: 0.35 },
+    { id: 'isaac-closet-jamb-n', x1: 11.8, z1: 3.9, x2: 11.8, z2: 4.8, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x2f5573 },
+    { id: 'isaac-hall-west', x1: 11.8, z1: 8.0, x2: 11.8, z2: 11.0, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x2f5573 },
   ],
   stairsDownToTier2: {
     xMin: -3.4,
@@ -166,17 +174,17 @@ export const TIER3_LAYOUT_SPEC: Tier3LayoutSpec = {
   },
   fixtures: {
     // Breakfast Nook
-    diningTableSet: { id: 'diningTableSet', roomId: 'breakfastNook', label: 'Dining Table & Chairs', xMin: -17.2, xMax: -11.2, zMin: 2.0, zMax: 7.2, heightFt: 2.9 },
+    diningTableSet: { id: 'diningTableSet', roomId: 'breakfastNook', label: 'Curved Walnut Dining Table & 6 Chairs', xMin: -17.6, xMax: -10.4, zMin: 1.8, zMax: 7.4, heightFt: 2.9 },
     nookWhiteBuffet: { id: 'nookWhiteBuffet', roomId: 'breakfastNook', label: 'White Nook Sideboard Buffet', xMin: -19.8, xMax: -18.0, zMin: -9.2, zMax: -4.6, heightFt: 5.4 },
     hearthWallDisplay: { id: 'hearthWallDisplay', roomId: 'breakfastNook', label: 'Hearth Wall Display & Shelving', xMin: -19.2, xMax: -9.8, zMin: 9.2, zMax: 10.8, heightFt: 5.0 },
     // Kitchen
     northKitchenCounters: { id: 'northKitchenCounters', roomId: 'kitchen', label: 'North Kitchen Counters & Sink', xMin: -9.4, xMax: 5.7, zMin: -10.8, zMax: -8.4, heightFt: 6.2 },
     eastRangeAndHood: { id: 'eastRangeAndHood', roomId: 'kitchen', label: 'East Range, Oven & Vent Hood', xMin: 3.3, xMax: 5.7, zMin: -8.4, zMax: -0.2, heightFt: 6.5 },
     stainlessFridge: { id: 'stainlessFridge', roomId: 'kitchen', label: 'Stainless French-Door Refrigerator', xMin: 2.8, xMax: 5.7, zMin: 0.2, zMax: 3.6, heightFt: 6.2 },
-    kitchenIsland: { id: 'kitchenIsland', roomId: 'kitchen', label: 'Center Kitchen Island & Stools', xMin: -6.8, xMax: 0.6, zMin: -4.2, zMax: 2.8, heightFt: 3.1 },
+    kitchenIsland: { id: 'kitchenIsland', roomId: 'kitchen', label: 'Center Kitchen Island & Stools', xMin: -7.2, xMax: 2.0, zMin: -3.7, zMax: 1.8, heightFt: 3.1 },
     playKitchenCorner: { id: 'playKitchenCorner', roomId: 'kitchen', label: 'Kids Play Kitchen Corner', xMin: 0.6, xMax: 5.2, zMin: 8.2, zMax: 10.7, heightFt: 4.4 },
-    // Upper Hallway
-    tallWhitePantry: { id: 'tallWhitePantry', roomId: 'upperHall', label: 'Tall White Hall Pantry Cabinet', xMin: 6.2, xMax: 9.4, zMin: 7.4, zMax: 10.7, heightFt: 6.2 },
+    // Upper Hallway (west-facing pantry flush with south kitchen/play-kitchen east wall)
+    tallWhitePantry: { id: 'tallWhitePantry', roomId: 'upperHall', label: 'Tall White Hall Pantry Cabinet', xMin: 6.1, xMax: 8.5, zMin: 4.4, zMax: 7.8, heightFt: 6.2 },
     // Hall Bath
     hallBathTub: { id: 'hallBathTub', roomId: 'hallBath', label: 'Alcove Bathtub & Shower Surround', xMin: 6.2, xMax: 11.6, zMin: -10.8, zMax: -7.6, heightFt: 5.8 },
     hallBathVanity: { id: 'hallBathVanity', roomId: 'hallBath', label: 'Hall Bath Vanity & Mirror', xMin: 6.2, xMax: 8.2, zMin: -6.6, zMax: -3.4, heightFt: 5.6 },
@@ -186,9 +194,9 @@ export const TIER3_LAYOUT_SPEC: Tier3LayoutSpec = {
     rosieRainbowAndMap: { id: 'rosieRainbowAndMap', roomId: 'rosieBedroom', label: 'Rainbow Mural & World Map Art', xMin: 23.0, xMax: 23.4, zMin: -7.6, zMax: 0.1, heightFt: 5.8 },
     rosieRoundRug: { id: 'rosieRoundRug', roomId: 'rosieBedroom', label: 'Round Braided Play Rug', xMin: 14.0, xMax: 20.2, zMin: -4.6, zMax: 0.0, heightFt: 0.04 },
     rosieWhiteDresser: { id: 'rosieWhiteDresser', roomId: 'rosieBedroom', label: 'White Nursery Dresser', xMin: 12.0, xMax: 13.8, zMin: -7.2, zMax: -2.4, heightFt: 2.9 },
-    rosieClosetAndDollhouse: { id: 'rosieClosetAndDollhouse', roomId: 'rosieBedroom', label: 'Closet & Wooden Dollhouse', xMin: 14.8, xMax: 23.2, zMin: -1.1, zMax: 0.3, heightFt: 4.5 },
+    rosieClosetAndDollhouse: { id: 'rosieClosetAndDollhouse', roomId: 'rosieBedroom', label: 'Closet & Wooden Dollhouse', xMin: 14.8, xMax: 23.2, zMin: -1.7, zMax: 0.3, heightFt: 4.5 },
     // Isaac's Bedroom
-    isaacWoodCrib: { id: 'isaacWoodCrib', roomId: 'isaacBedroom', label: "Isaac's Wood Crib", xMin: 12.1, xMax: 15.4, zMin: 5.4, zMax: 10.2, heightFt: 3.4 },
+    isaacWoodCrib: { id: 'isaacWoodCrib', roomId: 'isaacBedroom', label: "Isaac's Wood Crib", xMin: 12.1, xMax: 16.5, zMin: 8.3, zMax: 10.7, heightFt: 3.4 },
     isaacWalnutDresser: { id: 'isaacWalnutDresser', roomId: 'isaacBedroom', label: 'Walnut Nursery Dresser & Changing Pad', xMin: 13.0, xMax: 19.2, zMin: 0.8, zMax: 2.8, heightFt: 4.4 },
     isaacGliderAndOttoman: { id: 'isaacGliderAndOttoman', roomId: 'isaacBedroom', label: 'Nursery Glider & Ottoman', xMin: 19.6, xMax: 23.1, zMin: 1.0, zMax: 4.8, heightFt: 3.1 },
     isaacPlayCouch: { id: 'isaacPlayCouch', roomId: 'isaacBedroom', label: 'Modular Foam Play Couch', xMin: 16.8, xMax: 22.6, zMin: 8.4, zMax: 10.7, heightFt: 2.0 },
