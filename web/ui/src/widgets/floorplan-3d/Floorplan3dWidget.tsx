@@ -8,13 +8,15 @@ import { useWidget } from '../../store/hooks';
 import type { WidgetComponentProps } from '../registry';
 import { buildTier1Scene, type Tier1EntityMap, type Tier1EntityStateLike } from './buildTier1Scene';
 import { buildTier2Scene } from './buildTier2Scene';
+import { buildTier3Scene } from './buildTier3Scene';
 import {
   CAMERA_PRESETS, TIER1_FIXTURES, TIER1_HA_BINDINGS, TIER1_ROOMS,
   type CameraPresetId, type HaBindingKey, type RoomId,
 } from './tier1LayoutSpec';
 import { TIER2_LAYOUT_SPEC, type Tier2RoomId } from './tier2LayoutSpec';
+import { TIER3_LAYOUT_SPEC, type Tier3RoomId } from './tier3LayoutSpec';
 
-export type FloorTierId = 1 | 2;
+export type FloorTierId = 1 | 2 | 3;
 
 declare global {
   interface Window {
@@ -34,14 +36,27 @@ const TIER2_PRESET_PILLS: ReadonlyArray<{ id: Exclude<CameraPresetId, 'stack3Tie
   { id: 'foyer', label: 'Stair & Powder' }, { id: 'garage', label: 'Primary Suite' },
   { id: 'topdown', label: 'Top-Down Audit' },
 ];
+const TIER3_PRESET_PILLS: ReadonlyArray<{ id: Exclude<CameraPresetId, 'stack3Tier'>; label: string }> = [
+  { id: 'dollhouse', label: 'Tier 3 Overview' }, { id: 'office', label: 'Kitchen & Nook' },
+  { id: 'foyer', label: 'Hall Bath' }, { id: 'garage', label: "Kids' Rooms" },
+  { id: 'topdown', label: 'Top-Down Audit' },
+];
 const ROOM_LIST: readonly RoomId[] = ['office', 'foyer', 'garage'];
 const TIER2_ROOM_LIST: readonly Tier2RoomId[] = [
   'livingRoom', 'playNook', 'stairLanding', 'hallway', 'powderRoom', 'primaryBedroom', 'primaryBath',
+];
+const TIER3_ROOM_LIST: readonly Tier3RoomId[] = [
+  'breakfastNook', 'kitchen', 'hallBath', 'upperHall', 'rosieBedroom', 'isaacBedroom',
 ];
 const TIER2_ROOM_TO_PRESET: Readonly<Record<Tier2RoomId, CameraPresetId>> = {
   livingRoom: 'office', playNook: 'office',
   stairLanding: 'foyer', hallway: 'foyer', powderRoom: 'foyer',
   primaryBedroom: 'garage', primaryBath: 'garage',
+};
+const TIER3_ROOM_TO_PRESET: Readonly<Record<Tier3RoomId, CameraPresetId>> = {
+  breakfastNook: 'office', kitchen: 'office',
+  hallBath: 'foyer', upperHall: 'foyer',
+  rosieBedroom: 'garage', isaacBedroom: 'garage',
 };
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 
@@ -49,7 +64,7 @@ function readInitialTier(): FloorTierId {
   if (typeof window === 'undefined') return 1;
   const params = new URLSearchParams(window.location.search);
   const raw = params.get('tier') ?? params.get('floor');
-  return raw === '2' ? 2 : 1;
+  return raw === '3' ? 3 : raw === '2' ? 2 : 1;
 }
 
 function readInitialPreset(): CameraPresetId {
@@ -95,6 +110,16 @@ function buildHudPills(entities: Tier1EntityMap, tier: FloorTierId) {
       { key: 'fixtures', label: `${fixturesCount} Fixtures`, active: true },
     ];
   }
+  if (tier === 3) {
+    const fixturesCount = Object.keys(TIER3_LAYOUT_SPEC.fixtures).length;
+    return [
+      { key: 'rooms', label: '6 Rooms · Wood & Slate', active: true },
+      { key: 'kitchen', label: 'Kitchen & Nook', active: true },
+      { key: 'bath', label: 'Hall Bath & Upper Hall', active: true },
+      { key: 'kids', label: 'Rosie & Isaac Rooms', active: true },
+      { key: 'fixtures', label: `${fixturesCount} Fixtures`, active: true },
+    ];
+  }
   const temp = readEntity(entities, 'officeTemp');
   const unit = typeof temp?.attributes?.unit_of_measurement === 'string' ? temp.attributes.unit_of_measurement : '°F';
   const lightsOn = (['officeLight', 'foyerLight', 'garageLight'] as const).filter((k) => readEntity(entities, k)?.state.toLowerCase() === 'on').length;
@@ -113,11 +138,18 @@ function buildHudPills(entities: Tier1EntityMap, tier: FloorTierId) {
 
 function presetTitleLabel(tier: FloorTierId, preset: CameraPresetId): string {
   if (tier === 1) return CAMERA_PRESETS[preset].label;
+  if (preset === 'topdown') return 'Top-Down Plan';
+  if (tier === 3) {
+    if (preset === 'dollhouse') return 'Tier 3 Dollhouse';
+    if (preset === 'office') return 'Kitchen & Breakfast Nook';
+    if (preset === 'foyer') return 'Hall Bath & Upper Hall';
+    if (preset === 'garage') return "Rosie & Isaac's Rooms";
+    return CAMERA_PRESETS[preset].label;
+  }
   if (preset === 'dollhouse') return 'Tier 2 Dollhouse';
   if (preset === 'office') return 'Living Room & Play Nook';
   if (preset === 'foyer') return 'Stair Landing & Powder Bath';
   if (preset === 'garage') return 'Primary Bedroom & En-Suite Bath';
-  if (preset === 'topdown') return 'Top-Down Plan';
   return CAMERA_PRESETS[preset].label;
 }
 
@@ -146,11 +178,12 @@ function mountWebglViewport(
 
   const builtTier1 = tier === 1 ? buildTier1Scene({ background: '#141922' }) : null;
   const builtTier2 = tier === 2 ? buildTier2Scene({ background: '#141922' }) : null;
+  const builtTier3 = tier === 3 ? buildTier3Scene({ background: '#141922' }) : null;
   if (builtTier1) {
     builtTier1.lights.sun.shadow.bias = -0.0006;
     builtTier1.lights.sun.shadow.normalBias = 0.02;
   }
-  const activeScene = builtTier1 ? builtTier1.scene : builtTier2!.scene;
+  const activeScene = (builtTier1 ?? builtTier2 ?? builtTier3)!.scene;
   const camera = new PerspectiveCamera(40, 16 / 10, 0.25, 220);
   const orbit = { target: new Vector3(1.75, 2.4, -1.0), radius: 42, phi: 0.9, theta: 0 };
   const renderNow = () => renderer.render(activeScene, camera);
@@ -210,8 +243,12 @@ function mountWebglViewport(
       for (let cur: Object3D | null = hit.object; cur; cur = cur.parent) {
         const r = cur.userData?.room;
         if (r === 'office' || r === 'foyer' || r === 'garage') { onPresetSelect(r); return; }
+        const r3 = cur.userData?.roomId as Tier3RoomId | undefined;
+        if (tier === 3 && r3 && Object.prototype.hasOwnProperty.call(TIER3_ROOM_TO_PRESET, r3)) {
+          onPresetSelect(TIER3_ROOM_TO_PRESET[r3]); return;
+        }
         const r2 = cur.userData?.roomId as Tier2RoomId | undefined;
-        if (r2 && Object.prototype.hasOwnProperty.call(TIER2_ROOM_TO_PRESET, r2)) {
+        if (tier === 2 && r2 && Object.prototype.hasOwnProperty.call(TIER2_ROOM_TO_PRESET, r2)) {
           onPresetSelect(TIER2_ROOM_TO_PRESET[r2]); return;
         }
       }
@@ -231,7 +268,7 @@ function mountWebglViewport(
       canvas.removeEventListener('pointerdown', onPointerDown); canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerup', onPointerUp); canvas.removeEventListener('pointercancel', onPointerUp);
       canvas.removeEventListener('wheel', onWheel);
-      builtTier1?.dispose(); builtTier2?.dispose(); renderer.dispose();
+      builtTier1?.dispose(); builtTier2?.dispose(); builtTier3?.dispose(); renderer.dispose();
     },
   };
 }
@@ -248,11 +285,11 @@ export function Floorplan3dWidget({ id, type }: WidgetComponentProps) {
   const handleRef = useRef<WebglHandle | null>(null);
   const entities = useMemo(() => extractEntities(entry.data), [entry.data]);
   const hudPills = useMemo(() => buildHudPills(entities, activeTier), [entities, activeTier]);
-  const presetPills = activeTier === 2 ? TIER2_PRESET_PILLS : PRESET_PILLS;
+  const presetPills = activeTier === 3 ? TIER3_PRESET_PILLS : activeTier === 2 ? TIER2_PRESET_PILLS : PRESET_PILLS;
   const selectPreset = (preset: CameraPresetId) => { setActivePreset(preset); setShowUpperMassing(CAMERA_PRESETS[preset].showUpperMassing); };
   const selectTier = (tier: FloorTierId) => {
     setActiveTier(tier);
-    if (tier === 2 && showUpperMassing) {
+    if (tier !== 1 && showUpperMassing) {
       setShowUpperMassing(false);
       if (activePreset === 'stack3Tier') setActivePreset('dollhouse');
     }
@@ -268,7 +305,7 @@ export function Floorplan3dWidget({ id, type }: WidgetComponentProps) {
       if (Object.prototype.hasOwnProperty.call(CAMERA_PRESETS, preset)) { setActivePreset(preset); setShowUpperMassing(CAMERA_PRESETS[preset].showUpperMassing); }
     };
     window.__setFloorplanTier = (tier: FloorTierId) => {
-      if (tier === 1 || tier === 2) setActiveTier(tier);
+      if (tier === 1 || tier === 2 || tier === 3) setActiveTier(tier);
     };
     return () => { delete window.__setFloorplanPreset; delete window.__setFloorplanTier; };
   }, []);
@@ -287,9 +324,10 @@ export function Floorplan3dWidget({ id, type }: WidgetComponentProps) {
   useEffect(() => { handleRef.current?.applyPreset(activePreset, showUpperMassing); }, [activePreset, showUpperMassing, webglSupported, activeTier]);
   useEffect(() => { handleRef.current?.updateEntities(entities); }, [entities, webglSupported, activeTier]);
 
-  const tierLabel = activeTier === 2 ? 'Hearth Tier 2' : 'Hearth Tier 1';
+  const tierLabel = activeTier === 3 ? 'Hearth Tier 3' : activeTier === 2 ? 'Hearth Tier 2' : 'Hearth Tier 1';
   const presetLabel = presetTitleLabel(activeTier, activePreset);
   const tier2FixturesList = useMemo(() => Object.values(TIER2_LAYOUT_SPEC.fixtures), []);
+  const tier3FixturesList = useMemo(() => Object.values(TIER3_LAYOUT_SPEC.fixtures), []);
 
   return (
     <div
@@ -313,60 +351,59 @@ export function Floorplan3dWidget({ id, type }: WidgetComponentProps) {
                     <div>{TIER1_FIXTURES.filter((f) => f.room === roomId).length} fixtures · {presetLabel}</div>
                   </button>
                 ))
-              : TIER2_ROOM_LIST.map((roomId) => (
-                  <button
-                    key={roomId}
-                    type="button"
-                    className="fp3d-fallback-room"
-                    data-room-id={roomId}
-                    onClick={() => selectPreset(TIER2_ROOM_TO_PRESET[roomId])}
-                  >
-                    <strong>{TIER2_LAYOUT_SPEC.rooms[roomId].label}</strong>
-                    <div>{tier2FixturesList.filter((f) => f.roomId === roomId).length} fixtures · {presetLabel}</div>
-                  </button>
-                ))}
+              : activeTier === 2
+                ? TIER2_ROOM_LIST.map((roomId) => (
+                    <button key={roomId} type="button" className="fp3d-fallback-room" data-room-id={roomId} onClick={() => selectPreset(TIER2_ROOM_TO_PRESET[roomId])}>
+                      <strong>{TIER2_LAYOUT_SPEC.rooms[roomId].label}</strong>
+                      <div>{tier2FixturesList.filter((f) => f.roomId === roomId).length} fixtures · {presetLabel}</div>
+                    </button>
+                  ))
+                : TIER3_ROOM_LIST.map((roomId) => (
+                    <button key={roomId} type="button" className="fp3d-fallback-room" data-room-id={roomId} onClick={() => selectPreset(TIER3_ROOM_TO_PRESET[roomId])}>
+                      <strong>{TIER3_LAYOUT_SPEC.rooms[roomId].label}</strong>
+                      <div>{tier3FixturesList.filter((f) => f.roomId === roomId).length} fixtures · {presetLabel}</div>
+                    </button>
+                  ))}
           </div>
         )}
       </div>
       <div className="fp3d-hud-top">
         <div className="fp3d-title-chip">{tierLabel} · {presetLabel}</div>
         <div className="fp3d-status-list">
-          {activeTier === 2
-            ? TIER2_ROOM_LIST.map((roomId) => (
+          {activeTier === 3
+            ? TIER3_ROOM_LIST.map((roomId) => (
                 <span key={roomId} className="fp3d-status-pill" data-room-badge={roomId} data-active="true">
-                  <span className="fp3d-status-dot" />{TIER2_LAYOUT_SPEC.rooms[roomId].label}
+                  <span className="fp3d-status-dot" />{TIER3_LAYOUT_SPEC.rooms[roomId].label}
                 </span>
               ))
-            : hudPills.map((p) => (
-                <span key={p.key} className="fp3d-status-pill" data-status-key={p.key} data-active={p.active ? 'true' : 'false'}>
-                  <span className="fp3d-status-dot" />{p.label}
-                </span>
-              ))}
+            : activeTier === 2
+              ? TIER2_ROOM_LIST.map((roomId) => (
+                  <span key={roomId} className="fp3d-status-pill" data-room-badge={roomId} data-active="true">
+                    <span className="fp3d-status-dot" />{TIER2_LAYOUT_SPEC.rooms[roomId].label}
+                  </span>
+                ))
+              : hudPills.map((p) => (
+                  <span key={p.key} className="fp3d-status-pill" data-status-key={p.key} data-active={p.active ? 'true' : 'false'}>
+                    <span className="fp3d-status-dot" />{p.label}
+                  </span>
+                ))}
         </div>
       </div>
       <div className="fp3d-controls" role="toolbar" aria-label="Floorplan Camera Controls">
-        <button
-          type="button"
-          className="fp3d-pill"
-          data-testid="floorplan-tier-1-btn"
-          data-tier="1"
-          data-active={activeTier === 1 ? 'true' : 'false'}
-          aria-pressed={activeTier === 1}
-          onClick={() => selectTier(1)}
-        >
-          Floor 1 (Tier 1)
-        </button>
-        <button
-          type="button"
-          className="fp3d-pill"
-          data-testid="floorplan-tier-2-btn"
-          data-tier="2"
-          data-active={activeTier === 2 ? 'true' : 'false'}
-          aria-pressed={activeTier === 2}
-          onClick={() => selectTier(2)}
-        >
-          Floor 2 (Tier 2)
-        </button>
+        {([1, 2, 3] as const).map((tierNum) => (
+          <button
+            key={tierNum}
+            type="button"
+            className="fp3d-pill"
+            data-testid={`floorplan-tier-${tierNum}-btn`}
+            data-tier={String(tierNum)}
+            data-active={activeTier === tierNum ? 'true' : 'false'}
+            aria-pressed={activeTier === tierNum}
+            onClick={() => selectTier(tierNum)}
+          >
+            {`Floor ${tierNum} (Tier ${tierNum})`}
+          </button>
+        ))}
         <span className="fp3d-divider" aria-hidden="true" />
         {presetPills.map((pill) => (
           <button key={pill.id} type="button" className="fp3d-pill" data-preset={pill.id} data-active={activePreset === pill.id ? 'true' : 'false'} onClick={() => selectPreset(pill.id)}>{pill.label}</button>

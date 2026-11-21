@@ -94,7 +94,7 @@ describe('Floorplan3dWidget', () => {
     expect(root.dataset.activePreset).toBe('foyer');
   });
 
-  it('initializes Floor 2 from ?tier=2 / ?floor=2 with ?view=topdown and ?kiosk=1 and supports Floor 1 / Floor 2 toggle buttons', () => {
+  it('initializes Floor 2 and Floor 3 from ?tier= / ?floor= with ?view=topdown and ?kiosk=1 and supports Floor 1 / 2 / 3 toggle buttons', () => {
     window.history.replaceState({}, '', '/?floorplan3d=1&tier=2&view=topdown&kiosk=1');
 
     const { container } = render(<Floorplan3dWidget id="fp-t2" type="floorplan-3d" />);
@@ -108,8 +108,10 @@ describe('Floorplan3dWidget', () => {
 
     const tier1Btn = screen.getByTestId('floorplan-tier-1-btn');
     const tier2Btn = screen.getByTestId('floorplan-tier-2-btn');
+    const tier3Btn = screen.getByTestId('floorplan-tier-3-btn');
     expect(tier2Btn.getAttribute('aria-pressed')).toBe('true');
     expect(tier1Btn.getAttribute('aria-pressed')).toBe('false');
+    expect(tier3Btn.getAttribute('aria-pressed')).toBe('false');
 
     fireEvent.click(tier1Btn);
     expect(root.dataset.activeTier).toBe('1');
@@ -124,11 +126,38 @@ describe('Floorplan3dWidget', () => {
     fireEvent.click(primaryBedFallback);
     expect(root.dataset.activePreset).toBe('garage');
 
+    fireEvent.click(tier3Btn);
+    expect(root.dataset.activeTier).toBe('3');
+    expect(tier3Btn.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('region', { name: /Hearth Tier 3 Floorplan Overview/i })).toBeTruthy();
+    expect(screen.getAllByText(/Breakfast Nook/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Rosie's Bedroom/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Tier 3 Overview')).toBeTruthy();
+    expect(screen.getByText('Kitchen & Nook')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Hall Bath' })).toBeTruthy();
+    expect(screen.getByText("Kids' Rooms")).toBeTruthy();
+
+    const rosieFallback = container.querySelector('[data-room-id="rosieBedroom"]') as HTMLButtonElement;
+    fireEvent.click(rosieFallback);
+    expect(root.dataset.activePreset).toBe('garage');
+
     act(() => { window.__setFloorplanTier?.(1); });
     expect(root.dataset.activeTier).toBe('1');
+    act(() => { window.__setFloorplanTier?.(3); });
+    expect(root.dataset.activeTier).toBe('3');
   });
 
-  it('mounts WebGL viewport for both Tier 1 and Tier 2 with orbit, pinch/wheel zoom, raycast room focus, and falls back cleanly on renderer throw', async () => {
+  it('initializes Floor 3 directly from ?tier=3 URL query parameter', () => {
+    window.history.replaceState({}, '', '/?floorplan3d=1&tier=3&view=dollhouse&kiosk=1');
+    const { container } = render(<Floorplan3dWidget id="fp-t3" type="floorplan-3d" />);
+    const root = container.querySelector('.fp3d-widget') as HTMLElement;
+    expect(root.dataset.activeTier).toBe('3');
+    expect(root.dataset.activePreset).toBe('dollhouse');
+    expect(screen.getByText('Hearth Tier 3 · Tier 3 Dollhouse')).toBeTruthy();
+    expect(container.querySelector('[data-room-badge="isaacBedroom"]')).toBeTruthy();
+  });
+
+  it('mounts WebGL viewport for Tier 1, Tier 2, and Tier 3 with orbit, pinch/wheel zoom, raycast room focus, and falls back cleanly on renderer throw', async () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(((kind: string) => (kind === '2d' ? null : {})) as never);
     globalThis.ResizeObserver = class {
       observe() {}
@@ -162,6 +191,10 @@ describe('Floorplan3dWidget', () => {
     fireEvent.click(screen.getByTestId('floorplan-tier-2-btn'));
     expect((container.querySelector('.fp3d-widget') as HTMLElement).dataset.activeTier).toBe('2');
     expect(container.querySelector('canvas.fp3d-canvas')?.getAttribute('aria-label')).toContain('Hearth Tier 2');
+
+    fireEvent.click(screen.getByTestId('floorplan-tier-3-btn'));
+    expect((container.querySelector('.fp3d-widget') as HTMLElement).dataset.activeTier).toBe('3');
+    expect(container.querySelector('canvas.fp3d-canvas')?.getAttribute('aria-label')).toContain('Hearth Tier 3');
 
     unmount();
     expect(disposeSpy).toHaveBeenCalled();
