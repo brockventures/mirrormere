@@ -155,9 +155,44 @@ describe('tier3Fixtures — Floor 3 3D Fixtures (Nook, Kitchen, Hall Bath, Rosie
     expect(toiletBox.max.z).toBeLessThanOrEqual(-0.6 + 1e-4);
     expect(built.fixtures.hallBathToilet.getObjectByName('hall-bath-art-print')).toBeInstanceOf(Mesh);
 
-    // Rosie's Room: rainbow arches, round mustard-sun rug, framed south closet sliding doors, slender gable-roofed white dollhouse & low bookshelf
+    // Rosie's Room: rainbow arches, world map, 6-cube storage shelf, round mustard-sun rug, framed south closet sliding doors, single white gable-roofed house bookshelf
     expect(built.fixtures.rosieRainbowAndMap.getObjectByName('rosie-rainbow-arch-0')).toBeInstanceOf(Mesh);
     expect(built.fixtures.rosieRainbowAndMap.getObjectByName('rosie-rainbow-arch-2')).toBeInstanceOf(Mesh);
+    const mapFrameBox = new Box3().setFromObject(built.fixtures.rosieRainbowAndMap.getObjectByName('rosie-map-frame')!);
+    const sixCubeParts = [
+      'rosie-six-cube-frame-top',
+      'rosie-six-cube-frame-bottom',
+      'rosie-six-cube-frame-n',
+      'rosie-six-cube-frame-s',
+      'rosie-six-cube-frame-back',
+      'rosie-six-cube-shelf-mid',
+      'rosie-six-cube-div-0',
+      'rosie-six-cube-div-1',
+    ];
+    const sixCubeBox = new Box3();
+    for (const partName of sixCubeParts) {
+      const partMesh = built.fixtures.rosieRainbowAndMap.getObjectByName(partName) as Mesh;
+      expect(partMesh).toBeInstanceOf(Mesh);
+      sixCubeBox.expandByObject(partMesh);
+    }
+    expect(sixCubeBox.min.x).toBeCloseTo(22.0, 2);
+    expect(sixCubeBox.max.x).toBeCloseTo(23.25, 2);
+    expect(sixCubeBox.min.y).toBeCloseTo(0.0, 2);
+    expect(sixCubeBox.max.y).toBeCloseTo(2.18, 2);
+    expect(sixCubeBox.min.z).toBeCloseTo(-3.3, 2);
+    expect(sixCubeBox.max.z).toBeCloseTo(-0.24, 2);
+    expect(sixCubeBox.max.y).toBeLessThan(mapFrameBox.min.y);
+    for (let ci = 0; ci < 3; ci += 1) {
+      const binMesh = built.fixtures.rosieRainbowAndMap.getObjectByName(`rosie-six-cube-bin-${ci}`) as Mesh;
+      const booksMesh = built.fixtures.rosieRainbowAndMap.getObjectByName(`rosie-six-cube-books-${ci}`) as Mesh;
+      expect(binMesh).toBeInstanceOf(Mesh);
+      expect(booksMesh).toBeInstanceOf(Mesh);
+      const binBox = new Box3().setFromObject(binMesh);
+      const booksBox = new Box3().setFromObject(booksMesh);
+      expect(binBox.max.y).toBeLessThan(1.1);
+      expect(booksBox.min.y).toBeGreaterThanOrEqual(1.1);
+      expect(booksBox.max.y).toBeLessThanOrEqual(2.1);
+    }
     const rosieRug = built.fixtures.rosieRoundRug.getObjectByName('rosie-round-rug-disc') as Mesh;
     expect(rosieRug).toBeInstanceOf(Mesh);
     expect(rosieRug.geometry).toBeInstanceOf(CylinderGeometry);
@@ -187,7 +222,8 @@ describe('tier3Fixtures — Floor 3 3D Fixtures (Nook, Kitchen, Hall Bath, Rosie
     const rosieRoofW = built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-dollhouse-roof-w') as Mesh;
     const rosieRoofE = built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-dollhouse-roof-e') as Mesh;
     const rosieGable = built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-dollhouse-gable') as Mesh;
-    const rosieBookshelf = new Box3().setFromObject(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-bookshelf-top')!);
+    const rosieDollhouseBody = new Box3().setFromObject(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-dollhouse-body')!);
+    const rosieDollhouseBase = new Box3().setFromObject(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-dollhouse-base')!);
     const rosieDollhouseBox = new Box3().setFromObject(rosieRoofE);
     expect(rosieDoorW.min.x).toBeGreaterThanOrEqual(17.7);
     expect(rosieDoorE.max.x).toBeLessThanOrEqual(23.3);
@@ -198,12 +234,21 @@ describe('tier3Fixtures — Floor 3 3D Fixtures (Nook, Kitchen, Hall Bath, Rosie
     expect(rosieRoofW.rotation.z).toBeGreaterThan(0.5);
     expect(rosieRoofE.rotation.z).toBeLessThan(-0.5);
     expect(rosieGable.geometry).toBeInstanceOf(ExtrudeGeometry);
+    expect(rosieDollhouseBody.min.x).toBeCloseTo(15.2, 2);
+    expect(rosieDollhouseBody.max.x).toBeCloseTo(16.8, 2);
+    expect(rosieDollhouseBase.min.z).toBeCloseTo(1.04, 2);
+    expect(rosieDollhouseBase.max.z).toBeCloseTo(1.8, 2);
     expect(rosieDollhouseBox.max.x).toBeLessThanOrEqual(17.4);
     expect(rosieDollhouseBox.max.z).toBeLessThanOrEqual(1.85);
-    expect(rosieBookshelf.max.x).toBeLessThan(16.0);
-    expect(rosieBookshelf.max.y).toBeLessThanOrEqual(2.1);
+    expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-bookshelf-back')).toBeUndefined();
+    expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-bookshelf-top')).toBeUndefined();
+    expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-bookshelf-basket')).toBeUndefined();
+    expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-bookshelf-books-0')).toBeUndefined();
     expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-dollhouse-tier-1')).toBeInstanceOf(Mesh);
     expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-dollhouse-interior')).toBeInstanceOf(Mesh);
+    expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-dollhouse-basket')).toBeInstanceOf(Mesh);
+    expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-dollhouse-books-0')).toBeInstanceOf(Mesh);
+    expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-dollhouse-books-2')).toBeInstanceOf(Mesh);
     expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-cube-shelf')).toBeUndefined();
     expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-cube-bin-1')).toBeUndefined();
     expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-closet-shelf')).toBeInstanceOf(Mesh);
@@ -232,20 +277,31 @@ describe('tier3Fixtures — Floor 3 3D Fixtures (Nook, Kitchen, Hall Bath, Rosie
     const starMat = built.fixtures.isaacStarPlayMat.getObjectByName('isaac-star-play-mat') as Mesh;
     expect(starMat).toBeInstanceOf(Mesh);
     expect((starMat.material as MeshStandardMaterial).map).toBeInstanceOf(DataTexture);
-    const isaacDoorN = new Box3().setFromObject(built.root.getObjectByName('isaac-closet-door-n')!);
-    const isaacDoorS = new Box3().setFromObject(built.root.getObjectByName('isaac-closet-door-s')!);
-    const isaacPullN = new Box3().setFromObject(built.root.getObjectByName('isaac-closet-pull-n')!);
-    const isaacPullS = new Box3().setFromObject(built.root.getObjectByName('isaac-closet-pull-s')!);
-    expect(built.root.getObjectByName('isaac-closet-door')).toBeUndefined();
-    expect(isaacDoorN.min.x).toBeGreaterThanOrEqual(11.6);
-    expect(isaacDoorN.max.x).toBeLessThanOrEqual(12.0);
-    expect(isaacDoorN.min.z).toBeGreaterThanOrEqual(7.2);
-    expect(isaacDoorS.max.z).toBeLessThanOrEqual(10.8);
-    expect(isaacPullN.min.x).toBeGreaterThanOrEqual(11.8);
-    expect(isaacPullS.min.x).toBeGreaterThanOrEqual(11.75);
-    expect(built.root.getObjectByName('isaac-closet-header')).toBeInstanceOf(Mesh);
-    expect(built.root.getObjectByName('isaac-closet-shelf')).toBeInstanceOf(Mesh);
-    expect(built.root.getObjectByName('isaac-closet-rod')).toBeInstanceOf(Mesh);
+    for (const removed of [
+      'isaac-closet-door',
+      'isaac-closet-header',
+      'isaac-closet-door-n',
+      'isaac-closet-door-s',
+      'isaac-closet-pull-n',
+      'isaac-closet-pull-s',
+    ]) {
+      expect(built.root.getObjectByName(removed)).toBeUndefined();
+    }
+    const isaacCloset = built.root.getObjectByName('isaac-closet')!;
+    expect(isaacCloset).toBeDefined();
+    const isaacClosetBox = new Box3().setFromObject(isaacCloset);
+    expect(isaacClosetBox.min.x).toBeGreaterThanOrEqual(8.85 - 1e-4);
+    expect(isaacClosetBox.max.x).toBeLessThanOrEqual(11.55 + 1e-4);
+    expect(isaacClosetBox.min.z).toBeGreaterThanOrEqual(9.2 - 1e-4);
+    expect(isaacClosetBox.max.z).toBeLessThanOrEqual(10.75 + 1e-4);
+    expect(isaacClosetBox.max.y).toBeLessThanOrEqual(2.12 + 1e-4);
+    const shelfBox = new Box3().setFromObject(isaacCloset.getObjectByName('isaac-closet-shelf')!);
+    expect(shelfBox.max.x - shelfBox.min.x).toBeGreaterThan(shelfBox.max.z - shelfBox.min.z);
+    expect(isaacCloset.getObjectByName('isaac-closet-rod')).toBeInstanceOf(Mesh);
+    expect(isaacCloset.getObjectByName('isaac-closet-bin')).toBeInstanceOf(Mesh);
+    for (let ci = 0; ci < 3; ci += 1) {
+      expect(isaacCloset.getObjectByName(`isaac-closet-clothes-${ci}`)).toBeInstanceOf(Mesh);
+    }
 
     // Ceiling fans removed from Floor 3
     expect(built.ceilingFansGroup.name).toBe('tier3-ceiling-fans');

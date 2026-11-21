@@ -154,7 +154,7 @@ export const TIER3_LAYOUT_SPEC: Tier3LayoutSpec = {
     { id: 'bath-rosie-divider', x1: 11.8, z1: -11.0, x2: 11.8, z2: -0.4, heightFt: 4.6, thicknessFt: 0.35, colorHex: 0x42a88c },
     { id: 'pantry-north-wall', x1: 6.0, z1: 3.8, x2: 8.6, z2: 3.8, heightFt: 4.4, thicknessFt: 0.35 },
     { id: 'pantry-back-divider', x1: 8.6, z1: 3.8, x2: 8.6, z2: 11.0, heightFt: 4.4, thicknessFt: 0.35 },
-    { id: 'isaac-closet-north', x1: 8.6, z1: 7.2, x2: 11.8, z2: 7.2, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x2f5573 },
+    { id: 'isaac-closet-east', x1: 11.8, z1: 7.2, x2: 11.8, z2: 11.0, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x2f5573 },
     { id: 'rosie-isaac-divider', x1: 11.8, z1: 2.0, x2: 23.5, z2: 2.0, heightFt: 4.6, thicknessFt: 0.35, colorHex: 0x2f5573 },
     { id: 'rosie-closet-west', x1: 17.6, z1: 0.0, x2: 17.6, z2: 2.0, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x42a88c },
   ],
@@ -183,7 +183,7 @@ export const TIER3_LAYOUT_SPEC: Tier3LayoutSpec = {
     hallBathToilet: { id: 'hallBathToilet', roomId: 'hallBath', label: 'Hall Bath Toilet', xMin: 6.2, xMax: 7.8, zMin: -2.8, zMax: -0.6, heightFt: 4.2 },
     // Rosie's Bedroom
     rosieTwinBed: { id: 'rosieTwinBed', roomId: 'rosieBedroom', label: "Rosie's Twin Bed", xMin: 16.2, xMax: 23.2, zMin: -7.8, zMax: -3.4, heightFt: 3.2 },
-    rosieRainbowAndMap: { id: 'rosieRainbowAndMap', roomId: 'rosieBedroom', label: 'Rainbow Mural & World Map Art', xMin: 23.0, xMax: 23.4, zMin: -7.6, zMax: 0.1, heightFt: 5.8 },
+    rosieRainbowAndMap: { id: 'rosieRainbowAndMap', roomId: 'rosieBedroom', label: 'Rainbow Mural & World Map Art', xMin: 21.95, xMax: 23.4, zMin: -7.6, zMax: 0.1, heightFt: 5.8 },
     rosieRoundRug: { id: 'rosieRoundRug', roomId: 'rosieBedroom', label: 'Round Braided Play Rug', xMin: 14.0, xMax: 20.2, zMin: -4.6, zMax: 0.0, heightFt: 0.04 },
     rosieWhiteDresser: { id: 'rosieWhiteDresser', roomId: 'rosieBedroom', label: 'White Nursery Dresser', xMin: 12.0, xMax: 13.8, zMin: -7.2, zMax: -2.4, heightFt: 2.9 },
     rosieClosetAndDollhouse: { id: 'rosieClosetAndDollhouse', roomId: 'rosieBedroom', label: 'Closet & Wooden Dollhouse', xMin: 14.8, xMax: 23.2, zMin: 0.0, zMax: 1.8, heightFt: 4.5 },

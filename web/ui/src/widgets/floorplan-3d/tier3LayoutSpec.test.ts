@@ -117,8 +117,8 @@ describe('tier3LayoutSpec — Envelope, 6 Non-Overlapping Rooms, Stairway Thresh
     expect(wallById.get('bath-rosie-divider')).toMatchObject({ x1: 11.8, z1: -11.0, x2: 11.8, z2: -0.4, heightFt: 4.6, thicknessFt: 0.35, colorHex: 0x42a88c });
     expect(wallById.get('pantry-north-wall')).toMatchObject({ x1: 6.0, z1: 3.8, x2: 8.6, z2: 3.8, heightFt: 4.4, thicknessFt: 0.35 });
     expect(wallById.get('pantry-back-divider')).toMatchObject({ x1: 8.6, z1: 3.8, x2: 8.6, z2: 11.0, heightFt: 4.4, thicknessFt: 0.35 });
-    expect(wallById.get('isaac-closet-north')).toMatchObject({ x1: 8.6, z1: 7.2, x2: 11.8, z2: 7.2, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x2f5573 });
-    expect(wallById.get('isaac-closet-east')).toBeUndefined();
+    expect(wallById.get('isaac-closet-north')).toBeUndefined();
+    expect(wallById.get('isaac-closet-east')).toMatchObject({ x1: 11.8, z1: 7.2, x2: 11.8, z2: 11.0, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x2f5573 });
     expect(wallById.get('rosie-isaac-divider')).toMatchObject({ x1: 11.8, z1: 2.0, x2: 23.5, z2: 2.0, heightFt: 4.6, thicknessFt: 0.35, colorHex: 0x2f5573 });
     expect(wallById.get('rosie-closet-west')).toMatchObject({ x1: 17.6, z1: 0.0, x2: 17.6, z2: 2.0, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x42a88c });
 
@@ -128,7 +128,7 @@ describe('tier3LayoutSpec — Envelope, 6 Non-Overlapping Rooms, Stairway Thresh
       'bath-rosie-divider',
       'pantry-north-wall',
       'pantry-back-divider',
-      'isaac-closet-north',
+      'isaac-closet-east',
       'rosie-isaac-divider',
       'rosie-closet-west',
     ]) {
@@ -173,7 +173,7 @@ describe('tier3LayoutSpec — Envelope, 6 Non-Overlapping Rooms, Stairway Thresh
     expect(f.hallBathToilet).toMatchObject({ roomId: 'hallBath', xMin: 6.2, xMax: 7.8, zMin: -2.8, zMax: -0.6, heightFt: 4.2 });
 
     expect(f.rosieTwinBed).toMatchObject({ roomId: 'rosieBedroom', xMin: 16.2, xMax: 23.2, zMin: -7.8, zMax: -3.4, heightFt: 3.2 });
-    expect(f.rosieRainbowAndMap).toMatchObject({ roomId: 'rosieBedroom', xMin: 23.0, xMax: 23.4, zMin: -7.6, zMax: 0.1, heightFt: 5.8 });
+    expect(f.rosieRainbowAndMap).toMatchObject({ roomId: 'rosieBedroom', xMin: 21.95, xMax: 23.4, zMin: -7.6, zMax: 0.1, heightFt: 5.8 });
     expect(f.rosieRoundRug).toMatchObject({ roomId: 'rosieBedroom', xMin: 14.0, xMax: 20.2, zMin: -4.6, zMax: 0.0, heightFt: 0.04 });
     expect(f.rosieWhiteDresser).toMatchObject({ roomId: 'rosieBedroom', xMin: 12.0, xMax: 13.8, zMin: -7.2, zMax: -2.4, heightFt: 2.9 });
     expect(f.rosieClosetAndDollhouse).toMatchObject({ roomId: 'rosieBedroom', xMin: 14.8, xMax: 23.2, zMin: 0.0, zMax: 1.8, heightFt: 4.5 });

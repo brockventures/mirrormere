@@ -284,14 +284,21 @@ function buildRosieFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3Fixtur
     [0.84, 0.92, 0.58, 0.74, 0.81, 0.90, c.palette.whiteTrim], [0.80, 0.96, 0.74, 0.94, 0.77, 0.94, c.mat('#fff3d4', 0.3)],
   ]);
 
-  // 14. Rainbow Mural Arches + Framed World Map Art on East Wall
-  const rm = fixtures.rosieRainbowAndMap;
+  // 14. Rainbow Mural Arches + Framed World Map Art + White 6-Cube (3x2) Storage Shelf on East Wall
+  const [rm, wt] = [fixtures.rosieRainbowAndMap, c.palette.whiteTrim];
   for (const [ri, [rad, hex]] of ([[1.85, '#e0919c'], [1.54, '#e6b97a'], [1.23, '#88b8c9']] as const).entries()) {
     c.addMesh(rm, new TorusGeometry(rad, 0.14, 10, 28, Math.PI), c.mat(hex, 0.72), 23.22, 3.35, -5.3, `rosie-rainbow-arch-${ri}`).rotation.y = Math.PI / 2;
   }
   c.boxes(rm, [
     [23.14, 23.27, 2.55, 4.35, -2.45, 0.0, warmWood, 'rosie-map-frame'], [23.10, 23.15, 2.67, 4.23, -2.33, -0.12, cream, 'rosie-map-canvas'],
     [23.07, 23.11, 3.05, 3.88, -2.10, -1.35, c.mat('#88b8c9', 0.72), 'rosie-map-west'], [23.07, 23.11, 2.95, 3.96, -1.10, -0.30, c.mat('#7ea89b', 0.72), 'rosie-map-east'],
+    [22.00, 23.25, 2.10, 2.18, -3.30, -0.24, wt, 'rosie-six-cube-frame-top'], [22.00, 23.25, 0.00, 0.08, -3.30, -0.24, wt, 'rosie-six-cube-frame-bottom'],
+    [22.00, 23.25, 0.00, 2.18, -3.30, -3.22, wt, 'rosie-six-cube-frame-n'], [22.00, 23.25, 0.00, 2.18, -0.32, -0.24, wt, 'rosie-six-cube-frame-s'],
+    [23.19, 23.25, 0.00, 2.18, -3.30, -0.24, wt, 'rosie-six-cube-frame-back'], [22.02, 23.19, 1.06, 1.12, -3.22, -0.32, wt, 'rosie-six-cube-shelf-mid'],
+    [22.02, 23.19, 0.08, 2.10, -2.29, -2.23, wt, 'rosie-six-cube-div-0'], [22.02, 23.19, 0.08, 2.10, -1.31, -1.25, wt, 'rosie-six-cube-div-1'],
+    [22.08, 23.12, 0.08, 0.94, -3.16, -2.35, c.mat('#e5c3c6', 0.86), 'rosie-six-cube-bin-0'], [22.08, 23.12, 0.08, 0.94, -2.17, -1.37, c.mat('#d9c3a3', 0.86), 'rosie-six-cube-bin-1'],
+    [22.08, 23.12, 0.08, 0.94, -1.19, -0.38, c.mat('#b9d2d8', 0.86), 'rosie-six-cube-bin-2'], [22.14, 22.98, 1.12, 1.88, -3.08, -2.54, c.mat('#88b8c9', 0.78), 'rosie-six-cube-books-0'],
+    [22.14, 22.98, 1.12, 1.80, -2.08, -1.52, c.mat('#e6b97a', 0.78), 'rosie-six-cube-books-1'], [22.14, 22.98, 1.12, 1.84, -1.08, -0.52, c.mat('#e0919c', 0.78), 'rosie-six-cube-books-2'],
   ]);
 
   // 15. Round White & Mustard-Yellow Geometric Rug
@@ -302,35 +309,32 @@ function buildRosieFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3Fixtur
 
   // 16. White Dresser on West Wall
   c.parts(fixtures.rosieWhiteDresser, f.rosieWhiteDresser, [
-    [0.02, 0.96, 0.06, 0.95, 0.02, 0.98, c.palette.whiteTrim], [0, 1, 0.95, 1, 0, 1, c.palette.whiteTrim],
-    [0.96, 1, 0.12, 0.48, 0.05, 0.47, c.palette.whiteTrim], [0.96, 1, 0.12, 0.48, 0.53, 0.95, c.palette.whiteTrim],
-    [0.96, 1, 0.54, 0.90, 0.05, 0.47, c.palette.whiteTrim], [0.96, 1, 0.54, 0.90, 0.53, 0.95, c.palette.whiteTrim],
+    [0.02, 0.96, 0.06, 0.95, 0.02, 0.98, wt], [0, 1, 0.95, 1, 0, 1, wt],
+    [0.96, 1, 0.12, 0.48, 0.05, 0.47, wt], [0.96, 1, 0.12, 0.48, 0.53, 0.95, wt],
+    [0.96, 1, 0.54, 0.90, 0.05, 0.47, wt], [0.96, 1, 0.54, 0.90, 0.53, 0.95, wt],
   ]);
 
-  // 17. Framed South Closet (sliding white doors) + Tidy Low White Bookshelf + Slender Gable-Roofed White Dollhouse
-  const [rc, wt, softCream] = [fixtures.rosieClosetAndDollhouse, c.palette.whiteTrim, c.mat('#f6ebe1', 0.78)];
+  // 17. Framed South Closet (sliding white doors) + Single White Gable-Roofed House Bookshelf (x 15.20..16.80, z 1.04..1.80)
+  const [rc, softCream] = [fixtures.rosieClosetAndDollhouse, c.mat('#f6ebe1', 0.78)];
   c.boxes(rc, [
     [17.76, 23.28, 4.26, 4.36, 0.00, 0.24, wt, 'rosie-closet-track'], [17.78, 20.62, 0, 4.26, 0.02, 0.11, wt, 'rosie-closet-door-w'],
     [20.44, 23.28, 0, 4.26, 0.13, 0.22, wt, 'rosie-closet-door-e'], [17.95, 18.03, 1.90, 2.28, 0.00, 0.03, c.palette.matteBlackIron, 'rosie-closet-pull-w'],
     [23.03, 23.11, 1.90, 2.28, 0.11, 0.14, c.palette.matteBlackIron, 'rosie-closet-pull-e'], [17.80, 23.24, 3.55, 3.66, 0.68, 1.80, wt, 'rosie-closet-shelf'],
-    [17.80, 23.24, 3.22, 3.28, 1.06, 1.12, c.palette.brushedSteel, 'rosie-closet-rod'], [14.82, 15.90, 0, 2.05, 1.73, 1.80, wt, 'rosie-bookshelf-back'],
-    [14.82, 14.89, 0, 2.05, 1.14, 1.80, wt, 'rosie-bookshelf-side-w'], [15.83, 15.90, 0, 2.05, 1.14, 1.80, wt, 'rosie-bookshelf-side-e'],
-    [14.82, 15.90, 0, 0.10, 1.14, 1.80, wt, 'rosie-bookshelf-base'], [14.89, 15.83, 0.96, 1.04, 1.16, 1.73, wt, 'rosie-bookshelf-mid'],
-    [14.80, 15.92, 1.97, 2.06, 1.12, 1.80, wt, 'rosie-bookshelf-top'], [14.94, 15.78, 0.10, 0.74, 1.20, 1.70, c.mat('#d9c3a3', 0.86), 'rosie-bookshelf-basket'],
-    [14.95, 15.20, 1.04, 1.66, 1.22, 1.68, c.mat('#88b8c9', 0.78), 'rosie-bookshelf-books-0'], [15.22, 15.46, 1.04, 1.58, 1.22, 1.68, c.mat('#e6b97a', 0.78), 'rosie-bookshelf-books-1'],
-    [15.48, 15.70, 1.04, 1.62, 1.22, 1.68, c.mat('#dfa8ae', 0.78), 'rosie-bookshelf-books-2'], [16.04, 17.28, 0, 3.05, 1.73, 1.80, wt, 'rosie-dollhouse-body'],
-    [16.11, 17.21, 0.12, 3.00, 1.69, 1.73, softCream, 'rosie-dollhouse-interior'], [16.04, 16.11, 0, 3.05, 1.04, 1.80, wt, 'rosie-dollhouse-side-w'],
-    [17.21, 17.28, 0, 3.05, 1.04, 1.80, wt, 'rosie-dollhouse-side-e'], [16.04, 17.28, 0, 0.12, 1.04, 1.80, wt, 'rosie-dollhouse-base'],
-    [16.11, 17.21, 1.06, 1.13, 1.06, 1.73, wt, 'rosie-dollhouse-tier-1'], [16.11, 17.21, 2.05, 2.12, 1.06, 1.73, wt, 'rosie-dollhouse-tier-2'],
-    [16.63, 16.69, 0.12, 2.05, 1.12, 1.73, wt, 'rosie-dollhouse-divider'],
+    [17.80, 23.24, 3.22, 3.28, 1.06, 1.12, c.palette.brushedSteel, 'rosie-closet-rod'], [15.20, 16.80, 0, 3.05, 1.73, 1.80, wt, 'rosie-dollhouse-body'],
+    [15.27, 16.73, 0.12, 3.00, 1.69, 1.73, softCream, 'rosie-dollhouse-interior'], [15.20, 15.27, 0, 3.05, 1.04, 1.80, wt, 'rosie-dollhouse-side-w'],
+    [16.73, 16.80, 0, 3.05, 1.04, 1.80, wt, 'rosie-dollhouse-side-e'], [15.20, 16.80, 0, 0.12, 1.04, 1.80, wt, 'rosie-dollhouse-base'],
+    [15.27, 16.73, 1.06, 1.13, 1.06, 1.73, wt, 'rosie-dollhouse-tier-1'], [15.27, 16.73, 2.05, 2.12, 1.06, 1.73, wt, 'rosie-dollhouse-tier-2'],
+    [15.97, 16.03, 0.12, 2.05, 1.12, 1.73, wt, 'rosie-dollhouse-divider'], [15.34, 15.90, 0.12, 0.72, 1.18, 1.66, c.mat('#d9c3a3', 0.86), 'rosie-dollhouse-basket'],
+    [15.34, 15.51, 1.13, 1.72, 1.20, 1.66, c.mat('#88b8c9', 0.78), 'rosie-dollhouse-books-0'], [15.52, 15.69, 1.13, 1.64, 1.20, 1.66, c.mat('#e6b97a', 0.78), 'rosie-dollhouse-books-1'],
+    [15.70, 15.86, 1.13, 1.68, 1.20, 1.66, c.mat('#dfa8ae', 0.78), 'rosie-dollhouse-books-2'],
   ]);
   const gableTri = (hw: number, h: number, d: number): ExtrudeGeometry =>
     new ExtrudeGeometry(new Shape().moveTo(-hw, 0).lineTo(0, h).lineTo(hw, 0).closePath(), { depth: d, bevelEnabled: false });
-  c.addMesh(rc, gableTri(0.62, 0.88, 0.07), wt, 16.66, 3.05, 1.73, 'rosie-dollhouse-gable');
-  c.addMesh(rc, gableTri(0.54, 0.76, 0.03), softCream, 16.66, 3.05, 1.69, 'rosie-dollhouse-gable-interior');
-  const slopeAngle = Math.atan2(0.88, 0.62);
-  c.addMesh(rc, new BoxGeometry(1.22, 0.07, 0.82), wt, 16.325, 3.51, 1.39, 'rosie-dollhouse-roof-w').rotation.z = slopeAngle;
-  c.addMesh(rc, new BoxGeometry(1.22, 0.07, 0.82), wt, 16.995, 3.51, 1.39, 'rosie-dollhouse-roof-e').rotation.z = -slopeAngle;
+  c.addMesh(rc, gableTri(0.80, 0.96, 0.07), wt, 16.00, 3.05, 1.73, 'rosie-dollhouse-gable');
+  c.addMesh(rc, gableTri(0.71, 0.84, 0.03), softCream, 16.00, 3.05, 1.69, 'rosie-dollhouse-gable-interior');
+  const slopeAngle = Math.atan2(0.96, 0.80);
+  c.addMesh(rc, new BoxGeometry(1.37, 0.07, 0.80), wt, 15.55, 3.52, 1.42, 'rosie-dollhouse-roof-w').rotation.z = slopeAngle;
+  c.addMesh(rc, new BoxGeometry(1.37, 0.07, 0.80), wt, 16.45, 3.52, 1.42, 'rosie-dollhouse-roof-e').rotation.z = -slopeAngle;
   for (const [ci, col] of ['#e0919c', '#f4efe6', '#88b8c9', '#e6b97a'].entries()) c.addBox(rc, 18.25 + ci * 1.15, 18.97 + ci * 1.15, 1.55, 3.22, 0.74, 1.44, c.mat(col, 0.82), `rosie-closet-clothes-${ci}`);
 }
 
@@ -382,16 +386,15 @@ function buildIsaacFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3Fixtur
   const starMat = c.trackMat(new MeshStandardMaterial({ map: c.trackTex(createStarPlayMatTexture()), roughness: 0.9, metalness: 0.02 }));
   c.addBox(fixtures.isaacStarPlayMat, sm.xMin, sm.xMax, 0, sm.heightFt, sm.zMin, sm.zMax, starMat, 'isaac-star-play-mat');
 
-  // Isaac's SW Framed Reach-In Closet (white sliding doors along east face x 11.8, z 7.2..10.8 into Isaac's room)
+  // Isaac's SW Closet Interior (E-W along south back wall facing north closet door at z 7.2, heights <= 2.12 ft)
   const ic = new Group();
   ic.name = 'isaac-closet';
   c.boxes(ic, [
-    [11.64, 11.96, 4.26, 4.36, 7.20, 10.80, c.palette.whiteTrim, 'isaac-closet-header'], [11.78, 11.87, 0, 4.26, 7.36, 9.15, c.palette.whiteTrim, 'isaac-closet-door-n'],
-    [11.68, 11.77, 0, 4.26, 8.99, 10.78, c.palette.whiteTrim, 'isaac-closet-door-s'], [11.87, 11.91, 1.90, 2.28, 7.52, 7.60, c.palette.matteBlackIron, 'isaac-closet-pull-n'],
-    [11.77, 11.81, 1.90, 2.28, 10.54, 10.62, c.palette.matteBlackIron, 'isaac-closet-pull-s'], [8.80, 10.10, 3.55, 3.66, 7.42, 10.72, c.palette.whiteTrim, 'isaac-closet-shelf'],
-    [9.42, 9.48, 3.22, 3.28, 7.44, 10.70, c.palette.brushedSteel, 'isaac-closet-rod'], [8.86, 9.86, 0, 0.92, 9.35, 10.65, c.mat('#c8b698', 0.84), 'isaac-closet-bin'],
+    [8.85, 11.55, 2.02, 2.12, 9.55, 10.75, c.palette.whiteTrim, 'isaac-closet-shelf'],
+    [8.85, 11.55, 1.82, 1.88, 9.95, 10.01, c.palette.brushedSteel, 'isaac-closet-rod'],
+    [10.88, 11.52, 0, 0.66, 9.25, 10.45, c.mat('#c8b698', 0.84), 'isaac-closet-bin'],
   ]);
-  for (const [ci, col] of ['#2f5573', '#d9a992', '#5e6b4c'].entries()) c.addBox(ic, 9.10, 9.80, 1.55, 3.22, 7.65 + ci * 0.85, 8.30 + ci * 0.85, c.mat(col, 0.82), `isaac-closet-clothes-${ci}`);
+  for (const [ci, col] of ['#2f5573', '#d9a992', '#5e6b4c'].entries()) c.addBox(ic, 8.95 + ci * 0.65, 9.52 + ci * 0.65, 0.72, 1.82, 9.62, 10.32, c.mat(col, 0.82), `isaac-closet-clothes-${ci}`);
   root.add(ic);
 }
 
