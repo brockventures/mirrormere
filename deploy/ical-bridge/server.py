@@ -41,7 +41,9 @@ FETCH_LOCKS_GUARD = threading.Lock()
 TOKEN_LOCK = threading.Lock()
 TOKEN_CACHE = {"token": None, "exp": 0}
 
-PLEX_THUMB_RE = re.compile(r"^/library/(metadata|arts|parts)/[0-9a-zA-Z_/.-]+$")
+PLEX_THUMB_RE = re.compile(r"^/library/(metadata/\d+/(thumb|art|theme)/\d+|arts/[0-9a-zA-Z_.-]+)$")
+PLEX_RATING_KEY_RE = re.compile(r"^[0-9]+$")
+MAX_THUMB_BYTES = 5 * 1024 * 1024
 RECIPE_ID_RE = re.compile(r"^[0-9a-zA-Z_-]+$")
 YT_VIDEO_ID_RE = re.compile(r"^[0-9A-Za-z_-]{11}$")
 HA_ENTITY_ID_RE = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
@@ -451,7 +453,7 @@ def fetch_plex_recent():
 
 
 def fetch_plex_thumb(thumb_path):
-    if not thumb_path:
+    if not thumb_path or not isinstance(thumb_path, str):
         return None, None
     clean_path = thumb_path.split("?", 1)[0]
     if ".." in clean_path or not PLEX_THUMB_RE.match(clean_path):
@@ -464,15 +466,26 @@ def fetch_plex_thumb(thumb_path):
     plex_token = str(_cfg("PLEX_TOKEN", ""))
     if not plex_base or not plex_token:
         return None, None
-    url = f"{plex_base}{clean_path}?X-Plex-Token={urllib.parse.quote(plex_token)}"
+    url = f"{plex_base}{clean_path}"
     try:
-        req = urllib.request.Request(url)
+        req = urllib.request.Request(url, headers={"X-Plex-Token": plex_token})
         with urllib.request.urlopen(req, timeout=6) as r:
-            data = r.read()
-            ctype = r.headers.get("Content-Type", "image/jpeg")
-            if data:
-                _img_cache_set(key, data, ctype)
-                return data, ctype
+            ctype = (r.headers.get("Content-Type") or "").strip()
+            media_type = ctype.split(";", 1)[0].strip().lower()
+            if not media_type.startswith("image/"):
+                return None, None
+            cl_hdr = r.headers.get("Content-Length")
+            if cl_hdr is not None:
+                try:
+                    if int(cl_hdr) > MAX_THUMB_BYTES:
+                        return None, None
+                except (ValueError, TypeError):
+                    pass
+            data = r.read(MAX_THUMB_BYTES + 1)
+            if not data or len(data) > MAX_THUMB_BYTES:
+                return None, None
+            _img_cache_set(key, data, ctype)
+            return data, ctype
     except Exception as e:
         print(f"[HEARTH-Bridge] Error fetching Plex thumb {clean_path}: {e}", flush=True)
     return None, None
@@ -702,6 +715,29 @@ def _get_speakers():
     if isinstance(spks, list):
         return spks
     return []
+
+
+def _validate_speaker(speaker):
+    if not isinstance(speaker, str):
+        return None
+    cleaned = speaker.strip()
+    if not cleaned:
+        return None
+    if cleaned.lower() in ("this_device", "local"):
+        return cleaned.lower()
+    if not HA_ENTITY_ID_RE.match(cleaned):
+        return None
+    allowed = set()
+    for spk in _get_speakers():
+        if isinstance(spk, dict):
+            eid = spk.get("entity_id")
+            if isinstance(eid, str) and eid.strip():
+                allowed.add(eid.strip())
+        elif isinstance(spk, str) and spk.strip():
+            allowed.add(spk.strip())
+    if cleaned in allowed:
+        return cleaned
+    return None
 
 
 SPEAKER_LIST = []
@@ -1069,7 +1105,14 @@ def get_music_dashboard_state():
             spk_st = _ha_request("GET", f"/api/states/{active_spk}", timeout=5) or {}
         attrs = spk_st.get("attributes") or {}
         state_str = spk_st.get("state", "off")
-        vol_pct = int(round(float(attrs.get("volume_level", 0.35)) * 100))
+        raw_vol = attrs.get("volume_level")
+        try:
+            vol_level = float(raw_vol) if raw_vol is not None else 0.35
+            if vol_level != vol_level or vol_level in (float("inf"), float("-inf")):
+                vol_level = 0.35
+        except (TypeError, ValueError):
+            vol_level = 0.35
+        vol_pct = int(round(vol_level * 100))
 
     cur_track = queue[q_idx] if 0 <= q_idx < len(queue) else {}
     now_playing = {
@@ -1096,15 +1139,20 @@ def get_music_dashboard_state():
 
 def start_music_playback(body):
     import random
-    speaker = body.get("speaker")
+    raw_speaker = body.get("speaker")
+    validated_speaker = None
+    if raw_speaker is not None and raw_speaker != "":
+        validated_speaker = _validate_speaker(raw_speaker)
+        if not validated_speaker:
+            return False, {"error": "Invalid or unconfigured speaker"}
     video_id = body.get("video_id")
     playlist_id = body.get("playlist_id")
     playlist_title = body.get("playlist_title") or ""
     shuffle = bool(body.get("shuffle", True))
 
     with MUSIC_STATE_LOCK:
-        if speaker:
-            MUSIC_STATE["active_speaker"] = speaker
+        if validated_speaker:
+            MUSIC_STATE["active_speaker"] = validated_speaker
         active_spk = MUSIC_STATE["active_speaker"]
         if not active_spk:
             spks = _get_speakers()
@@ -1201,10 +1249,15 @@ def start_music_playback(body):
 def control_music_playback(body):
     import random
     action = body.get("action", "")
-    speaker = body.get("speaker")
+    raw_speaker = body.get("speaker")
+    validated_speaker = None
+    if raw_speaker is not None and raw_speaker != "":
+        validated_speaker = _validate_speaker(raw_speaker)
+        if not validated_speaker:
+            return False, {"error": "Invalid or unconfigured speaker"}
     with MUSIC_STATE_LOCK:
-        if speaker:
-            MUSIC_STATE["active_speaker"] = speaker
+        if validated_speaker:
+            MUSIC_STATE["active_speaker"] = validated_speaker
         active_spk = MUSIC_STATE["active_speaker"]
         queue = list(MUSIC_STATE["queue"])
         q_idx = MUSIC_STATE["queue_index"]
@@ -1346,9 +1399,14 @@ def launch_plex_on_living_room_tv(body):
         if not HA_ENTITY_ID_RE.match(ent):
             return False, {"error": f"Invalid Home Assistant entity ID: {ent}"}
 
+    if not rating_key:
+        return False, {"error": "Missing Plex rating_key or credentials"}
+    if not PLEX_RATING_KEY_RE.match(rating_key):
+        return False, {"error": "Invalid Plex rating_key"}
+
     plex_base = str(_cfg("PLEX_BASE_URL", "")).rstrip("/")
     plex_token = str(_cfg("PLEX_TOKEN", ""))
-    if not rating_key or not plex_base or not plex_token:
+    if not plex_base or not plex_token:
         return False, {"error": "Missing Plex rating_key or credentials"}
 
     try:
@@ -1364,7 +1422,7 @@ def launch_plex_on_living_room_tv(body):
         target_rk = rating_key
         # If a season or show was tapped, resolve the first unwatched episode (or first episode)
         if mtype in ("season", "show"):
-            leaves_url = f"{plex_base}/library/metadata/{urllib.parse.quote(rating_key)}/allLeaves"
+            leaves_url = f"{plex_base}/library/metadata/{urllib.parse.quote(rating_key, safe='')}/allLeaves"
             req_leaves = urllib.request.Request(
                 leaves_url,
                 headers={"X-Plex-Token": plex_token, "Accept": "application/json"},
@@ -1375,7 +1433,9 @@ def launch_plex_on_living_room_tv(body):
             if leaves:
                 unwatched = [ep for ep in leaves if not ep.get("viewCount")]
                 chosen = unwatched[0] if unwatched else leaves[0]
-                target_rk = str(chosen.get("ratingKey") or rating_key)
+                resolved_rk = str(chosen.get("ratingKey") or rating_key).strip()
+                if PLEX_RATING_KEY_RE.match(resolved_rk):
+                    target_rk = resolved_rk
 
         meta_key = urllib.parse.quote(f"/library/metadata/{target_rk}", safe="")
         deep_link = f"plex://play/?metadataKey={meta_key}&server={machine_id}"
@@ -1631,18 +1691,7 @@ def resolve_camera_target(camera_key):
                 "event_entities": event_entities,
             }
 
-    return {
-        "id": slug,
-        "entity_id": f"camera.{slug}",
-        "go2rtc_src": slug,
-        "title": slug.replace("_", " ").title(),
-        "group": "general",
-        "aliases": [],
-        "battery": False,
-        "battery_powered": False,
-        "event_driven": False,
-        "event_entities": [],
-    }
+    return None
 
 
 def fetch_cameras_catalog():
@@ -1792,26 +1841,39 @@ def _store_camera_good_frame(cid, data, ctype):
             CAMERA_LAST_GOOD_FRAME.popitem(last=False)
 
 
-def _extract_first_jpeg_from_stream(stream, max_bytes=2 * 1024 * 1024):
+def _extract_first_jpeg_from_stream(stream, max_bytes=2 * 1024 * 1024, max_seconds=6.0, max_placeholders=2):
     buf = bytearray()
     soi = -1
-    while len(buf) < max_bytes:
-        chunk = stream.read(16384)
+    total_read = 0
+    placeholders_seen = 0
+    deadline = time.monotonic() + max_seconds
+    while total_read < max_bytes and len(buf) < max_bytes:
+        if time.monotonic() >= deadline:
+            break
+        remaining = max_bytes - total_read
+        chunk = stream.read(min(16384, remaining))
         if not chunk:
             break
+        total_read += len(chunk)
         buf.extend(chunk)
-        if soi < 0:
-            soi = buf.find(b"\xff\xd8\xff")
+        while True:
             if soi < 0:
-                soi = buf.find(b"\xff\xd8")
-        if soi >= 0:
+                soi = buf.find(b"\xff\xd8\xff")
+                if soi < 0:
+                    soi = buf.find(b"\xff\xd8")
+            if soi < 0:
+                break
             eoi = buf.find(b"\xff\xd9", soi + 2)
-            if eoi >= 0:
-                frame = bytes(buf[soi:eoi + 2])
-                if len(frame) != HA_NEST_PLACEHOLDER_LEN:
-                    return frame
-                del buf[:eoi + 2]
-                soi = -1
+            if eoi < 0:
+                break
+            frame = bytes(buf[soi:eoi + 2])
+            if len(frame) != HA_NEST_PLACEHOLDER_LEN:
+                return frame
+            placeholders_seen += 1
+            del buf[:eoi + 2]
+            soi = -1
+            if placeholders_seen >= max_placeholders:
+                return None
     return None
 
 
@@ -1961,34 +2023,67 @@ def fetch_camera_snapshot(camera_key, force_refresh=False, active_refresh=False,
     is_battery = is_battery_camera(camera_key, target)
     is_event_driven = bool(target.get("event_driven", is_battery))
     is_background_warm = bool(background_warm or getattr(_CAMERA_WARMER_CTX, "active", False))
-    now = time.time()
 
     try:
         active_interval_sec = float(_cfg("CAMERA_ACTIVE_INTERVAL_SEC", CAMERA_ACTIVE_INTERVAL_SEC))
     except (ValueError, TypeError):
         active_interval_sec = CAMERA_ACTIVE_INTERVAL_SEC
 
-    if not force_refresh:
-        with CAMERA_SNAP_LOCK:
-            cached = CAMERA_SNAP_CACHE.get(cid)
-            if cached and now - cached[0] < CAMERA_SNAP_TTL:
-                CAMERA_SNAP_CACHE.move_to_end(cid)
-                return cached[1], cached[2]
+    def _try_cached_snapshot(cur_now):
+        if not force_refresh:
+            with CAMERA_SNAP_LOCK:
+                cached = CAMERA_SNAP_CACHE.get(cid)
+                if cached and cur_now - cached[0] < CAMERA_SNAP_TTL:
+                    CAMERA_SNAP_CACHE.move_to_end(cid)
+                    return cached[1], cached[2]
 
-    if active_refresh and not is_battery and not force_refresh:
-        with CAMERA_SNAP_LOCK:
-            last_good = CAMERA_LAST_GOOD_FRAME.get(cid)
-            cached = CAMERA_SNAP_CACHE.get(cid)
-            entry = last_good or cached
-            if entry and isinstance(entry, tuple) and len(entry) >= 3:
-                cached_ts, cached_data, cached_ctype = entry[0], entry[1], entry[2]
-                if now - cached_ts < active_interval_sec:
-                    if last_good:
-                        CAMERA_LAST_GOOD_FRAME.move_to_end(cid)
-                    if cached:
-                        CAMERA_SNAP_CACHE.move_to_end(cid)
-                    return cached_data, cached_ctype
+        if active_refresh and not is_battery and not force_refresh:
+            with CAMERA_SNAP_LOCK:
+                last_good = CAMERA_LAST_GOOD_FRAME.get(cid)
+                cached = CAMERA_SNAP_CACHE.get(cid)
+                entry = last_good or cached
+                if entry and isinstance(entry, tuple) and len(entry) >= 3:
+                    cached_ts, cached_data, cached_ctype = entry[0], entry[1], entry[2]
+                    if cur_now - cached_ts < active_interval_sec:
+                        if last_good:
+                            CAMERA_LAST_GOOD_FRAME.move_to_end(cid)
+                        if cached:
+                            CAMERA_SNAP_CACHE.move_to_end(cid)
+                        return cached_data, cached_ctype
+        return None, None
 
+    cached_data, cached_ctype = _try_cached_snapshot(time.time())
+    if cached_data:
+        return cached_data, cached_ctype
+
+    with _get_lock(f"cam_snap:{cid}"):
+        now = time.time()
+        cached_data, cached_ctype = _try_cached_snapshot(now)
+        if cached_data:
+            return cached_data, cached_ctype
+
+        return _fetch_camera_snapshot_locked(
+            target=target,
+            cid=cid,
+            is_battery=is_battery,
+            is_event_driven=is_event_driven,
+            is_background_warm=is_background_warm,
+            force_refresh=force_refresh,
+            active_refresh=active_refresh,
+            now=now,
+        )
+
+
+def _fetch_camera_snapshot_locked(
+    target,
+    cid,
+    is_battery,
+    is_event_driven,
+    is_background_warm,
+    force_refresh,
+    active_refresh,
+    now,
+):
     event_changed = False
     if is_event_driven and not force_refresh and (is_battery or not active_refresh):
         event_changed = _has_camera_event_changed(target)
@@ -2440,7 +2535,10 @@ def build_feed(feed_name):
             has_img = bool(recipe.get("image") or detail.get("image"))
             img_loc = f"/hearth-api/mealie/image/{recipe_id}" if (recipe_id and has_img) else ""
             desc_text = format_mealie_description(recipe, detail)
-            d_obj = datetime.date.fromisoformat(d_str)
+            try:
+                d_obj = datetime.date.fromisoformat(str(d_str)[:10])
+            except ValueError:
+                continue
             next_d = d_obj + datetime.timedelta(days=1)
             uid = f"mealie_{item.get('id', d_str)}"
             lines = [
@@ -2590,7 +2688,69 @@ def _derive_screens_from_config():
     ]
 
 
+def _normalize_host_port(host_val, scheme="http"):
+    if not host_val or not isinstance(host_val, str):
+        return None
+    raw = host_val.strip()
+    if not raw or any(c in raw for c in ("/", "\\", "@", " ", "\t", "\r", "\n")):
+        return None
+    try:
+        parsed = urllib.parse.urlparse(f"{scheme}://{raw}")
+        hostname = parsed.hostname
+        if not hostname:
+            return None
+        port = parsed.port
+    except ValueError:
+        return None
+    if port is None:
+        port = 443 if scheme == "https" else 80
+    return hostname.lower(), port
+
+
+def _origin_matches_host(origin_header, host_header):
+    if origin_header is None:
+        return True
+    if not isinstance(origin_header, str):
+        return False
+    origin_str = origin_header.strip()
+    if not origin_str or origin_str.lower() == "null":
+        return False
+    try:
+        parsed = urllib.parse.urlparse(origin_str)
+        scheme = (parsed.scheme or "").lower()
+        if scheme not in ("http", "https"):
+            return False
+        if parsed.username is not None or parsed.password is not None:
+            return False
+        if parsed.path not in ("", "/") or parsed.query or parsed.fragment:
+            return False
+        origin_host = parsed.hostname
+        origin_port = parsed.port
+    except ValueError:
+        return False
+    if not origin_host:
+        return False
+    if origin_port is None:
+        origin_port = 443 if scheme == "https" else 80
+    expected = _normalize_host_port(host_header, scheme=scheme)
+    if expected is None:
+        return False
+    return (origin_host.lower(), origin_port) == expected
+
+
 class Handler(BaseHTTPRequestHandler):
+    def _get_header(self, name):
+        if not self.headers:
+            return None
+        val = self.headers.get(name)
+        if val is not None:
+            return val
+        target = name.lower()
+        for k, v in self.headers.items():
+            if str(k).lower() == target:
+                return v
+        return None
+
     def _is_internal_caller(self):
         client_ip = self.client_address[0] if self.client_address else ""
         return _is_internal_caller(client_ip)
@@ -2909,9 +3069,34 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json_error(403, "Forbidden: internal callers only")
                 return
 
+        # Cross-origin CSRF check: when Origin header is present, it must match Host
+        origin_hdr = self._get_header("Origin")
+        if origin_hdr is not None:
+            host_hdr = self._get_header("Host")
+            if not _origin_matches_host(origin_hdr, host_hdr):
+                self._send_json_error(403, "Forbidden: cross-origin POST rejected")
+                return
+
+        is_webrtc_path = (
+            (path.startswith("/hearth-api/cameras/") and path.endswith("/webrtc"))
+            or path.startswith("/hearth-api/camera/webrtc/")
+        )
+
+        # Require non-simple Content-Type to prevent browser simple-POST CSRF (e.g., text/plain)
+        raw_ctype = self._get_header("Content-Type") or ""
+        media_type = raw_ctype.split(";", 1)[0].strip().lower()
+        if is_webrtc_path:
+            if media_type not in ("application/sdp", "application/json"):
+                self._send_json_error(415, "Unsupported Media Type: expected application/sdp or application/json")
+                return
+        else:
+            if media_type != "application/json":
+                self._send_json_error(415, "Unsupported Media Type: Content-Type must be application/json")
+                return
+
         # Parse and validate Content-Length
         try:
-            cl_header = self.headers.get("Content-Length")
+            cl_header = self._get_header("Content-Length")
             length = int(cl_header) if cl_header is not None else 0
             if length < 0:
                 raise ValueError("Negative Content-Length")
@@ -2919,10 +3104,6 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json_error(400, f"Invalid Content-Length: {e}")
             return
 
-        is_webrtc_path = (
-            (path.startswith("/hearth-api/cameras/") and path.endswith("/webrtc"))
-            or path.startswith("/hearth-api/camera/webrtc/")
-        )
         max_body = 65536 if is_webrtc_path else 8192
         if length > max_body:
             self._send_json_error(413, "Payload too large")
@@ -2967,7 +3148,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/hearth-api/plex/play":
             ok, res = launch_plex_on_living_room_tv(body)
             payload = json.dumps({"ok": ok, **res}).encode("utf-8")
-            self.send_response(200 if ok else 500)
+            status = 200 if ok else (400 if isinstance(res, dict) and str(res.get("error", "")).startswith(("Invalid", "Missing")) else 500)
+            self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
@@ -2977,7 +3159,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/hearth-api/music/play":
             ok, st = start_music_playback(body)
             payload = json.dumps({"ok": ok, "state": st}).encode("utf-8")
-            self.send_response(200 if ok else 500)
+            status = 200 if ok else (400 if isinstance(st, dict) and str(st.get("error", "")).startswith("Invalid") else 500)
+            self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
@@ -2996,7 +3179,8 @@ class Handler(BaseHTTPRequestHandler):
                 return
             ok, st = control_music_playback(body)
             payload = json.dumps({"ok": ok, "state": st}).encode("utf-8")
-            self.send_response(200 if ok else 500)
+            status = 200 if ok else (400 if isinstance(st, dict) and str(st.get("error", "")).startswith("Invalid") else 500)
+            self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()

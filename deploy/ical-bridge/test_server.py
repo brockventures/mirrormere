@@ -138,7 +138,7 @@ class TestHandlerEndpoints(unittest.TestCase):
         h = self._create_handler(
             "POST",
             "/hearth-api/music/control",
-            headers={"Content-Length": str(len(bad_json))},
+            headers={"Content-Type": "application/json", "Content-Length": str(len(bad_json))},
             body=bad_json,
             client_ip="127.0.0.1",
         )
@@ -149,7 +149,7 @@ class TestHandlerEndpoints(unittest.TestCase):
         h = self._create_handler(
             "POST",
             "/hearth-api/music/control",
-            headers={"Content-Length": "not-a-number"},
+            headers={"Content-Type": "application/json", "Content-Length": "not-a-number"},
             body=b"{}",
             client_ip="127.0.0.1",
         )
@@ -161,7 +161,7 @@ class TestHandlerEndpoints(unittest.TestCase):
         h = self._create_handler(
             "POST",
             "/hearth-api/seerr/request",
-            headers={"Content-Length": str(len(body))},
+            headers={"Content-Type": "application/json", "Content-Length": str(len(body))},
             body=body,
             client_ip="127.0.0.1",
         )
@@ -173,7 +173,7 @@ class TestHandlerEndpoints(unittest.TestCase):
         h = self._create_handler(
             "POST",
             "/hearth-api/music/control",
-            headers={"Content-Length": str(len(body))},
+            headers={"Content-Type": "application/json", "Content-Length": str(len(body))},
             body=body,
             client_ip="127.0.0.1",
         )
@@ -184,7 +184,7 @@ class TestHandlerEndpoints(unittest.TestCase):
         h = self._create_handler(
             "POST",
             "/hearth-api/music/control",
-            headers={"Content-Length": "10000"},
+            headers={"Content-Type": "application/json", "Content-Length": "10000"},
             body=b"{}",
             client_ip="127.0.0.1",
         )
@@ -744,17 +744,18 @@ class TestHandlerEndpoints(unittest.TestCase):
             "playlist_title": "",
             "shuffle": False,
         }):
-            with patch.object(srv, "_cast_track_to_speaker", return_value=True) as mock_cast:
-                with patch.object(srv, "_ha_request", return_value={"state": "playing", "attributes": {"volume_level": 0.5}}):
-                    body = {
-                        "speaker": "media_player.kitchen",
-                        "video_id": "dQw4w9WgXcQ",
-                        "title": "Never Gonna Give You Up",
-                    }
-                    ok, st = srv.start_music_playback(body)
-                    self.assertTrue(ok)
-                    mock_cast.assert_called_once()
-                    self.assertEqual(st["active_speaker"], "media_player.kitchen")
+            with patch.object(srv, "_get_speakers", return_value=[{"entity_id": "media_player.kitchen", "name": "Kitchen"}]):
+                with patch.object(srv, "_cast_track_to_speaker", return_value=True) as mock_cast:
+                    with patch.object(srv, "_ha_request", return_value={"state": "playing", "attributes": {"volume_level": 0.5}}):
+                        body = {
+                            "speaker": "media_player.kitchen",
+                            "video_id": "dQw4w9WgXcQ",
+                            "title": "Never Gonna Give You Up",
+                        }
+                        ok, st = srv.start_music_playback(body)
+                        self.assertTrue(ok)
+                        mock_cast.assert_called_once()
+                        self.assertEqual(st["active_speaker"], "media_player.kitchen")
 
     def test_control_music_playback_ha_speaker(self):
         track1 = {"video_id": "vid11111111", "title": "Track 1", "artist": "A1"}
@@ -1723,14 +1724,23 @@ class TestHandlerEndpoints(unittest.TestCase):
             go2rtc_timeout_mode[0] = True
             go2rtc_hits.clear()
             stream_hits.clear()
-            with patch.object(srv.time, "time", return_value=t0 + 500.0):
-                srv.fetch_camera_snapshot("deck_camera", force_refresh=True)
-                self.assertEqual(len(go2rtc_hits), 1)
-                self.assertEqual(len(stream_hits), 1)
-            with patch.object(srv.time, "time", return_value=t0 + 530.0):
-                srv.fetch_camera_snapshot("deck_camera", force_refresh=True)
-                self.assertEqual(len(go2rtc_hits), 1)
-                self.assertEqual(len(stream_hits), 1)
+            deck_cams = [
+                {
+                    "id": "deck_camera",
+                    "entity_id": "camera.deck_camera",
+                    "go2rtc_src": "deck_camera",
+                    "event_driven": False,
+                }
+            ]
+            with patch.object(srv, "_get_configured_cameras", return_value=deck_cams):
+                with patch.object(srv.time, "time", return_value=t0 + 500.0):
+                    srv.fetch_camera_snapshot("deck_camera", force_refresh=True)
+                    self.assertEqual(len(go2rtc_hits), 1)
+                    self.assertEqual(len(stream_hits), 1)
+                with patch.object(srv.time, "time", return_value=t0 + 530.0):
+                    srv.fetch_camera_snapshot("deck_camera", force_refresh=True)
+                    self.assertEqual(len(go2rtc_hits), 1)
+                    self.assertEqual(len(stream_hits), 1)
 
     def test_camera_warmer_defaults_and_cached_frame_throttling_with_battery_guard(self):
         import inspect
@@ -1848,6 +1858,498 @@ class TestHandlerEndpoints(unittest.TestCase):
                     fetch_calls,
                     [("front_yard_camera", True), ("deck_camera", True)],
                 )
+
+
+class TestSecurityAndReliabilityHardening(unittest.TestCase):
+    def _create_handler(self, method, path, headers=None, body=b"", client_ip="127.0.0.1"):
+        handler = srv.Handler.__new__(srv.Handler)
+        handler.command = method
+        handler.path = path
+        handler.headers = headers or {}
+        handler.rfile = io.BytesIO(body)
+        handler.wfile = io.BytesIO()
+        handler.client_address = (client_ip, 12345)
+        handler.server = MockServer()
+        handler._headers_buffer = []
+        handler.send_response = MagicMock()
+        handler.send_header = MagicMock()
+        handler.end_headers = MagicMock()
+        return handler
+
+    # --- 1. Simple-POST CSRF & Origin Validation ---
+
+    def test_post_rejects_simple_and_missing_content_types_with_415(self):
+        payload = json.dumps({"action": "play_pause"}).encode("utf-8")
+        for bad_ctype in (None, "", "text/plain", "text/plain; charset=utf-8", "application/x-www-form-urlencoded", "multipart/form-data"):
+            hdrs = {"Content-Length": str(len(payload))}
+            if bad_ctype is not None:
+                hdrs["Content-Type"] = bad_ctype
+            for route in (
+                "/hearth-api/music/control",
+                "/hearth-api/music/play",
+                "/hearth-api/plex/play",
+                "/hearth-api/seerr/request",
+            ):
+                h = self._create_handler("POST", route, headers=hdrs, body=payload, client_ip="127.0.0.1")
+                h.do_POST()
+                h.send_response.assert_called_with(415)
+
+        # WebRTC rejects text/plain with 415
+        sdp = b"v=0\r\nsdp_offer"
+        h_rtc_bad = self._create_handler(
+            "POST",
+            "/hearth-api/cameras/eve_cam/webrtc",
+            headers={"Content-Type": "text/plain", "Content-Length": str(len(sdp))},
+            body=sdp,
+            client_ip="127.0.0.1",
+        )
+        h_rtc_bad.do_POST()
+        h_rtc_bad.send_response.assert_called_with(415)
+
+        # WebRTC accepts application/json and application/sdp with charset parameters
+        with patch.object(srv, "exchange_camera_webrtc", return_value=(True, "v=0\r\nans", 200)):
+            json_sdp = json.dumps({"sdp": "v=0\r\noffer"}).encode("utf-8")
+            h_rtc_json = self._create_handler(
+                "POST",
+                "/hearth-api/cameras/eve_cam/webrtc",
+                headers={"Content-Type": "application/json; charset=utf-8", "Content-Length": str(len(json_sdp))},
+                body=json_sdp,
+                client_ip="127.0.0.1",
+            )
+            h_rtc_json.do_POST()
+            h_rtc_json.send_response.assert_called_with(200)
+
+    def test_post_origin_validation_blocks_cross_origin_and_allows_same_origin(self):
+        payload = json.dumps({"action": "shuffle"}).encode("utf-8")
+
+        # Cross-origin mismatched host, mismatched port, null origin, or missing Host -> 403
+        bad_header_sets = [
+            {"Origin": "http://evil.example", "Host": "hearth.local:8099"},
+            {"Origin": "http://hearth.local:9999", "Host": "hearth.local:8099"},
+            {"Origin": "null", "Host": "hearth.local:8099"},
+            {"Origin": "http://hearth.local:8099"},  # missing Host
+            {"Origin": "javascript:alert(1)", "Host": "hearth.local:8099"},
+            {"Origin": "", "Host": "hearth.local:8099"},
+        ]
+        for extra_hdrs in bad_header_sets:
+            hdrs = {
+                "Content-Type": "application/json",
+                "Content-Length": str(len(payload)),
+                **extra_hdrs,
+            }
+            h = self._create_handler("POST", "/hearth-api/music/control", headers=hdrs, body=payload, client_ip="127.0.0.1")
+            h.do_POST()
+            h.send_response.assert_called_with(403)
+
+        # Cross-origin on WebRTC POST -> 403
+        sdp = b"v=0\r\nsdp_offer"
+        h_rtc_csrf = self._create_handler(
+            "POST",
+            "/hearth-api/cameras/eve_cam/webrtc",
+            headers={
+                "Origin": "http://evil.example",
+                "Host": "hearth.local:8099",
+                "Content-Type": "application/sdp",
+                "Content-Length": str(len(sdp)),
+            },
+            body=sdp,
+            client_ip="127.0.0.1",
+        )
+        h_rtc_csrf.do_POST()
+        h_rtc_csrf.send_response.assert_called_with(403)
+
+        # Matching same-origin (with explicit port, default https port, or absent Origin) -> 200
+        good_header_sets = [
+            {"Origin": "http://hearth.local:8099", "Host": "hearth.local:8099"},
+            {"Origin": "https://HEARTH.LOCAL", "Host": "hearth.local:443"},
+            {"Origin": "http://hearth.local", "Host": "hearth.local:80"},
+            {"Host": "hearth.local:8099"},  # non-browser client with no Origin header
+        ]
+        with patch.object(srv, "control_music_playback", return_value=(True, {"ok": True})):
+            for extra_hdrs in good_header_sets:
+                hdrs = {
+                    "Content-Type": "application/json; charset=utf-8",
+                    "Content-Length": str(len(payload)),
+                    **extra_hdrs,
+                }
+                h = self._create_handler("POST", "/hearth-api/music/control", headers=hdrs, body=payload, client_ip="127.0.0.1")
+                h.do_POST()
+                h.send_response.assert_called_with(200)
+
+    # --- 2. Speaker Allowlist & Type Validation ---
+
+    def test_music_speaker_validation_blocks_unconfigured_and_non_string(self):
+        configured = [{"entity_id": "media_player.kitchen", "name": "Kitchen"}]
+        with patch.dict(srv.MUSIC_STATE, {
+            "active_speaker": "this_device",
+            "local_state": "stopped",
+            "local_volume": 35,
+            "playing_video_id": "",
+            "queue": [],
+            "queue_index": 0,
+            "playlist_title": "",
+            "shuffle": False,
+        }):
+            with patch.object(srv, "_get_speakers", return_value=configured):
+                for bad_spk in (
+                    "media_player.unconfigured_room",
+                    "switch.garage_door",
+                    "../../api/config",
+                    123,
+                    ["media_player.kitchen"],
+                    {"entity_id": "media_player.kitchen"},
+                    False,
+                    "   ",
+                ):
+                    ok_start, res_start = srv.start_music_playback({
+                        "speaker": bad_spk,
+                        "video_id": "dQw4w9WgXcQ",
+                    })
+                    self.assertFalse(ok_start, f"start_music_playback should reject {bad_spk!r}")
+                    self.assertIn("Invalid", res_start.get("error", ""))
+                    self.assertEqual(srv.MUSIC_STATE["active_speaker"], "this_device")
+
+                    ok_ctrl, res_ctrl = srv.control_music_playback({
+                        "action": "select_speaker",
+                        "speaker": bad_spk,
+                    })
+                    self.assertFalse(ok_ctrl, f"control_music_playback should reject {bad_spk!r}")
+                    self.assertIn("Invalid", res_ctrl.get("error", ""))
+                    self.assertEqual(srv.MUSIC_STATE["active_speaker"], "this_device")
+
+                # HTTP handler returns 400 on invalid speaker without mutating active_speaker
+                bad_body = json.dumps({"action": "select_speaker", "speaker": "media_player.evil"}).encode("utf-8")
+                h = self._create_handler(
+                    "POST",
+                    "/hearth-api/music/control",
+                    headers={"Content-Type": "application/json", "Content-Length": str(len(bad_body))},
+                    body=bad_body,
+                    client_ip="127.0.0.1",
+                )
+                h.do_POST()
+                h.send_response.assert_called_with(400)
+                self.assertEqual(srv.MUSIC_STATE["active_speaker"], "this_device")
+
+                # Configured speaker and local aliases are accepted
+                with patch.object(srv, "_ha_request", return_value={"state": "idle", "attributes": {"volume_level": 0.4}}):
+                    ok_cfg, _ = srv.control_music_playback({"action": "select_speaker", "speaker": "media_player.kitchen"})
+                    self.assertTrue(ok_cfg)
+                    self.assertEqual(srv.MUSIC_STATE["active_speaker"], "media_player.kitchen")
+
+                ok_loc, _ = srv.control_music_playback({"action": "select_speaker", "speaker": "local"})
+                self.assertTrue(ok_loc)
+                self.assertEqual(srv.MUSIC_STATE["active_speaker"], "local")
+
+                ok_dev, _ = srv.control_music_playback({"action": "select_speaker", "speaker": "this_device"})
+                self.assertTrue(ok_dev)
+                self.assertEqual(srv.MUSIC_STATE["active_speaker"], "this_device")
+
+    # --- 3. Plex rating_key Path Traversal Validation ---
+
+    def test_launch_plex_rejects_non_numeric_rating_key(self):
+        cfg_vals = {
+            "PLEX_BASE_URL": "http://198.51.100.20:32400",
+            "PLEX_TOKEN": "secret-plex-token",
+            "PLEX_TV_REMOTE_ENTITY": "remote.living_room_tv",
+            "PLEX_TV_MEDIA_PLAYER_ENTITY": "media_player.living_room_tv",
+            "PLEX_TV_CAST_ENTITY": "media_player.living_room_cast",
+        }
+        with patch.object(srv, "_cfg", side_effect=lambda k, d="": cfg_vals.get(k, d)):
+            with patch("urllib.request.urlopen") as mock_urlopen:
+                for bad_rk in ("../../status/sessions", "123/../../parts/99", "123?X-Plex-Token=x", "abc123", "123 456"):
+                    ok, res = srv.launch_plex_on_living_room_tv({"rating_key": bad_rk, "type": "show"})
+                    self.assertFalse(ok, f"Should reject rating_key={bad_rk!r}")
+                    self.assertIn("Invalid Plex rating_key", res.get("error", ""))
+                mock_urlopen.assert_not_called()
+
+    # --- 4. Plex Thumb Proxy Hardening (Regex, Header Auth, Content-Type, 5 MiB Cap) ---
+
+    def test_plex_thumb_regex_blocks_parts_and_arbitrary_paths(self):
+        # Allowed paths
+        for good in (
+            "/library/metadata/12345/thumb/1700000000",
+            "/library/metadata/42/art/987654321",
+            "/library/metadata/99/theme/12345",
+            "/library/arts/poster_01-hd.jpg",
+        ):
+            self.assertIsNotNone(srv.PLEX_THUMB_RE.match(good), f"Should allow {good}")
+
+        # Disallowed paths (parts, raw media files, extra segments, traversal)
+        for bad in (
+            "/library/parts/1234/5678/file.mkv",
+            "/library/metadata/12345/file.mp4",
+            "/library/metadata/12345/thumb/1700000000/extra",
+            "/library/metadata/12345/thumb/notanumber",
+            "/library/metadata/abc/thumb/123",
+            "/library/arts/sub/dir.jpg",
+            "/library/arts/../parts/123",
+        ):
+            self.assertIsNone(srv.PLEX_THUMB_RE.match(bad), f"Should reject {bad}")
+
+    def test_fetch_plex_thumb_uses_header_checks_image_ctype_and_caps_size(self):
+        cfg_vals = {
+            "PLEX_BASE_URL": "http://198.51.100.20:32400",
+            "PLEX_TOKEN": "super-secret-plex-token",
+        }
+        valid_path = "/library/metadata/12345/thumb/1700000000"
+        jpeg_bytes = b"\xff\xd8\xff\xe0valid_thumb_bytes\xff\xd9"
+
+        with patch.dict(srv.IMG_CACHE, {}, clear=True):
+            with patch.object(srv, "_cfg", side_effect=lambda k, d="": cfg_vals.get(k, d)):
+                # 1. /library/parts/... rejected before urlopen
+                with patch("urllib.request.urlopen") as mock_open:
+                    d, c = srv.fetch_plex_thumb("/library/parts/1/2/movie.mkv")
+                    self.assertIsNone(d)
+                    self.assertIsNone(c)
+                    mock_open.assert_not_called()
+
+                # 2. Valid image fetch sends X-Plex-Token in header, NOT in URL query string
+                captured_reqs = []
+
+                def make_resp(data, ctype="image/jpeg", cl=None):
+                    r = MagicMock()
+                    bio = io.BytesIO(data)
+                    r.read.side_effect = bio.read
+                    hdrs = {}
+                    if ctype is not None:
+                        hdrs["Content-Type"] = ctype
+                    if cl is not None:
+                        hdrs["Content-Length"] = str(cl)
+                    r.headers = hdrs
+                    r.__enter__.return_value = r
+                    r.__exit__.return_value = False
+                    return r
+
+                def ok_urlopen(req, timeout=6):
+                    captured_reqs.append(req)
+                    return make_resp(jpeg_bytes, ctype="image/jpeg")
+
+                with patch("urllib.request.urlopen", side_effect=ok_urlopen):
+                    data, ctype = srv.fetch_plex_thumb(valid_path)
+                    self.assertEqual(data, jpeg_bytes)
+                    self.assertEqual(ctype, "image/jpeg")
+                    self.assertEqual(len(captured_reqs), 1)
+                    self.assertNotIn("X-Plex-Token", captured_reqs[0].full_url)
+                    self.assertNotIn("super-secret-plex-token", captured_reqs[0].full_url)
+                    self.assertEqual(captured_reqs[0].get_header("X-plex-token"), "super-secret-plex-token")
+
+                # 3. Non-image or missing Content-Type rejected
+                srv.IMG_CACHE.clear()
+                for bad_ctype in ("video/x-matroska", "application/octet-stream", "text/html", None, ""):
+                    with patch("urllib.request.urlopen", return_value=make_resp(jpeg_bytes, ctype=bad_ctype)):
+                        d, c = srv.fetch_plex_thumb(valid_path)
+                        self.assertIsNone(d, f"Should reject Content-Type={bad_ctype!r}")
+                        self.assertIsNone(c)
+
+                # 4. Content-Length > MAX_THUMB_BYTES rejected without reading body
+                srv.IMG_CACHE.clear()
+                oversized_resp = make_resp(b"x", ctype="image/jpeg", cl=srv.MAX_THUMB_BYTES + 100)
+                with patch("urllib.request.urlopen", return_value=oversized_resp):
+                    d, c = srv.fetch_plex_thumb(valid_path)
+                    self.assertIsNone(d)
+                    self.assertIsNone(c)
+                    oversized_resp.read.assert_not_called()
+
+                # 5. Streaming response exceeding MAX_THUMB_BYTES without Content-Length rejected & read capped
+                srv.IMG_CACHE.clear()
+                big_payload = b"A" * (srv.MAX_THUMB_BYTES + 1024)
+                stream_resp = make_resp(big_payload, ctype="image/png", cl=None)
+                with patch("urllib.request.urlopen", return_value=stream_resp):
+                    d, c = srv.fetch_plex_thumb(valid_path)
+                    self.assertIsNone(d)
+                    self.assertIsNone(c)
+                    stream_resp.read.assert_called_once_with(srv.MAX_THUMB_BYTES + 1)
+
+    # --- 5. Camera Allowlist, Offline Stream Loop Bounds & Coalescing ---
+
+    def test_unconfigured_camera_rejected_without_upstream_or_streak_growth(self):
+        self.assertIsNone(srv.resolve_camera_target("unconfigured_secret_cam"))
+        self.assertIsNone(srv.resolve_camera_target("camera.unconfigured_secret_cam"))
+
+        with patch.dict(srv.CAMERA_FAILURE_STREAK, {}, clear=True), \
+             patch.dict(srv.CAMERA_FAILURE_COOLDOWN, {}, clear=True), \
+             patch("urllib.request.urlopen") as mock_open:
+            d, c = srv.fetch_camera_snapshot("unconfigured_secret_cam", force_refresh=True)
+            self.assertIsNone(d)
+            self.assertIsNone(c)
+            mock_open.assert_not_called()
+            self.assertEqual(srv.CAMERA_FAILURE_STREAK, {})
+            self.assertEqual(srv.CAMERA_FAILURE_COOLDOWN, {})
+
+            # HTTP GET snapshot and POST webrtc return 400
+            h_get = self._create_handler("GET", "/hearth-api/cameras/unconfigured_secret_cam/snapshot", client_ip="127.0.0.1")
+            h_get.do_GET()
+            h_get.send_response.assert_called_with(400)
+
+            sdp = b"v=0\r\noffer"
+            h_rtc = self._create_handler(
+                "POST",
+                "/hearth-api/cameras/unconfigured_secret_cam/webrtc",
+                headers={"Content-Type": "application/sdp", "Content-Length": str(len(sdp))},
+                body=sdp,
+                client_ip="127.0.0.1",
+            )
+            h_rtc.do_POST()
+            h_rtc.send_response.assert_called_with(400)
+
+    def test_extract_first_jpeg_from_stream_bounds_placeholders_bytes_and_deadline(self):
+        # Construct an exact HA_NEST_PLACEHOLDER_LEN-byte JPEG frame
+        placeholder_jpeg = b"\xff\xd8\xff\xe0" + (b"\x00" * (srv.HA_NEST_PLACEHOLDER_LEN - 6)) + b"\xff\xd9"
+        self.assertEqual(len(placeholder_jpeg), srv.HA_NEST_PLACEHOLDER_LEN)
+        real_jpeg = b"\xff\xd8\xff\xe0real_camera_frame\xff\xd9"
+
+        # 1. Infinite stream of placeholder frames exits after max_placeholders (2)
+        class InfinitePlaceholderStream:
+            def __init__(self):
+                self.reads = 0
+
+            def read(self, n=16384):
+                self.reads += 1
+                if self.reads > 100:
+                    raise AssertionError("Infinite loop detected in _extract_first_jpeg_from_stream")
+                return placeholder_jpeg
+
+        inf_stream = InfinitePlaceholderStream()
+        frame = srv._extract_first_jpeg_from_stream(inf_stream, max_placeholders=2)
+        self.assertIsNone(frame)
+        self.assertEqual(inf_stream.reads, 2)
+
+        # 2. Single placeholder followed by real JPEG succeeds
+        one_ph_then_real = io.BytesIO(placeholder_jpeg + real_jpeg)
+        frame_ok = srv._extract_first_jpeg_from_stream(one_ph_then_real, max_placeholders=2)
+        self.assertEqual(frame_ok, real_jpeg)
+
+        # 3. Cumulative total_read byte cap stops reading even when placeholders shrink buf
+        small_cap_stream = io.BytesIO(placeholder_jpeg * 10)
+        frame_capped = srv._extract_first_jpeg_from_stream(
+            small_cap_stream,
+            max_bytes=srv.HA_NEST_PLACEHOLDER_LEN * 3,
+            max_placeholders=100,
+        )
+        self.assertIsNone(frame_capped)
+
+        # 4. Monotonic wall-clock deadline exits cleanly
+        class SlowStream:
+            def __init__(self):
+                self.reads = 0
+
+            def read(self, n=16384):
+                self.reads += 1
+                return b"not_a_jpeg_chunk"
+
+        slow = SlowStream()
+        monotonic_vals = iter([100.0, 100.5, 106.5])
+        with patch.object(srv.time, "monotonic", side_effect=lambda: next(monotonic_vals, 200.0)):
+            frame_timeout = srv._extract_first_jpeg_from_stream(slow, max_seconds=6.0)
+            self.assertIsNone(frame_timeout)
+            self.assertEqual(slow.reads, 1)
+
+    def test_fetch_camera_snapshot_coalesces_concurrent_requests(self):
+        good_jpeg = b"\xff\xd8\xff\xe0coalesced_frame\xff\xd9"
+        cfg_vals = {
+            "HA_BASE_URL": "http://198.51.100.10:8123",
+            "HA_ACCESS_TOKEN": "test_ha_tok",
+            "GO2RTC_BASE_URL": "http://198.51.100.10:1984",
+        }
+        fake_cams = [
+            {
+                "id": "deck_camera",
+                "entity_id": "camera.deck_camera",
+                "go2rtc_src": "deck_camera",
+                "event_driven": False,
+            }
+        ]
+        fetch_count = [0]
+        fetch_started = threading.Event()
+        allow_finish = threading.Event()
+
+        def slow_urlopen(req, timeout=5):
+            fetch_count[0] += 1
+            fetch_started.set()
+            allow_finish.wait(timeout=2.0)
+            r = MagicMock()
+            r.read.return_value = good_jpeg
+            r.headers = {"Content-Type": "image/jpeg"}
+            r.__enter__.return_value = r
+            r.__exit__.return_value = False
+            return r
+
+        results = []
+
+        def worker():
+            results.append(srv.fetch_camera_snapshot("deck_camera", force_refresh=False))
+
+        with patch.dict(srv.CAMERA_SNAP_CACHE, {}, clear=True), \
+             patch.dict(srv.CAMERA_LAST_GOOD_FRAME, {}, clear=True), \
+             patch.dict(srv.CAMERA_FAILURE_COOLDOWN, {}, clear=True), \
+             patch.dict(srv.CAMERA_FAILURE_STREAK, {}, clear=True), \
+             patch.object(srv, "_get_configured_cameras", return_value=fake_cams), \
+             patch.object(srv, "_cfg", side_effect=lambda k, d="": cfg_vals.get(k, d)), \
+             patch("urllib.request.urlopen", side_effect=slow_urlopen):
+            t1 = threading.Thread(target=worker)
+            t2 = threading.Thread(target=worker)
+            t1.start()
+            self.assertTrue(fetch_started.wait(timeout=2.0))
+            t2.start()
+            srv.time.sleep(0.05)
+            allow_finish.set()
+            t1.join(timeout=3.0)
+            t2.join(timeout=3.0)
+
+        self.assertEqual(fetch_count[0], 1)
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0], (good_jpeg, "image/jpeg"))
+        self.assertEqual(results[1], (good_jpeg, "image/jpeg"))
+
+    # --- 6. Null / Malformed Upstream Crash Guards ---
+
+    def test_get_music_dashboard_state_handles_null_and_malformed_volume_level(self):
+        with patch.dict(srv.MUSIC_STATE, {
+            "active_speaker": "media_player.kitchen",
+            "local_state": "stopped",
+            "local_volume": 35,
+            "playing_video_id": "",
+            "queue": [],
+            "queue_index": 0,
+            "playlist_title": "",
+            "shuffle": False,
+        }):
+            with patch.object(srv, "fetch_yt_playlists", return_value=[]):
+                for raw_vol, expected_pct in (
+                    (None, 35),
+                    ("unknown", 35),
+                    ([], 35),
+                    (float("nan"), 35),
+                    (0.0, 0),
+                    (0.72, 72),
+                ):
+                    ha_payload = {"state": "off", "attributes": {"volume_level": raw_vol}}
+                    with patch.object(srv, "_ha_request", return_value=ha_payload):
+                        st = srv.get_music_dashboard_state()
+                        self.assertEqual(
+                            st["now_playing"]["volume"],
+                            expected_pct,
+                            f"Failed for volume_level={raw_vol!r}",
+                        )
+
+    def test_build_feed_mealie_skips_malformed_dates_and_handles_iso_timestamps(self):
+        mock_items = [
+            {"id": "bad1", "date": "not-a-date", "recipe": {"name": "Broken Meal"}},
+            {"id": "bad2", "date": "2026-99-99", "recipe": {"name": "Invalid Month"}},
+            {"id": "bad3", "date": 12345, "recipe": {"name": "Int Date"}},
+            {"id": "ok1", "date": "2026-11-20T00:00:00Z", "recipe": {"name": "Roast Chicken"}},
+            {"id": "ok2", "date": "2026-11-21", "recipe": {"name": "Pasta Primavera"}},
+        ]
+        with patch.object(srv, "fetch_mealie_events", return_value=mock_items):
+            ics = srv.build_feed("mealie").decode("utf-8")
+            self.assertIn("BEGIN:VCALENDAR", ics)
+            self.assertIn("Roast Chicken", ics)
+            self.assertIn("DTSTART;VALUE=DATE:20261120", ics)
+            self.assertIn("Pasta Primavera", ics)
+            self.assertIn("DTSTART;VALUE=DATE:20261121", ics)
+            self.assertNotIn("Broken Meal", ics)
+            self.assertNotIn("Invalid Month", ics)
+            self.assertNotIn("Int Date", ics)
 
 
 if __name__ == "__main__":
