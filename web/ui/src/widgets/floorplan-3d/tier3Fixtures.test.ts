@@ -1,4 +1,4 @@
-import { Box3, CylinderGeometry, DataTexture, Mesh, type MeshStandardMaterial } from 'three';
+import { Box3, CylinderGeometry, DataTexture, ExtrudeGeometry, Mesh, type MeshStandardMaterial } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { createTier1Materials } from './tier1Shell';
 import { buildTier3Fixtures, type Tier3FixturesBuildResult } from './tier3Fixtures';
@@ -47,23 +47,59 @@ describe('tier3Fixtures — Floor 3 3D Fixtures (Nook, Kitchen, Hall Bath, Rosie
     const palette = createTier1Materials();
     const built = buildTier3Fixtures(palette);
 
-    // Nook: dining table, high chair, pot rack pans, Hearth display, fiddle-leaf fig
-    expect(built.fixtures.diningTableSet.getObjectByName('dining-table-top')).toBeInstanceOf(Mesh);
-    expect(built.fixtures.diningTableSet.getObjectByName('highchair-navy-pad')).toBeInstanceOf(Mesh);
+    // Nook: curved-edge dining table, 6 regular chairs (no high chair), white-top buffet, pot rack pans, Hearth display, fiddle-leaf fig
+    const tableTop = built.fixtures.diningTableSet.getObjectByName('dining-table-top') as Mesh;
+    expect(tableTop).toBeInstanceOf(Mesh);
+    expect(tableTop.geometry).toBeInstanceOf(ExtrudeGeometry);
+    expect(built.fixtures.diningTableSet.getObjectByName('highchair-navy-pad')).toBeUndefined();
+    for (let ci = 0; ci < 6; ci += 1) {
+      expect(built.fixtures.diningTableSet.getObjectByName(`dining-chair-seat-${ci}`)).toBeInstanceOf(Mesh);
+    }
+    expect(built.fixtures.diningTableSet.getObjectByName('dining-chair-seat-6')).toBeUndefined();
     expect(built.fixtures.nookWhiteBuffet.getObjectByName('hanging-pan-0')).toBeInstanceOf(Mesh);
+    built.fixtures.nookWhiteBuffet.traverse((obj) => {
+      if (obj instanceof Mesh && !obj.name.startsWith('buffet-pull-') && !obj.name.startsWith('pot-') && !obj.name.startsWith('hanging-pan-')) {
+        expect(obj.material).toBe(palette.whiteTrim);
+      }
+    });
     expect(built.fixtures.hearthWallDisplay.getObjectByName('hearth-display-screen')).toBeInstanceOf(Mesh);
     expect(built.fixtures.hearthWallDisplay.getObjectByName('nook-fig-canopy-main')).toBeInstanceOf(Mesh);
 
-    // Kitchen & Upper Hall: counters, range hood rising to 6.5 ft, fridge magnets, island microwave/stools/tower
-    expect(built.fixtures.northKitchenCounters.getObjectByName('kitchen-sink-basin')).toBeInstanceOf(Mesh);
+    // Kitchen & Upper Hall: DW left of sink, range hood rising to 6.5 ft, fridge magnets, E-W island + 3 south stools + north-east MW + west tower/trash, west-facing pantry
+    const dwBox = new Box3().setFromObject(built.fixtures.northKitchenCounters.getObjectByName('dishwasher-front')!);
+    const sinkBox = new Box3().setFromObject(built.fixtures.northKitchenCounters.getObjectByName('kitchen-sink-basin')!);
+    expect(dwBox.max.x).toBeLessThan(sinkBox.min.x);
+    expect(built.fixtures.northKitchenCounters.getObjectByName('sink-blue-mat')).toBeInstanceOf(Mesh);
     const hoodChimney = built.fixtures.eastRangeAndHood.getObjectByName('range-hood-chimney') as Mesh;
     expect(hoodChimney).toBeInstanceOf(Mesh);
     expect(new Box3().setFromObject(hoodChimney).max.y).toBeCloseTo(6.5, 2);
     expect(built.fixtures.stainlessFridge.getObjectByName('fridge-magnet-0')).toBeInstanceOf(Mesh);
-    expect(built.fixtures.kitchenIsland.getObjectByName('island-microwave-door')).toBeInstanceOf(Mesh);
-    expect(built.fixtures.kitchenIsland.getObjectByName('island-stool-seat-1')).toBeInstanceOf(Mesh);
-    expect(built.fixtures.kitchenIsland.getObjectByName('learning-tower-platform')).toBeInstanceOf(Mesh);
+
+    const islandBaseBox = new Box3().setFromObject(built.fixtures.kitchenIsland.getObjectByName('island-base')!);
+    const islandTopBox = new Box3().setFromObject(built.fixtures.kitchenIsland.getObjectByName('island-quartz-top')!);
+    const mwBox = new Box3().setFromObject(built.fixtures.kitchenIsland.getObjectByName('island-microwave-door')!);
+    const stool1Box = new Box3().setFromObject(built.fixtures.kitchenIsland.getObjectByName('island-stool-seat-1')!);
+    const towerBox = new Box3().setFromObject(built.fixtures.kitchenIsland.getObjectByName('learning-tower-platform')!);
+    const trashBox = new Box3().setFromObject(built.fixtures.kitchenIsland.getObjectByName('island-trash-can')!);
+    expect(islandBaseBox.max.x - islandBaseBox.min.x).toBeCloseTo(7.4, 1);
+    expect(islandBaseBox.max.z - islandBaseBox.min.z).toBeCloseTo(3.0, 1);
+    expect(islandTopBox.max.z).toBeGreaterThan(islandBaseBox.max.z + 0.5);
+    expect(mwBox.min.z).toBeLessThan(islandBaseBox.min.z + 0.05);
+    expect(mwBox.min.x).toBeGreaterThan(0);
+    expect(built.fixtures.kitchenIsland.getObjectByName('island-stool-seat-2')).toBeInstanceOf(Mesh);
+    expect(stool1Box.min.z).toBeGreaterThan(islandBaseBox.max.z);
+    expect(towerBox.max.x).toBeLessThan(islandBaseBox.min.x);
+    expect(trashBox.max.x).toBeLessThan(islandBaseBox.min.x);
+    expect(trashBox.min.z).toBeGreaterThan(towerBox.max.z);
     expect(built.fixtures.playKitchenCorner.getObjectByName('harbor-art-frame')).toBeInstanceOf(Mesh);
+
+    const pantryBodyBox = new Box3().setFromObject(built.fixtures.tallWhitePantry.getObjectByName('pantry-body')!);
+    const pantryDoorBox = new Box3().setFromObject(built.fixtures.tallWhitePantry.getObjectByName('pantry-door-ln')!);
+    const pantryPullBox = new Box3().setFromObject(built.fixtures.tallWhitePantry.getObjectByName('pantry-pull-0')!);
+    expect(pantryDoorBox.max.x).toBeLessThanOrEqual(pantryBodyBox.min.x + 1e-4);
+    expect(pantryPullBox.max.x).toBeLessThanOrEqual(pantryDoorBox.min.x + 1e-4);
+    expect(built.fixtures.tallWhitePantry.getObjectByName('pantry-door-us')).toBeInstanceOf(Mesh);
+    expect(built.fixtures.tallWhitePantry.getObjectByName('pantry-pull-3')).toBeInstanceOf(Mesh);
 
     // Hall Bath: tub curtain, round mirror, 3-globe vanity light, toilet art
     expect(built.fixtures.hallBathTub.getObjectByName('hall-shower-curtain')).toBeInstanceOf(Mesh);

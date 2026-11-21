@@ -1,6 +1,6 @@
 import {
-  BoxGeometry, CylinderGeometry, DataTexture, Group, LinearFilter, Mesh, MeshStandardMaterial,
-  RGBAFormat, SphereGeometry, SRGBColorSpace, TorusGeometry, type BufferGeometry,
+  BoxGeometry, CylinderGeometry, DataTexture, ExtrudeGeometry, Group, LinearFilter, Mesh, MeshStandardMaterial,
+  RGBAFormat, Shape, SphereGeometry, SRGBColorSpace, TorusGeometry, type BufferGeometry,
 } from 'three';
 import {
   TIER3_LAYOUT_SPEC, type Tier3FixtureKey, type Tier3FixtureSpec, type Tier3LayoutSpec,
@@ -74,36 +74,52 @@ function createStarPlayMatTexture(): DataTexture {
   });
 }
 
+function createCurvedTabletopGeometry(length: number, width: number, thickness: number): ExtrudeGeometry {
+  const [hx, hz, r, bow, bevel] = [length / 2, width / 2, 0.68, 0.06, 0.02];
+  const s = new Shape().moveTo(-hx + r, -hz);
+  s.quadraticCurveTo(0, -hz - bow, hx - r, -hz).quadraticCurveTo(hx, -hz, hx, -hz + r);
+  s.quadraticCurveTo(hx + bow, 0, hx, hz - r).quadraticCurveTo(hx, hz, hx - r, hz);
+  s.quadraticCurveTo(0, hz + bow, -hx + r, hz).quadraticCurveTo(-hx, hz, -hx, hz - r);
+  s.quadraticCurveTo(-hx - bow, 0, -hx, -hz + r).quadraticCurveTo(-hx, -hz, -hx + r, -hz);
+  const geom = new ExtrudeGeometry(s, {
+    depth: thickness - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 20,
+  });
+  geom.rotateX(-Math.PI / 2);
+  return geom.center();
+}
+
 function buildNookFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3FixtureKey, Group>, spec: Tier3LayoutSpec): void {
   const f = spec.fixtures;
-  const [walnut, smoked, navy, screen] = [c.mat('#6e472b', 0.52), c.mat('#262b33', 0.16, 0.22, 0.72), c.mat('#1e3a5f', 0.78), c.mat('#1e3a5f', 0.22, 0.1)];
+  const [walnut, smoked, screen] = [c.mat('#6e472b', 0.52), c.mat('#262b33', 0.16, 0.22, 0.72), c.mat('#1e3a5f', 0.22, 0.1)];
   const plantGreen = c.mat('#356844', 0.72);
 
-  // 1. Dining table + 4 smoked-acrylic chrome chairs + white/navy toddler high chair
+  // 1. Curved-edge mid-century walnut dining table + 6 smoked-acrylic chrome cantilever chairs
   const dt = fixtures.diningTableSet;
-  c.boxes(dt, [
-    [-16.0, -11.5, 2.38, 2.52, 3.1, 6.1, walnut, 'dining-table-top'], [-15.8, -11.7, 2.20, 2.38, 3.3, 5.9, walnut, 'dining-table-apron'],
-    [-17.05, -16.25, 0, 1.72, 4.18, 5.02, c.palette.whiteTrim, 'highchair-legs'], [-17.08, -16.22, 1.72, 2.68, 4.15, 5.05, c.palette.whiteTrim, 'highchair-shell'],
-    [-16.95, -16.32, 1.82, 2.54, 4.25, 4.95, navy, 'highchair-navy-pad'], [-16.36, -15.96, 2.15, 2.24, 4.12, 5.08, c.palette.whiteTrim, 'highchair-tray'],
-  ]);
-  for (const [li, [lx, lz]] of [[-15.7, 3.35], [-11.8, 3.35], [-15.7, 5.85], [-11.8, 5.85]].entries()) {
-    c.addCyl(dt, lx, 1.11, lz, 0.09, 0.055, 2.22, walnut, `dining-leg-${li}`, 12);
+  c.addMesh(dt, createCurvedTabletopGeometry(4.36, 2.84, 0.16), walnut, -14.0, 2.44, 4.6, 'dining-table-top');
+  c.addBox(dt, -15.75, -12.25, 2.20, 2.36, 3.45, 5.75, walnut, 'dining-table-apron');
+  for (const [li, [lx, lz]] of [[-15.65, 3.55], [-12.35, 3.55], [-15.65, 5.65], [-12.35, 5.65]].entries()) {
+    c.addCyl(dt, lx, 1.10, lz, 0.09, 0.055, 2.20, walnut, `dining-leg-${li}`, 12);
   }
-  for (const [ci, [cx, cz, backZ]] of [[-14.7, 2.58, 2.12], [-12.7, 2.58, 2.12], [-14.7, 6.62, 7.08], [-12.7, 6.62, 7.08]].entries()) {
+  const chairs: ReadonlyArray<readonly [number, number, number, number]> = [
+    [-15.0, 2.58, 0, -1], [-13.0, 2.58, 0, -1], [-15.0, 6.62, 0, 1], [-13.0, 6.62, 0, 1], [-16.80, 4.6, -1, 0], [-11.20, 4.6, 1, 0],
+  ];
+  for (const [ci, [cx, cz, sx, sz]] of chairs.entries()) {
+    const [hx, hz, rx, rz, ox, oz] = [sx ? 0.46 : 0.54, sz ? 0.46 : 0.54, sx ? 0.04 : 0.50, sz ? 0.04 : 0.50, sx ? 0.40 : 0, sz ? 0.40 : 0];
+    const [bx, bz, bdx, bdz] = [cx + sx * 0.46, cz + sz * 0.46, sx ? 0.05 : hx, sz ? 0.05 : hz];
     c.boxes(dt, [
-      [cx - 0.52, cx + 0.52, 0, 1.48, cz - 0.44, cz - 0.36, c.palette.brushedSteel, `dining-chair-frame-n-${ci}`],
-      [cx - 0.52, cx + 0.52, 0, 1.48, cz + 0.36, cz + 0.44, c.palette.brushedSteel, `dining-chair-frame-s-${ci}`],
-      [cx - 0.56, cx + 0.56, 1.48, 1.58, cz - 0.48, cz + 0.48, smoked, `dining-chair-seat-${ci}`],
-      [cx - 0.56, cx + 0.56, 1.58, 2.84, backZ - 0.05, backZ + 0.05, smoked, `dining-chair-back-${ci}`],
+      [cx - ox - rx, cx - ox + rx, 0, 1.48, cz - oz - rz, cz - oz + rz, c.palette.brushedSteel, `dining-chair-frame-a-${ci}`],
+      [cx + ox - rx, cx + ox + rx, 0, 1.48, cz + oz - rz, cz + oz + rz, c.palette.brushedSteel, `dining-chair-frame-b-${ci}`],
+      [cx - hx, cx + hx, 1.48, 1.58, cz - hz, cz + hz, smoked, `dining-chair-seat-${ci}`],
+      [bx - bdx, bx + bdx, 1.58, 2.84, bz - bdz, bz + bdz, smoked, `dining-chair-back-${ci}`],
     ]);
   }
 
-  // 2. White sideboard buffet + wall-mounted black pot/pan rack with hanging stainless pans
+  // 2. White sideboard buffet (including white top & plinth) + wall-mounted black pot/pan rack with hanging stainless pans
   const nb = fixtures.nookWhiteBuffet;
   c.parts(nb, f.nookWhiteBuffet, [
-    [0.06, 0.94, 0, 0.06, 0.04, 0.96, walnut], [0.02, 0.96, 0.06, 0.52, 0.01, 0.99, c.palette.whiteTrim],
+    [0.06, 0.94, 0, 0.06, 0.04, 0.96, c.palette.whiteTrim], [0.02, 0.96, 0.06, 0.52, 0.01, 0.99, c.palette.whiteTrim],
     [0.96, 1.0, 0.08, 0.50, 0.03, 0.32, c.palette.whiteTrim], [0.96, 1.0, 0.08, 0.50, 0.35, 0.65, c.palette.whiteTrim],
-    [0.96, 1.0, 0.08, 0.50, 0.68, 0.97, c.palette.whiteTrim], [0, 1, 0.52, 0.55, 0, 1, walnut],
+    [0.96, 1.0, 0.08, 0.50, 0.68, 0.97, c.palette.whiteTrim], [0, 1, 0.52, 0.55, 0, 1, c.palette.whiteTrim],
   ]);
   for (const pz of [-8.0, -6.9, -5.8]) c.addBox(nb, -18.04, -17.98, 1.9, 2.35, pz - 0.03, pz + 0.03, c.palette.matteBlackIron, `buffet-pull-${pz}`);
   c.addBox(nb, -19.75, -18.90, 4.68, 4.82, -8.7, -5.1, c.palette.matteBlackIron, 'pot-rack-shelf');
@@ -128,24 +144,23 @@ function buildNookFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3Fixture
   c.addSphere(hw, -17.85, 3.05, 9.65, 0.48, plantGreen, 'nook-fig-canopy-side');
 }
 
-function buildKitchenAndHallFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3FixtureKey, Group>, spec: Tier3LayoutSpec): void {
-  const f = spec.fixtures;
+function buildKitchenAndHallFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3FixtureKey, Group>): void {
   const [quartz, subway, ovenGlass, barBrown, playBirch, blueRug] = [
     c.mat('#f4f3ef', 0.26, 0.04), c.mat('#4c545c', 0.46, 0.06), c.mat('#1a1e24', 0.2, 0.35),
     c.mat('#4a3222', 0.65), c.mat('#dfd4c2', 0.66), c.mat('#4a7294', 0.9),
   ];
 
-  // 4. North Kitchen Counters, Sink, Dishwasher & Blue Mat
+  // 4. North Kitchen Counters, Dishwasher (west) + Sink (east under window) & Blue Mat
   const nk = fixtures.northKitchenCounters;
   c.boxes(nk, [
-    [-9.4, 5.7, 0, 2.92, -10.75, -8.98, c.palette.whiteTrim, 'north-lower-cabinets'], [-2.6, -0.6, 0.18, 2.86, -8.98, -8.88, c.palette.brushedSteel, 'dishwasher-front'],
-    [-2.4, -0.8, 2.66, 2.74, -8.88, -8.80, c.palette.matteBlackIron, 'dishwasher-handle'], [-9.4, 5.7, 2.92, 3.06, -10.78, -8.86, quartz, 'north-quartz-top'],
-    [-9.4, 5.7, 3.06, 4.45, -10.78, -10.68, subway, 'north-subway-backsplash'], [-5.4, -3.2, 2.90, 3.08, -10.32, -9.16, c.palette.brushedSteel, 'kitchen-sink-basin'],
-    [-4.34, -4.26, 3.08, 4.08, -10.54, -10.44, c.palette.matteBlackIron, 'faucet-stem'], [-4.34, -4.26, 3.98, 4.08, -10.44, -9.96, c.palette.matteBlackIron, 'faucet-arm'],
-    [-9.4, -6.2, 4.45, 6.20, -10.75, -9.65, c.palette.whiteTrim, 'north-upper-cabs-w'], [-2.0, 5.7, 4.45, 6.20, -10.75, -9.65, c.palette.whiteTrim, 'north-upper-cabs-e'],
-    [-5.5, -3.1, 0, 0.04, -8.80, -8.42, blueRug, 'sink-blue-mat'],
+    [-9.4, 5.7, 0, 2.92, -10.75, -8.98, c.palette.whiteTrim, 'north-lower-cabinets'], [-7.0, -5.0, 0.18, 2.86, -8.98, -8.88, c.palette.brushedSteel, 'dishwasher-front'],
+    [-6.8, -5.2, 2.66, 2.74, -8.88, -8.80, c.palette.matteBlackIron, 'dishwasher-handle'], [-9.4, 5.7, 2.92, 3.06, -10.78, -8.86, quartz, 'north-quartz-top'],
+    [-9.4, 5.7, 3.06, 4.45, -10.78, -10.68, subway, 'north-subway-backsplash'], [-4.6, -2.2, 2.90, 3.08, -10.32, -9.16, c.palette.brushedSteel, 'kitchen-sink-basin'],
+    [-3.44, -3.36, 3.08, 4.08, -10.54, -10.44, c.palette.matteBlackIron, 'faucet-stem'], [-3.44, -3.36, 3.98, 4.08, -10.44, -9.96, c.palette.matteBlackIron, 'faucet-arm'],
+    [-9.4, -6.2, 4.45, 6.20, -10.75, -9.65, c.palette.whiteTrim, 'north-upper-cabs-w'], [-1.8, 5.7, 4.45, 6.20, -10.75, -9.65, c.palette.whiteTrim, 'north-upper-cabs-e'],
+    [-4.7, -2.1, 0, 0.04, -8.80, -8.42, blueRug, 'sink-blue-mat'],
   ]);
-  for (const px of [-8.8, -7.2, -6.6, -1.6, 0.2, 2.2, 4.4]) c.addBox(nk, px - 0.03, px + 0.03, 2.35, 2.72, -8.98, -8.92, c.palette.matteBlackIron, `north-lower-pull-${px}`);
+  for (const px of [-8.8, -7.4, -1.8, -0.4, 0.8, 2.4, 4.4]) c.addBox(nk, px - 0.03, px + 0.03, 2.35, 2.72, -8.98, -8.92, c.palette.matteBlackIron, `north-lower-pull-${px}`);
 
   // 5. East Range, Cabinets & Pyramid Chimney Hood
   c.boxes(fixtures.eastRangeAndHood, [
@@ -170,22 +185,22 @@ function buildKitchenAndHallFixtures(c: Tier3FixtureContext, fixtures: Record<Ti
     c.addBox(fr, 2.79, 2.83, my, my + 0.22, mz, mz + 0.18, c.mat(col, 0.6), `fridge-magnet-${mi}`);
   }
 
-  // 7. Kitchen Island + Microwave + 2 Dark Brown Barstools + Trash Can + Toddler Learning Tower
+  // 7. Elongated E-W Kitchen Island (south overhang) + North-East Microwave + 3 South Barstools + West Learning Tower (N) & Trash Can (S)
   const ki = fixtures.kitchenIsland;
   c.boxes(ki, [
-    [-4.4, 0.4, 0, 2.94, -3.1, 1.4, c.palette.whiteTrim, 'island-base'], [-5.0, 0.55, 2.94, 3.10, -3.3, 1.6, quartz, 'island-quartz-top'],
-    [0.36, 0.45, 1.42, 2.52, -1.5, 0.1, c.palette.brushedSteel, 'island-microwave-bezel'], [0.41, 0.47, 1.54, 2.40, -1.35, -0.05, ovenGlass, 'island-microwave-door'],
-    [-1.35, -0.25, 0, 2.05, 1.72, 2.68, c.palette.brushedSteel, 'island-trash-can'], [-1.37, -0.23, 2.05, 2.16, 1.70, 2.70, c.palette.matteBlackIron, 'island-trash-lid'],
-    [-4.12, -2.58, 1.35, 1.47, 1.67, 2.75, c.palette.whiteTrim, 'learning-tower-platform'], [-4.12, -2.58, 2.82, 2.95, 1.67, 2.75, c.palette.whiteTrim, 'learning-tower-rail'],
+    [-5.5, 1.9, 0, 2.94, -3.5, -0.5, c.palette.whiteTrim, 'island-base'], [-5.65, 1.98, 2.94, 3.10, -3.62, 0.45, quartz, 'island-quartz-top'],
+    [-0.1, 1.5, 1.42, 2.52, -3.58, -3.49, c.palette.brushedSteel, 'island-microwave-bezel'], [0.05, 1.35, 1.54, 2.40, -3.60, -3.54, ovenGlass, 'island-microwave-door'],
+    [-7.05, -5.95, 0, 2.05, -1.65, -0.65, c.palette.brushedSteel, 'island-trash-can'], [-7.07, -5.93, 2.05, 2.16, -1.67, -0.63, c.palette.matteBlackIron, 'island-trash-lid'],
+    [-7.15, -5.75, 1.35, 1.47, -3.45, -2.15, c.palette.whiteTrim, 'learning-tower-platform'], [-7.15, -5.75, 2.82, 2.95, -3.45, -2.15, c.palette.whiteTrim, 'learning-tower-rail'],
   ]);
-  for (const [si, sz] of [-1.95, 0.15].entries()) {
+  for (const [si, sx] of [-3.7, -1.6, 0.5].entries()) {
     c.boxes(ki, [
-      [-6.25, -5.15, 0, 2.02, sz - 0.52, sz + 0.52, c.palette.matteBlackIron, `island-stool-base-${si}`],
-      [-6.32, -5.08, 2.02, 2.22, sz - 0.56, sz + 0.56, barBrown, `island-stool-seat-${si}`],
-      [-6.36, -6.14, 2.22, 2.95, sz - 0.56, sz + 0.56, barBrown, `island-stool-back-${si}`],
+      [sx - 0.52, sx + 0.52, 0, 2.02, 0.35, 1.35, c.palette.matteBlackIron, `island-stool-base-${si}`],
+      [sx - 0.56, sx + 0.56, 2.02, 2.22, 0.31, 1.39, barBrown, `island-stool-seat-${si}`],
+      [sx - 0.56, sx + 0.56, 2.22, 2.95, 1.31, 1.45, barBrown, `island-stool-back-${si}`],
     ]);
   }
-  for (const [pi, [px, pz]] of [[-4.05, 1.74], [-2.65, 1.74], [-4.05, 2.68], [-2.65, 2.68]].entries()) {
+  for (const [pi, [px, pz]] of [[-7.08, -3.38], [-5.82, -3.38], [-7.08, -2.22], [-5.82, -2.22]].entries()) {
     c.addBox(ki, px - 0.07, px + 0.07, 0, 2.95, pz - 0.07, pz + 0.07, c.palette.whiteTrim, `learning-tower-post-${pi}`);
   }
 
@@ -197,12 +212,16 @@ function buildKitchenAndHallFixtures(c: Tier3FixtureContext, fixtures: Record<Ti
     [1.67, 4.23, 3.47, 3.82, 10.55, 10.59, c.mat('#355978', 0.72), 'harbor-art-water'],
   ]);
 
-  // 9. Tall White Hall Pantry
-  c.parts(fixtures.tallWhitePantry, f.tallWhitePantry, [
-    [0.02, 0.98, 0, 1, 0.32, 0.99, c.palette.whiteTrim], [0.04, 0.48, 0.03, 0.46, 0.29, 0.32, c.palette.whiteTrim],
-    [0.52, 0.96, 0.03, 0.46, 0.29, 0.32, c.palette.whiteTrim], [0.04, 0.48, 0.48, 0.97, 0.29, 0.32, c.palette.whiteTrim], [0.52, 0.96, 0.48, 0.97, 0.29, 0.32, c.palette.whiteTrim],
+  // 9. Tall White Hall Pantry (rotated 90 deg, west-facing shaker doors & pulls, flush against east back wall)
+  const tp = fixtures.tallWhitePantry;
+  c.boxes(tp, [
+    [6.28, 8.43, 0, 6.2, 4.46, 7.74, c.palette.whiteTrim, 'pantry-body'],
+    [6.18, 6.28, 0.18, 2.85, 4.54, 6.04, c.palette.whiteTrim, 'pantry-door-ln'], [6.18, 6.28, 0.18, 2.85, 6.16, 7.66, c.palette.whiteTrim, 'pantry-door-ls'],
+    [6.18, 6.28, 2.98, 6.02, 4.54, 6.04, c.palette.whiteTrim, 'pantry-door-un'], [6.18, 6.28, 2.98, 6.02, 6.16, 7.66, c.palette.whiteTrim, 'pantry-door-us'],
   ]);
-  for (const px of [7.55, 8.05]) c.addBox(fixtures.tallWhitePantry, px - 0.03, px + 0.03, 2.3, 3.6, 8.32, 8.38, c.palette.matteBlackIron, `pantry-pull-${px}`);
+  for (const [pi, [y0, y1, pz]] of [[1.95, 2.70, 5.88], [1.95, 2.70, 6.32], [3.15, 4.15, 5.88], [3.15, 4.15, 6.32]].entries()) {
+    c.addBox(tp, 6.11, 6.18, y0, y1, pz - 0.03, pz + 0.03, c.palette.matteBlackIron, `pantry-pull-${pi}`);
+  }
 }
 
 function buildHallBathFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3FixtureKey, Group>, spec: Tier3LayoutSpec): void {
@@ -406,7 +425,7 @@ export function buildTier3Fixtures(palette: Tier1MaterialPalette, spec: Tier3Lay
   }
 
   buildNookFixtures(ctx, fixtures, spec);
-  buildKitchenAndHallFixtures(ctx, fixtures, spec);
+  buildKitchenAndHallFixtures(ctx, fixtures);
   buildHallBathFixtures(ctx, fixtures, spec);
   buildRosieFixtures(ctx, fixtures, spec);
   buildIsaacFixtures(ctx, fixtures, spec);
