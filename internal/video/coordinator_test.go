@@ -31,6 +31,12 @@ func WithTimerFunc(tf TimerFunc) CoordinatorOption {
 	}
 }
 
+func WithAllowedControlOrigins(origins ...string) CoordinatorOption {
+	return func(c *Coordinator) {
+		c.allowedControlOrigins = append([]string(nil), origins...)
+	}
+}
+
 type mockTimer struct {
 	stopped bool
 	fn      func()
@@ -435,4 +441,168 @@ func TestCoordinator_Concurrency(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
+}
+
+func TestCoordinator_ControlURLValidation(t *testing.T) {
+	t.Parallel()
+
+	coord := NewCoordinator(nil)
+	t.Cleanup(coord.Close)
+
+	defaultTests := []struct {
+		name       string
+		controlURL string
+		wantErr    error
+	}{
+		{"allowed_loopback_v4", "http://127.0.0.1:8090/action", nil},
+		{"allowed_loopback_v6", "http://[::1]:8090/action", nil},
+		{"allowed_docker_service", "http://cast-watcher:8090/action", nil},
+		{"allowed_localhost", "https://localhost:8443/action", nil},
+		{"allowed_local_suffix", "http://controller.local:8090/action", nil},
+		{"allowed_lan_suffix", "http://controller.lan:8090/action", nil},
+		{"allowed_internal_suffix", "http://controller.internal:8090/action", nil},
+		{"allowed_home_arpa", "http://controller.home.arpa:8090/action", nil},
+		{"reject_parse_error", "http://[::1", ErrInvalidStream},
+		{"reject_file_scheme", "file:///etc/passwd", ErrInvalidStream},
+		{"reject_ftp_scheme", "ftp://cast-watcher/action", ErrInvalidStream},
+		{"reject_missing_host", "http:///action", ErrInvalidStream},
+		{"reject_empty_hostname", "http://:8080/action", ErrInvalidStream},
+		{"reject_userinfo", "http://user:pass@cast-watcher:8090/action", ErrInvalidStream},
+		{"reject_link_local_metadata", "http://169.254.169.254/latest/meta-data/", ErrInvalidStream},
+		{"reject_unspecified_ip", "http://0.0.0.0:8080/action", ErrInvalidStream},
+		{"reject_multicast_ip", "http://224.0.0.1:8080/action", ErrInvalidStream},
+		{"reject_public_doc_ip", "http://198.51.100.10:8080/action", ErrInvalidStream},
+		{"reject_external_domain", "https://evil.example.com/hook", ErrInvalidStream},
+		{"reject_metadata_hostname", "http://metadata/computeMetadata/v1/", ErrInvalidStream},
+		{"reject_google_metadata", "http://metadata.google.internal/computeMetadata/v1/", ErrInvalidStream},
+		{"reject_bare_local_suffix", "http://.local/action", ErrInvalidStream},
+	}
+
+	for _, tc := range defaultTests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := coord.Trigger(VideoStream{
+				ID:           "stream-" + tc.name,
+				StreamURL:    "http://stream.local/live",
+				Controllable: true,
+				ControlURL:   tc.controlURL,
+			})
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("Trigger(control_url=%q) err = %v, want %v", tc.controlURL, err, tc.wantErr)
+			}
+		})
+	}
+
+	scoped := NewCoordinator(nil, WithAllowedControlOrigins("https://controller.example.com:8443/"))
+	t.Cleanup(scoped.Close)
+
+	if _, err := scoped.Trigger(VideoStream{
+		ID:           "allowed-origin",
+		StreamURL:    "http://stream.local/live",
+		Controllable: true,
+		ControlURL:   "https://controller.example.com:8443/action",
+	}); err != nil {
+		t.Fatalf("expected allowlisted origin to succeed, got %v", err)
+	}
+
+	if _, err := scoped.Trigger(VideoStream{
+		ID:           "disallowed-origin",
+		StreamURL:    "http://stream.local/live",
+		Controllable: true,
+		ControlURL:   "http://127.0.0.1:8090/action",
+	}); !errors.Is(err, ErrInvalidStream) {
+		t.Fatalf("expected non-allowlisted origin to fail with ErrInvalidStream, got %v", err)
+	}
+}
+
+func TestCoordinator_ForwardActionRejectsRedirects(t *testing.T) {
+	t.Parallel()
+
+	var secretHits int
+	var mu sync.Mutex
+	sidecar := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/redirect" {
+			http.Redirect(w, r, "/secret", http.StatusFound)
+			return
+		}
+		if r.URL.Path == "/secret" {
+			mu.Lock()
+			secretHits++
+			mu.Unlock()
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(sidecar.Close)
+
+	coord := NewCoordinator(nil, WithHTTPClient(sidecar.Client()))
+	t.Cleanup(coord.Close)
+
+	if _, err := coord.Trigger(VideoStream{
+		ID:           "redir-cast",
+		StreamURL:    "http://stream.local/live",
+		Priority:     PriorityPersistent,
+		Controllable: true,
+		ControlURL:   sidecar.URL + "/redirect",
+	}); err != nil {
+		t.Fatalf("Trigger failed: %v", err)
+	}
+
+	if err := coord.ForwardAction(context.Background(), "redir-cast", ActionPlay, nil); !errors.Is(err, ErrControllerUnreachable) {
+		t.Fatalf("expected ErrControllerUnreachable on 302 redirect, got %v", err)
+	}
+
+	mu.Lock()
+	hits := secretHits
+	mu.Unlock()
+	if hits != 0 {
+		t.Fatalf("redirect target /secret was hit %d times, want 0", hits)
+	}
+}
+
+func TestCoordinator_StaleTimerRace(t *testing.T) {
+	t.Parallel()
+
+	var mu sync.Mutex
+	var callbacks []func()
+	coord := NewCoordinator(nil, WithTimerFunc(func(_ time.Duration, fn func()) Timer {
+		mu.Lock()
+		callbacks = append(callbacks, fn)
+		mu.Unlock()
+		return &mockTimer{}
+	}))
+	t.Cleanup(coord.Close)
+
+	// Start temporary stream (captures callback 0) then re-trigger same stream (captures callback 1).
+	if _, err := coord.Trigger(mkStream("doorbell", "http://cam1.local", "", PriorityTemporary, 30)); err != nil {
+		t.Fatalf("first Trigger failed: %v", err)
+	}
+	if _, err := coord.Trigger(mkStream("doorbell", "http://cam2.local", "", PriorityTemporary, 30)); err != nil {
+		t.Fatalf("second Trigger failed: %v", err)
+	}
+
+	mu.Lock()
+	cb0, cb1 := callbacks[0], callbacks[1]
+	mu.Unlock()
+
+	// Fire stale callback 0; stream must remain active.
+	cb0()
+	st := coord.GetState()
+	if st.Mode != ModeVideo || st.Primary == nil || st.Primary.StreamURL != "http://cam2.local" {
+		t.Fatalf("stale timer callback evicted re-triggered stream: %+v", st)
+	}
+
+	// Dismiss and trigger a persistent stream with the same ID; firing stale callback 1 must not evict it.
+	if _, err := coord.Dismiss("doorbell"); err != nil {
+		t.Fatalf("Dismiss failed: %v", err)
+	}
+	if _, err := coord.Trigger(mkStream("doorbell", "http://cam3.local", "", PriorityPersistent, 0)); err != nil {
+		t.Fatalf("persistent Trigger failed: %v", err)
+	}
+	cb1()
+	st = coord.GetState()
+	if st.Mode != ModeVideo || st.Primary == nil || st.Primary.StreamURL != "http://cam3.local" {
+		t.Fatalf("stale timer callback evicted persistent stream after dismiss: %+v", st)
+	}
 }

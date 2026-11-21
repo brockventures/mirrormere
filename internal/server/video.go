@@ -53,7 +53,7 @@ func (h *DefaultVideoHandler) GetVideoState(w http.ResponseWriter, r *http.Reque
 
 // PostVideoTrigger handles POST /api/video/trigger.
 func (h *DefaultVideoHandler) PostVideoTrigger(w http.ResponseWriter, r *http.Request) {
-	if !requireCORSAndMethod(w, r, "POST, OPTIONS", http.MethodPost) || !h.ready(w) {
+	if !requireSameOriginAndMethod(w, r, "POST, OPTIONS", http.MethodPost) || !h.ready(w) {
 		return
 	}
 	stream := video.VideoStream{
@@ -147,7 +147,7 @@ func (h *DefaultVideoHandler) PostVideoState(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *DefaultVideoHandler) decodeRequiredVideoPost(w http.ResponseWriter, r *http.Request, dst any, malformedMsg, missingMsg string, missing func() bool) bool {
-	if !requireCORSAndMethod(w, r, "POST, OPTIONS", http.MethodPost) || !h.ready(w) {
+	if !requireSameOriginAndMethod(w, r, "POST, OPTIONS", http.MethodPost) || !h.ready(w) {
 		return false
 	}
 	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {

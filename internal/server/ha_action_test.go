@@ -100,19 +100,99 @@ func TestWidgetAction_CORS(t *testing.T) {
 	handler := server.NewDefaultWidgetActionHandler(server.WithWidgetActionCaller(caller))
 	srv := server.New(server.Config{WidgetActionHandler: handler})
 
-	req := httptest.NewRequest(http.MethodOptions, "/api/widgets/light-1/action", nil)
-	rec := httptest.NewRecorder()
-	srv.Routes().ServeHTTP(rec, req)
+	t.Run("options_no_origin_omits_wildcard", func(t *testing.T) {
+		t.Parallel()
+		req := httptest.NewRequest(http.MethodOptions, "/api/widgets/light-1/action", nil)
+		rec := httptest.NewRecorder()
+		srv.Routes().ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("expected status 204 for OPTIONS preflight, got %d", rec.Code)
-	}
-	if origin := rec.Header().Get("Access-Control-Allow-Origin"); origin != "*" {
-		t.Errorf("expected Access-Control-Allow-Origin '*', got %q", origin)
-	}
-	if methods := rec.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(methods, "POST") {
-		t.Errorf("expected Access-Control-Allow-Methods to contain POST, got %q", methods)
-	}
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("expected status 204 for OPTIONS preflight, got %d", rec.Code)
+		}
+		if origin := rec.Header().Get("Access-Control-Allow-Origin"); origin != "" {
+			t.Errorf("expected empty Access-Control-Allow-Origin without Origin header, got %q", origin)
+		}
+		if methods := rec.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(methods, "POST") {
+			t.Errorf("expected Access-Control-Allow-Methods to contain POST, got %q", methods)
+		}
+	})
+
+	t.Run("options_same_origin_echoed", func(t *testing.T) {
+		t.Parallel()
+		req := httptest.NewRequest(http.MethodOptions, "/api/widgets/light-1/action", nil)
+		req.Host = "display.local:8080"
+		req.Header.Set("Origin", "http://display.local:8080")
+		rec := httptest.NewRecorder()
+		srv.Routes().ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("expected status 204 for same-origin OPTIONS, got %d", rec.Code)
+		}
+		if origin := rec.Header().Get("Access-Control-Allow-Origin"); origin != "http://display.local:8080" {
+			t.Errorf("expected Access-Control-Allow-Origin to echo same-origin, got %q", origin)
+		}
+	})
+
+	t.Run("post_cross_origin_forbidden", func(t *testing.T) {
+		t.Parallel()
+		c := &mockWidgetActionCaller{}
+		h := server.NewDefaultWidgetActionHandler(server.WithWidgetActionCaller(c))
+		s := server.New(server.Config{WidgetActionHandler: h})
+
+		req := httptest.NewRequest(http.MethodPost, "/api/widgets/light-1/action", strings.NewReader(`{"domain":"light","service":"turn_on"}`))
+		req.Host = "display.local:8080"
+		req.Header.Set("Origin", "https://evil.example.com")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		s.Routes().ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected status 403 for cross-origin POST, got %d", rec.Code)
+		}
+		if origin := rec.Header().Get("Access-Control-Allow-Origin"); origin != "" {
+			t.Errorf("expected empty Access-Control-Allow-Origin on forbidden response, got %q", origin)
+		}
+		if len(c.calls) != 0 {
+			t.Fatalf("expected caller not to be invoked on cross-origin request, got %d calls", len(c.calls))
+		}
+	})
+
+	t.Run("post_same_origin_allowed", func(t *testing.T) {
+		t.Parallel()
+		c := &mockWidgetActionCaller{}
+		h := server.NewDefaultWidgetActionHandler(server.WithWidgetActionCaller(c))
+		s := server.New(server.Config{WidgetActionHandler: h})
+
+		req := httptest.NewRequest(http.MethodPost, "/api/widgets/light-1/action", strings.NewReader(`{"domain":"light","service":"turn_on"}`))
+		req.Host = "display.local:8080"
+		req.Header.Set("Origin", "http://display.local:8080")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		s.Routes().ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200 for same-origin POST, got %d", rec.Code)
+		}
+		if len(c.calls) != 1 {
+			t.Fatalf("expected caller to be invoked once, got %d", len(c.calls))
+		}
+	})
+
+	t.Run("sentinel_forbidden_maps_to_403", func(t *testing.T) {
+		t.Parallel()
+		c := &mockWidgetActionCaller{errToReturn: fmt.Errorf("%w: entity lock.front_door is not allowed", provider.ErrActionForbidden)}
+		h := server.NewDefaultWidgetActionHandler(server.WithWidgetActionCaller(c))
+		s := server.New(server.Config{WidgetActionHandler: h})
+
+		req := httptest.NewRequest(http.MethodPost, "/api/widgets/light-1/action", strings.NewReader(`{"domain":"lock","service":"unlock","entity_id":"lock.front_door"}`))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		s.Routes().ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected status 403 for ErrActionForbidden, got %d", rec.Code)
+		}
+	})
 }
 
 func TestWidgetAction_InvalidWidgetID(t *testing.T) {

@@ -6,8 +6,11 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/url"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/azylman/mirrormere/internal/api"
@@ -50,7 +53,7 @@ func (h *DefaultAudioHandler) GetAudio(w http.ResponseWriter, r *http.Request) {
 
 // PostAudioVolume handles POST /api/audio/volume.
 func (h *DefaultAudioHandler) PostAudioVolume(w http.ResponseWriter, r *http.Request) {
-	if !requireCORSAndMethod(w, r, "POST, OPTIONS", http.MethodPost) {
+	if !requireSameOriginAndMethod(w, r, "POST, OPTIONS", http.MethodPost) {
 		return
 	}
 	if h.coord == nil {
@@ -72,7 +75,7 @@ func (h *DefaultAudioHandler) PostAudioVolume(w http.ResponseWriter, r *http.Req
 
 // PostAudioMute handles POST /api/audio/mute.
 func (h *DefaultAudioHandler) PostAudioMute(w http.ResponseWriter, r *http.Request) {
-	if !requireCORSAndMethod(w, r, "POST, OPTIONS", http.MethodPost) {
+	if !requireSameOriginAndMethod(w, r, "POST, OPTIONS", http.MethodPost) {
 		return
 	}
 	if h.coord == nil {
@@ -101,7 +104,90 @@ func (h *DefaultAudioHandler) PostAudioMute(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, api.AudioStateResponse{Status: "ok", Volume: newVol, Muted: newMuted})
 }
 
+func isReadOnlyMethods(allowed []string) bool {
+	for _, m := range allowed {
+		if m != http.MethodGet && m != http.MethodHead {
+			return false
+		}
+	}
+	return len(allowed) > 0
+}
+
+func parseHostWithoutPort(hostport string) (string, bool) {
+	switch {
+	case strings.HasPrefix(hostport, "[") && strings.HasSuffix(hostport, "]"):
+		return hostport[1 : len(hostport)-1], true
+	case strings.Contains(hostport, ":"):
+		return "", false
+	default:
+		return hostport, true
+	}
+}
+
+func defaultOriginPort(scheme string) string {
+	if scheme == "https" {
+		return "443"
+	}
+	return "80"
+}
+
+func normalizeOriginHost(scheme, hostport string) (string, string, bool) {
+	hostport = strings.TrimSpace(hostport)
+	if hostport == "" {
+		return "", "", false
+	}
+	host, port, err := net.SplitHostPort(hostport)
+	if err != nil {
+		var ok bool
+		host, ok = parseHostWithoutPort(hostport)
+		if !ok {
+			return "", "", false
+		}
+		port = defaultOriginPort(scheme)
+	}
+	if host == "" {
+		return "", "", false
+	}
+	return strings.ToLower(host), port, true
+}
+
+func isSameOrigin(origin, reqHost string) bool {
+	u, err := url.Parse(origin)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return false
+	}
+	oHost, oPort, ok1 := normalizeOriginHost(u.Scheme, u.Host)
+	rHost, rPort, ok2 := normalizeOriginHost(u.Scheme, reqHost)
+	return ok1 && ok2 && oHost == rHost && oPort == rPort
+}
+
+func requireSameOriginAndMethod(w http.ResponseWriter, r *http.Request, allowHeader string, allowed ...string) bool {
+	w.Header().Add("Vary", "Origin")
+	if origin := strings.TrimSpace(r.Header.Get("Origin")); origin != "" {
+		if !isSameOrigin(origin, r.Host) {
+			writeAPIError(w, http.StatusForbidden, "cross-origin request forbidden")
+			return false
+		}
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+	}
+	w.Header().Set("Access-Control-Allow-Methods", allowHeader)
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return false
+	}
+	if slices.Contains(allowed, r.Method) {
+		return true
+	}
+	w.Header().Set("Allow", allowHeader)
+	writeAPIError(w, http.StatusMethodNotAllowed, "method not allowed")
+	return false
+}
+
 func requireCORSAndMethod(w http.ResponseWriter, r *http.Request, allowHeader string, allowed ...string) bool {
+	if !isReadOnlyMethods(allowed) {
+		return requireSameOriginAndMethod(w, r, allowHeader, allowed...)
+	}
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", allowHeader)
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept")

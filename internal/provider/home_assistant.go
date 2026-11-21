@@ -27,6 +27,7 @@ const (
 // Sentinel errors for Home Assistant widget actions and upstream calls.
 var (
 	ErrActionValidation     = errors.New("invalid widget action")
+	ErrActionForbidden      = errors.New("widget action forbidden")
 	ErrUpstreamUnauthorized = errors.New("upstream unauthorized")
 	ErrUpstreamNotFound     = errors.New("upstream not found")
 	ErrUpstreamUnavailable  = errors.New("upstream unavailable")
@@ -210,12 +211,14 @@ type HomeAssistantConfig struct {
 
 // HomeAssistantProvider implements Provider for Home Assistant Lovelace & entity states.
 type HomeAssistantProvider struct {
-	mu      sync.RWMutex
-	client  *http.Client
-	baseURL string
-	token   string
-	cfg     HomeAssistantConfig
-	logger  *slog.Logger
+	mu                sync.RWMutex
+	client            *http.Client
+	baseURL           string
+	token             string
+	cfg               HomeAssistantConfig
+	allowedEntities   map[string]struct{}
+	allowlistEnforced bool
+	logger            *slog.Logger
 }
 
 var _ Provider = (*HomeAssistantProvider)(nil)
@@ -299,8 +302,40 @@ func (p *HomeAssistantProvider) Init(ctx context.Context, config map[string]any,
 		Domains:   domains,
 		Entities:  entities,
 	}
+	p.resetAllowedEntitiesLocked(entities, len(entities) > 0 || dashboard != "" || view != "" || len(domains) > 0)
 
 	return nil
+}
+
+func (p *HomeAssistantProvider) resetAllowedEntitiesLocked(entities []string, enforce bool) {
+	if !enforce {
+		p.allowedEntities = nil
+		p.allowlistEnforced = false
+		return
+	}
+	allowed := make(map[string]struct{}, len(entities))
+	for _, ent := range entities {
+		if clean := strings.ToLower(strings.TrimSpace(ent)); clean != "" {
+			allowed[clean] = struct{}{}
+		}
+	}
+	p.allowedEntities = allowed
+	p.allowlistEnforced = true
+}
+
+func (p *HomeAssistantProvider) updateAllowedEntities(groups ...[]string) {
+	allowed := make(map[string]struct{})
+	for _, list := range groups {
+		for _, ent := range list {
+			if clean := strings.ToLower(strings.TrimSpace(ent)); clean != "" {
+				allowed[clean] = struct{}{}
+			}
+		}
+	}
+	p.mu.Lock()
+	p.allowedEntities = allowed
+	p.allowlistEnforced = true
+	p.mu.Unlock()
 }
 
 // Fetch retrieves the current Lovelace layout and hydrated entity states from Home Assistant.
@@ -346,6 +381,7 @@ func (p *HomeAssistantProvider) Fetch(ctx context.Context) (any, error) {
 	if len(cfg.Entities) > 0 {
 		layout.DiscoveredEntities = deduplicateStrings(append(layout.DiscoveredEntities, cfg.Entities...))
 	}
+	p.updateAllowedEntities(layout.DiscoveredEntities, cfg.Entities)
 
 	title := cfg.Title
 	if title == "" {
@@ -388,21 +424,32 @@ func (p *HomeAssistantProvider) CallService(ctx context.Context, domain, service
 	return err
 }
 
-// CallServiceWithResponse executes a Home Assistant service call and returns the resulting entity states.
-func (p *HomeAssistantProvider) CallServiceWithResponse(ctx context.Context, domain, service string, serviceData map[string]any) ([]EntityState, error) {
+func (p *HomeAssistantProvider) validateServiceCall(domain, service string, serviceData map[string]any) (string, string, error) {
 	domain = strings.TrimSpace(domain)
 	service = strings.TrimSpace(service)
 	if domain == "" || service == "" {
-		return nil, fmt.Errorf("%w: domain and service must not be empty", ErrActionValidation)
+		return "", "", fmt.Errorf("%w: domain and service must not be empty", ErrActionValidation)
 	}
 	if !IsValidIdentifier(domain) {
-		return nil, fmt.Errorf("%w: invalid domain %q: must match ^[a-z0-9_]+$", ErrActionValidation, domain)
+		return "", "", fmt.Errorf("%w: invalid domain %q: must match ^[a-z0-9_]+$", ErrActionValidation, domain)
 	}
 	if !IsValidIdentifier(service) {
-		return nil, fmt.Errorf("%w: invalid service %q: must match ^[a-z0-9_]+$", ErrActionValidation, service)
+		return "", "", fmt.Errorf("%w: invalid service %q: must match ^[a-z0-9_]+$", ErrActionValidation, service)
 	}
 	if !IsSupportedDomain(domain) {
-		return nil, fmt.Errorf("%w: unsupported domain: %q", ErrActionValidation, domain)
+		return "", "", fmt.Errorf("%w: unsupported domain: %q", ErrActionValidation, domain)
+	}
+	if err := p.validateActionScope(domain, service, serviceData); err != nil {
+		return "", "", err
+	}
+	return domain, service, nil
+}
+
+// CallServiceWithResponse executes a Home Assistant service call and returns the resulting entity states.
+func (p *HomeAssistantProvider) CallServiceWithResponse(ctx context.Context, domain, service string, serviceData map[string]any) ([]EntityState, error) {
+	domain, service, err := p.validateServiceCall(domain, service, serviceData)
+	if err != nil {
+		return nil, err
 	}
 
 	p.mu.RLock()
@@ -470,6 +517,98 @@ func (p *HomeAssistantProvider) CallServiceWithResponse(ctx context.Context, dom
 	}
 
 	return nil, nil
+}
+
+func isHighPrivilegeDomain(domain string) bool {
+	return domain == "lock" || domain == "cover" || domain == "script"
+}
+
+func isGenericScriptService(service string) bool {
+	return service == "turn_on" || service == "turn_off" || service == "toggle" || service == "reload"
+}
+
+func checkForbiddenTargetSelectors(serviceData map[string]any) error {
+	for _, key := range []string{"area_id", "device_id", "floor_id", "label_id"} {
+		if v, ok := serviceData[key]; ok && v != nil {
+			return fmt.Errorf("%w: target selector %q is not allowed", ErrActionForbidden, key)
+		}
+	}
+	return nil
+}
+
+func extractTargetEntities(domain, service string, serviceData map[string]any) ([]string, error) {
+	if err := checkForbiddenTargetSelectors(serviceData); err != nil {
+		return nil, err
+	}
+	var entities []string
+	if raw, exists := serviceData["entity_id"]; exists && raw != nil {
+		parsed := toStringSlice(raw)
+		if len(parsed) == 0 {
+			return nil, fmt.Errorf("%w: invalid entity_id value", ErrActionValidation)
+		}
+		entities = append(entities, parsed...)
+	}
+	if len(entities) == 0 && domain == "script" && !isGenericScriptService(service) {
+		entities = append(entities, "script."+service)
+	}
+	return validateTargetEntityList(domain, entities)
+}
+
+func validateTargetEntityList(domain string, entities []string) ([]string, error) {
+	out := make([]string, 0, len(entities))
+	for _, ent := range entities {
+		ent = strings.ToLower(strings.TrimSpace(ent))
+		if ent == "all" || ent == "*" {
+			return nil, fmt.Errorf("%w: wildcard entity_id %q is not allowed", ErrActionForbidden, ent)
+		}
+		parts := strings.SplitN(ent, ".", 2)
+		if len(parts) != 2 || !IsValidIdentifier(parts[0]) || !IsValidIdentifier(parts[1]) {
+			return nil, fmt.Errorf("%w: invalid entity_id %q", ErrActionValidation, ent)
+		}
+		if parts[0] != domain {
+			return nil, fmt.Errorf("%w: entity_id %q does not match domain %q", ErrActionForbidden, ent, domain)
+		}
+		out = append(out, ent)
+	}
+	return out, nil
+}
+
+func (p *HomeAssistantProvider) validateActionScope(domain, service string, serviceData map[string]any) error {
+	p.mu.RLock()
+	cfgDomains := p.cfg.Domains
+	enforced := p.allowlistEnforced
+	allowed := p.allowedEntities
+	p.mu.RUnlock()
+
+	if len(cfgDomains) > 0 && !containsDomainFold(cfgDomains, domain) {
+		return fmt.Errorf("%w: domain %q is not allowed for this widget", ErrActionForbidden, domain)
+	}
+
+	targets, err := extractTargetEntities(domain, service, serviceData)
+	if err != nil {
+		return err
+	}
+	if !enforced && !isHighPrivilegeDomain(domain) {
+		return nil
+	}
+	if len(targets) == 0 {
+		return fmt.Errorf("%w: entity_id is required for scoped widget actions", ErrActionForbidden)
+	}
+	for _, ent := range targets {
+		if _, ok := allowed[ent]; !ok {
+			return fmt.Errorf("%w: entity %q is not allowed for this widget", ErrActionForbidden, ent)
+		}
+	}
+	return nil
+}
+
+func containsDomainFold(domains []string, domain string) bool {
+	for _, d := range domains {
+		if strings.EqualFold(strings.TrimSpace(d), domain) {
+			return true
+		}
+	}
+	return false
 }
 
 func formatUpstreamStatusError(prefix string, statusCode int, body string) error {
@@ -765,7 +904,32 @@ func ExtractEntitiesFromCard(card LovelaceCard) []string {
 		}
 	}
 
+	res = append(res, extractActionEntityIDs(card.TapAction)...)
+	res = append(res, extractActionEntityIDs(card.HoldAction)...)
+
 	return deduplicateStrings(res)
+}
+
+func extractActionEntityIDs(action map[string]any) []string {
+	if len(action) == 0 {
+		return nil
+	}
+	var res []string
+	for _, key := range []string{"service", "perform_action"} {
+		if svc, ok := action[key].(string); ok {
+			svc = strings.ToLower(strings.TrimSpace(svc))
+			if name, ok := strings.CutPrefix(svc, "script."); ok && name != "" && !isGenericScriptService(name) {
+				res = append(res, svc)
+			}
+		}
+	}
+	res = append(res, toStringSlice(action["entity_id"])...)
+	for _, subKey := range []string{"target", "service_data", "data"} {
+		if sub, ok := action[subKey].(map[string]any); ok {
+			res = append(res, toStringSlice(sub["entity_id"])...)
+		}
+	}
+	return res
 }
 
 // ExtractEntitiesFromView extracts all referenced entity IDs from a LovelaceView.

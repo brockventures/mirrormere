@@ -4,13 +4,20 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/azylman/mirrormere/internal/events"
 )
+
+func noRedirect(*http.Request, []*http.Request) error {
+	return http.ErrUseLastResponse
+}
 
 // VideoStateSink accepts updated video state for initial connection hydration sync.
 type VideoStateSink interface {
@@ -25,23 +32,38 @@ func WithSink(sink VideoStateSink) CoordinatorOption { return func(c *Coordinato
 // Coordinator manages the authoritative in-memory video priority stack, auto-dismiss timers,
 // transport action forwarding, and real-time SSE broadcasts.
 type Coordinator struct {
-	mu         sync.RWMutex
-	mode       string
-	primary    *VideoStream
-	pip        *VideoStream
-	timers     map[string]Timer
-	hub        *events.Hub
-	sink       VideoStateSink
-	httpClient *http.Client
-	timerFunc  TimerFunc
-	closed     bool
+	mu                    sync.RWMutex
+	mode                  string
+	primary               *VideoStream
+	pip                   *VideoStream
+	timers                map[string]Timer
+	timerGen              map[string]uint64
+	nextTimerGen          uint64
+	hub                   *events.Hub
+	sink                  VideoStateSink
+	httpClient            *http.Client
+	timerFunc             TimerFunc
+	allowedControlOrigins []string
+	closed                bool
 }
 
 // NewCoordinator constructs a VideoCoordinator initialized in widgets mode.
 func NewCoordinator(hub *events.Hub, opts ...CoordinatorOption) *Coordinator {
-	c := &Coordinator{mode: ModeWidgets, timers: make(map[string]Timer), hub: hub, httpClient: &http.Client{Timeout: 2 * time.Second}, timerFunc: defaultTimerFunc}
+	c := &Coordinator{
+		mode:       ModeWidgets,
+		timers:     make(map[string]Timer),
+		timerGen:   make(map[string]uint64),
+		hub:        hub,
+		httpClient: &http.Client{Timeout: 2 * time.Second, CheckRedirect: noRedirect},
+		timerFunc:  defaultTimerFunc,
+	}
 	for _, opt := range opts {
 		opt(c)
+	}
+	if c.httpClient.CheckRedirect == nil {
+		cp := *c.httpClient
+		cp.CheckRedirect = noRedirect
+		c.httpClient = &cp
 	}
 	if c.sink != nil {
 		c.sink.SetVideoState(&events.VideoStateData{Mode: ModeWidgets})
@@ -117,10 +139,65 @@ func (c *Coordinator) promotePipOrResetLocked() {
 	}
 }
 
-func normalizeAndValidateStream(stream *VideoStream) error {
+func isAllowedDefaultControlHost(host string) bool {
+	if ip := net.ParseIP(host); ip != nil {
+		if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsMulticast() || ip.IsUnspecified() {
+			return false
+		}
+		return ip.IsLoopback() || ip.IsPrivate()
+	}
+	if host == "metadata" || host == "metadata.google.internal" || strings.HasSuffix(host, ".metadata.internal") {
+		return false
+	}
+	if host == "localhost" || !strings.Contains(host, ".") {
+		return true
+	}
+	for _, suffix := range []string{".local", ".lan", ".internal", ".home.arpa"} {
+		if strings.HasSuffix(host, suffix) && len(host) > len(suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+func validateControlURL(rawURL string, allowedOrigins []string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" || u.User != nil {
+		return fmt.Errorf("%w: control_url must be a valid http or https URL", ErrInvalidStream)
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("%w: control_url must be a valid http or https URL", ErrInvalidStream)
+	}
+	host := strings.ToLower(u.Hostname())
+	if host == "" {
+		return fmt.Errorf("%w: control_url host is required", ErrInvalidStream)
+	}
+	if len(allowedOrigins) > 0 {
+		origin := scheme + "://" + strings.ToLower(u.Host)
+		for _, allowed := range allowedOrigins {
+			if strings.EqualFold(strings.TrimRight(strings.TrimSpace(allowed), "/"), origin) {
+				return nil
+			}
+		}
+		return fmt.Errorf("%w: control_url origin is not allowed", ErrInvalidStream)
+	}
+	if !isAllowedDefaultControlHost(host) {
+		return fmt.Errorf("%w: control_url host is not allowed", ErrInvalidStream)
+	}
+	return nil
+}
+
+func normalizeAndValidateStream(stream *VideoStream, allowedControlOrigins []string) error {
 	stream.ID, stream.StreamURL = strings.TrimSpace(stream.ID), strings.TrimSpace(stream.StreamURL)
+	stream.ControlURL = strings.TrimSpace(stream.ControlURL)
 	if stream.ID == "" || stream.StreamURL == "" || stream.ID == "all" || stream.ID == "*" {
 		return ErrInvalidStream
+	}
+	if stream.ControlURL != "" {
+		if err := validateControlURL(stream.ControlURL, allowedControlOrigins); err != nil {
+			return err
+		}
 	}
 	if stream.Type == "" {
 		stream.Type = TypeWebRTC
@@ -180,7 +257,7 @@ func (c *Coordinator) assignStreamSlotLocked(stream *VideoStream) {
 }
 
 func (c *Coordinator) Trigger(stream VideoStream) (VideoState, error) {
-	if err := normalizeAndValidateStream(&stream); err != nil {
+	if err := normalizeAndValidateStream(&stream, c.allowedControlOrigins); err != nil {
 		return VideoState{}, err
 	}
 
@@ -376,12 +453,16 @@ func (c *Coordinator) ForwardAction(ctx context.Context, id, action string, valu
 func (c *Coordinator) startTimerLocked(id string, d time.Duration) {
 	if d > 0 {
 		c.stopTimerLocked(id)
-		c.timers[id] = c.timerFunc(d, func() { c.handleTimerExpired(id) })
+		c.nextTimerGen++
+		gen := c.nextTimerGen
+		c.timerGen[id] = gen
+		c.timers[id] = c.timerFunc(d, func() { c.handleTimerExpired(id, gen) })
 	}
 }
 
 func (c *Coordinator) stopTimerLocked(id string) {
 	if id != "" {
+		delete(c.timerGen, id)
 		if t, ok := c.timers[id]; ok {
 			t.Stop()
 			delete(c.timers, id)
@@ -389,13 +470,14 @@ func (c *Coordinator) stopTimerLocked(id string) {
 	}
 }
 
-func (c *Coordinator) handleTimerExpired(id string) {
+func (c *Coordinator) handleTimerExpired(id string, gen uint64) {
 	c.mu.Lock()
-	if c.closed {
+	if c.closed || gen != c.timerGen[id] {
 		c.mu.Unlock()
 		return
 	}
 	delete(c.timers, id)
+	delete(c.timerGen, id)
 	var snap VideoState
 	shouldPublish := false
 	if streamID(c.pip) == id {
@@ -426,6 +508,7 @@ func (c *Coordinator) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.closed = true
+	clear(c.timerGen)
 	for id, t := range c.timers {
 		t.Stop()
 		delete(c.timers, id)

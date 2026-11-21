@@ -3,12 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"mime"
 	"net/http"
+	"os"
 	"runtime/coverage"
 	"strings"
 	"sync"
@@ -26,9 +29,10 @@ var (
 
 // Server encapsulates the HTTP handler and dependencies for the Home Assistant Fast-Path Proxy.
 type Server struct {
-	client HAClient
-	logger *slog.Logger
-	mux    *http.ServeMux
+	client    HAClient
+	logger    *slog.Logger
+	mux       *http.ServeMux
+	authToken string
 }
 
 // NewServer initializes a new Server with routing.
@@ -36,7 +40,12 @@ func NewServer(client HAClient, logger *slog.Logger) *Server {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	s := &Server{client: client, logger: logger, mux: http.NewServeMux()}
+	s := &Server{
+		client:    client,
+		logger:    logger,
+		mux:       http.NewServeMux(),
+		authToken: strings.TrimSpace(os.Getenv("HASS_PROXY_AUTH_TOKEN")),
+	}
 	s.mux.HandleFunc("/healthz", s.handleHealthz)
 	s.mux.HandleFunc("/intent", s.handleIntent)
 	s.mux.HandleFunc("/debug/coverage/flush", s.handleCoverageFlush)
@@ -86,10 +95,35 @@ func (s *Server) handleCoverageFlush(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) authorizeIntent(r *http.Request) bool {
+	if s.authToken == "" {
+		return true
+	}
+	scheme, token, ok := strings.Cut(strings.TrimSpace(r.Header.Get("Authorization")), " ")
+	if !ok || !strings.EqualFold(scheme, "Bearer") {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(strings.TrimSpace(token)), []byte(s.authToken)) == 1
+}
+
+func isJSONContentType(header string) bool {
+	mediaType, _, err := mime.ParseMediaType(header)
+	return err == nil && strings.EqualFold(mediaType, "application/json")
+}
+
 func (s *Server) handleIntent(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", "POST")
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !s.authorizeIntent(r) {
+		w.Header().Set("WWW-Authenticate", "Bearer")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if !isJSONContentType(r.Header.Get("Content-Type")) {
+		http.Error(w, "Unsupported Media Type: Content-Type must be application/json", http.StatusUnsupportedMediaType)
 		return
 	}
 	bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 64*1024))

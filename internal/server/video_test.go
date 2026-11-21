@@ -211,3 +211,202 @@ func TestDefaultVideoHandler_PostVideoState(t *testing.T) {
 		})
 	}
 }
+
+func TestDefaultVideoHandler_SameOriginCORS(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		method       string
+		path         string
+		host         string
+		origin       string
+		body         string
+		wantCode     int
+		wantACAO     string
+		expectNoWild bool
+	}{
+		{
+			name:         "trigger_no_origin_allowed_without_wildcard",
+			method:       http.MethodPost,
+			path:         "/api/video/trigger",
+			host:         "display.local:8080",
+			body:         `{"id":"cast","stream_url":"http://stream.local"}`,
+			wantCode:     http.StatusOK,
+			wantACAO:     "",
+			expectNoWild: true,
+		},
+		{
+			name:         "trigger_same_origin_allowed",
+			method:       http.MethodPost,
+			path:         "/api/video/trigger",
+			host:         "display.local:8080",
+			origin:       "http://display.local:8080",
+			body:         `{"id":"cast","stream_url":"http://stream.local"}`,
+			wantCode:     http.StatusOK,
+			wantACAO:     "http://display.local:8080",
+			expectNoWild: true,
+		},
+		{
+			name:         "trigger_same_origin_default_http_port",
+			method:       http.MethodPost,
+			path:         "/api/video/trigger",
+			host:         "display.local",
+			origin:       "http://display.local:80",
+			body:         `{"id":"cast","stream_url":"http://stream.local"}`,
+			wantCode:     http.StatusOK,
+			wantACAO:     "http://display.local:80",
+			expectNoWild: true,
+		},
+		{
+			name:         "trigger_same_origin_default_https_port",
+			method:       http.MethodPost,
+			path:         "/api/video/trigger",
+			host:         "display.local:443",
+			origin:       "https://display.local",
+			body:         `{"id":"cast","stream_url":"http://stream.local"}`,
+			wantCode:     http.StatusOK,
+			wantACAO:     "https://display.local",
+			expectNoWild: true,
+		},
+		{
+			name:         "trigger_same_origin_ipv6_no_port",
+			method:       http.MethodPost,
+			path:         "/api/video/trigger",
+			host:         "[::1]",
+			origin:       "http://[::1]",
+			body:         `{"id":"cast","stream_url":"http://stream.local"}`,
+			wantCode:     http.StatusOK,
+			wantACAO:     "http://[::1]",
+			expectNoWild: true,
+		},
+		{
+			name:         "trigger_cross_origin_forbidden",
+			method:       http.MethodPost,
+			path:         "/api/video/trigger",
+			host:         "display.local:8080",
+			origin:       "https://evil.example.com",
+			body:         `{"id":"cast","stream_url":"http://stream.local"}`,
+			wantCode:     http.StatusForbidden,
+			wantACAO:     "",
+			expectNoWild: true,
+		},
+		{
+			name:         "trigger_port_mismatch_forbidden",
+			method:       http.MethodPost,
+			path:         "/api/video/trigger",
+			host:         "display.local:8080",
+			origin:       "http://display.local:9090",
+			body:         `{"id":"cast","stream_url":"http://stream.local"}`,
+			wantCode:     http.StatusForbidden,
+			wantACAO:     "",
+			expectNoWild: true,
+		},
+		{
+			name:         "trigger_null_origin_forbidden",
+			method:       http.MethodPost,
+			path:         "/api/video/trigger",
+			host:         "display.local:8080",
+			origin:       "null",
+			body:         `{"id":"cast","stream_url":"http://stream.local"}`,
+			wantCode:     http.StatusForbidden,
+			wantACAO:     "",
+			expectNoWild: true,
+		},
+		{
+			name:         "trigger_empty_host_with_origin_forbidden",
+			method:       http.MethodPost,
+			path:         "/api/video/trigger",
+			host:         "",
+			origin:       "http://display.local",
+			body:         `{"id":"cast","stream_url":"http://stream.local"}`,
+			wantCode:     http.StatusForbidden,
+			wantACAO:     "",
+			expectNoWild: true,
+		},
+		{
+			name:         "trigger_invalid_host_with_origin_forbidden",
+			method:       http.MethodPost,
+			path:         "/api/video/trigger",
+			host:         "bad:host:port",
+			origin:       "http://display.local",
+			body:         `{"id":"cast","stream_url":"http://stream.local"}`,
+			wantCode:     http.StatusForbidden,
+			wantACAO:     "",
+			expectNoWild: true,
+		},
+		{
+			name:         "trigger_empty_origin_hostname_forbidden",
+			method:       http.MethodPost,
+			path:         "/api/video/trigger",
+			host:         "display.local:8080",
+			origin:       "http://:8080",
+			body:         `{"id":"cast","stream_url":"http://stream.local"}`,
+			wantCode:     http.StatusForbidden,
+			wantACAO:     "",
+			expectNoWild: true,
+		},
+		{
+			name:         "action_cross_origin_forbidden",
+			method:       http.MethodPost,
+			path:         "/api/video/action",
+			host:         "display.local:8080",
+			origin:       "https://evil.example.com",
+			body:         `{"id":"cast","action":"play"}`,
+			wantCode:     http.StatusForbidden,
+			wantACAO:     "",
+			expectNoWild: true,
+		},
+		{
+			name:         "action_options_same_origin",
+			method:       http.MethodOptions,
+			path:         "/api/video/action",
+			host:         "display.local:8080",
+			origin:       "http://display.local:8080",
+			wantCode:     http.StatusNoContent,
+			wantACAO:     "http://display.local:8080",
+			expectNoWild: true,
+		},
+		{
+			name:         "state_get_allows_wildcard_readonly",
+			method:       http.MethodGet,
+			path:         "/api/video/state",
+			host:         "display.local:8080",
+			origin:       "https://other.example.com",
+			wantCode:     http.StatusOK,
+			wantACAO:     "*",
+			expectNoWild: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			h, _ := videoHandler(false, nil, video.VideoState{Mode: video.ModeWidgets})
+			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
+			req.Host = tc.host
+			if tc.origin != "" {
+				req.Header.Set("Origin", tc.origin)
+			}
+			rec := httptest.NewRecorder()
+			switch tc.path {
+			case "/api/video/trigger":
+				h.PostVideoTrigger(rec, req)
+			case "/api/video/action":
+				h.PostVideoAction(rec, req)
+			case "/api/video/state":
+				h.GetVideoState(rec, req)
+			}
+			if rec.Code != tc.wantCode {
+				t.Fatalf("code = %d, want %d (body: %s)", rec.Code, tc.wantCode, rec.Body.String())
+			}
+			acao := rec.Header().Get("Access-Control-Allow-Origin")
+			if acao != tc.wantACAO {
+				t.Fatalf("Access-Control-Allow-Origin = %q, want %q", acao, tc.wantACAO)
+			}
+			if tc.expectNoWild && acao == "*" {
+				t.Fatalf("mutating endpoint must not emit wildcard Access-Control-Allow-Origin")
+			}
+		})
+	}
+}

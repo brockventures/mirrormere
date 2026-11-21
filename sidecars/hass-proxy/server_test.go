@@ -67,14 +67,19 @@ func SetWriteCountersDirForTest(fn func(string) error) func() {
 func TestServer_Intent(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name, method, body, acceptHdr, writerType  string
-		readErr, cancelCtx, midCancel, clientMatch bool
-		clientResp                                 *IntentResponse
-		clientErr                                  error
-		wantCode                                   int
-		wantSub                                    []string
+		name, method, body, contentType, acceptHdr, writerType string
+		omitContentType                                        bool
+		readErr, cancelCtx, midCancel, clientMatch             bool
+		clientResp                                             *IntentResponse
+		clientErr                                              error
+		wantCode                                               int
+		wantSub                                                []string
 	}{
 		{name: "method_not_allowed", method: http.MethodGet, wantCode: http.StatusMethodNotAllowed},
+		{name: "missing_content_type", method: http.MethodPost, body: `{"text":"lamp"}`, omitContentType: true, wantCode: http.StatusUnsupportedMediaType},
+		{name: "text_plain_csrf_rejected", method: http.MethodPost, body: `{"text":"lamp"}`, contentType: "text/plain", wantCode: http.StatusUnsupportedMediaType},
+		{name: "form_urlencoded_csrf_rejected", method: http.MethodPost, body: `text=lamp`, contentType: "application/x-www-form-urlencoded", wantCode: http.StatusUnsupportedMediaType},
+		{name: "json_with_charset_accepted", method: http.MethodPost, body: `{"text":"  "}`, contentType: "application/json; charset=utf-8", wantCode: http.StatusNoContent},
 		{name: "read_body_error", method: http.MethodPost, readErr: true, wantCode: http.StatusBadRequest},
 		{name: "malformed_json", method: http.MethodPost, body: "{bad json", wantCode: http.StatusBadRequest},
 		{name: "empty_text", method: http.MethodPost, body: `{"text":"  "}`, wantCode: http.StatusNoContent},
@@ -101,6 +106,13 @@ func TestServer_Intent(t *testing.T) {
 				rBody = errReader{}
 			}
 			req := httptest.NewRequest(tc.method, "/intent", rBody).WithContext(ctx)
+			if !tc.omitContentType {
+				ct := tc.contentType
+				if ct == "" {
+					ct = "application/json"
+				}
+				req.Header.Set("Content-Type", ct)
+			}
 			if tc.acceptHdr != "" {
 				req.Header.Set("Accept", tc.acceptHdr)
 			}
@@ -130,6 +142,46 @@ func TestServer_Intent(t *testing.T) {
 				if !strings.Contains(bodyStr, sub) {
 					t.Fatalf("body %q missing %q", bodyStr, sub)
 				}
+			}
+		})
+	}
+}
+
+func TestServer_IntentBearerAuth(t *testing.T) {
+	t.Setenv("HASS_PROXY_AUTH_TOKEN", "shared-secret-token")
+
+	srv := NewServer(&mockHAClient{
+		resp:    &IntentResponse{Intent: "action_done", Speech: "Done"},
+		matched: true,
+	}, nil)
+
+	tests := []struct {
+		name     string
+		authHdr  string
+		wantCode int
+	}{
+		{name: "missing_auth", authHdr: "", wantCode: http.StatusUnauthorized},
+		{name: "wrong_scheme", authHdr: "Basic dXNlcjpwYXNz", wantCode: http.StatusUnauthorized},
+		{name: "wrong_token", authHdr: "Bearer wrong-token", wantCode: http.StatusUnauthorized},
+		{name: "valid_token", authHdr: "Bearer shared-secret-token", wantCode: http.StatusOK},
+		{name: "valid_token_case_insensitive_scheme", authHdr: "bearer shared-secret-token", wantCode: http.StatusOK},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/intent", strings.NewReader(`{"text":"lights on","turn_id":"t-1"}`))
+			req.Header.Set("Content-Type", "application/json")
+			if tc.authHdr != "" {
+				req.Header.Set("Authorization", tc.authHdr)
+			}
+			rec := httptest.NewRecorder()
+			srv.ServeHTTP(rec, req)
+
+			if rec.Code != tc.wantCode {
+				t.Fatalf("code = %d, want %d", rec.Code, tc.wantCode)
+			}
+			if tc.wantCode == http.StatusUnauthorized && rec.Header().Get("WWW-Authenticate") != "Bearer" {
+				t.Fatalf("expected WWW-Authenticate: Bearer, got %q", rec.Header().Get("WWW-Authenticate"))
 			}
 		})
 	}

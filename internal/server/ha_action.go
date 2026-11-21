@@ -99,7 +99,7 @@ func (h *DefaultWidgetActionHandler) PostWidgetAction(w http.ResponseWriter, r *
 
 // handleWidgetAction processes a POST /api/widgets/{widget_id}/action request.
 func (h *DefaultWidgetActionHandler) handleWidgetAction(w http.ResponseWriter, r *http.Request, widgetID string) {
-	if !requireCORSAndMethod(w, r, "POST, OPTIONS", http.MethodPost) {
+	if !requireSameOriginAndMethod(w, r, "POST, OPTIONS", http.MethodPost) {
 		return
 	}
 	widgetID = strings.TrimSpace(widgetID)
@@ -306,6 +306,8 @@ func (h *DefaultWidgetActionHandler) mapActionError(err error) (int, string) {
 		return http.StatusNotFound, msg
 	case errors.Is(err, provider.ErrUpstreamUnauthorized):
 		return http.StatusUnauthorized, msg
+	case errors.Is(err, provider.ErrActionForbidden):
+		return http.StatusForbidden, msg
 	case errors.Is(err, provider.ErrActionValidation):
 		return http.StatusBadRequest, msg
 	case errors.Is(err, provider.ErrUpstreamUnavailable), errors.Is(err, provider.ErrUpstreamStatus):
