@@ -156,6 +156,8 @@ export const TIER3_LAYOUT_SPEC: Tier3LayoutSpec = {
     { id: 'pantry-back-divider', x1: 8.6, z1: 3.8, x2: 8.6, z2: 11.0, heightFt: 4.4, thicknessFt: 0.35 },
     { id: 'isaac-closet-east', x1: 11.8, z1: 7.2, x2: 11.8, z2: 11.0, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x2f5573 },
     { id: 'rosie-isaac-divider', x1: 11.8, z1: 2.0, x2: 23.5, z2: 2.0, heightFt: 4.6, thicknessFt: 0.35, colorHex: 0x2f5573 },
+    { id: 'isaac-entry-west', x1: 11.8, z1: 2.0, x2: 11.8, z2: 3.8, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x2f5573 },
+    { id: 'isaac-entry-jamb-stub', x1: 11.35, z1: 3.8, x2: 11.975, z2: 3.8, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x2f5573 },
     { id: 'rosie-closet-west', x1: 17.6, z1: 0.0, x2: 17.6, z2: 2.0, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x42a88c },
   ],
   stairsDownToTier2: {

@@ -13,7 +13,7 @@ import {
   type Tier3WallSpec,
 } from './tier3LayoutSpec';
 
-describe('tier3LayoutSpec — Envelope, 6 Non-Overlapping Rooms, Stairway Threshold, 18 Walls & 22 Fixtures', () => {
+describe('tier3LayoutSpec — Envelope, 6 Non-Overlapping Rooms, Stairway Threshold, 20 Walls & 22 Fixtures', () => {
   it('defines the exact 43.5 ft x 22.0 ft Tier 3 envelope and wall height invariants', () => {
     const spec: Tier3LayoutSpec = TIER3_LAYOUT_SPEC;
     expect(spec.widthFt).toBe(43.5);
@@ -91,8 +91,8 @@ describe('tier3LayoutSpec — Envelope, 6 Non-Overlapping Rooms, Stairway Thresh
     expect(southKitchen?.x1).toBe(stairs.xMax);
   });
 
-  it('defines all 18 perimeter cutaway, closet, hallway & interior wall segments with Rosie mint and Isaac navy accents', () => {
-    expect(TIER3_LAYOUT_SPEC.walls).toHaveLength(18);
+  it('defines all 20 perimeter cutaway, closet, hallway & interior wall segments with Rosie mint and Isaac navy accents', () => {
+    expect(TIER3_LAYOUT_SPEC.walls).toHaveLength(20);
     const wallById = new Map<string, Tier3WallSpec>(
       TIER3_LAYOUT_SPEC.walls.map((wall: Tier3WallSpec) => [wall.id, wall]),
     );
@@ -120,6 +120,8 @@ describe('tier3LayoutSpec — Envelope, 6 Non-Overlapping Rooms, Stairway Thresh
     expect(wallById.get('isaac-closet-north')).toBeUndefined();
     expect(wallById.get('isaac-closet-east')).toMatchObject({ x1: 11.8, z1: 7.2, x2: 11.8, z2: 11.0, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x2f5573 });
     expect(wallById.get('rosie-isaac-divider')).toMatchObject({ x1: 11.8, z1: 2.0, x2: 23.5, z2: 2.0, heightFt: 4.6, thicknessFt: 0.35, colorHex: 0x2f5573 });
+    expect(wallById.get('isaac-entry-west')).toMatchObject({ x1: 11.8, z1: 2.0, x2: 11.8, z2: 3.8, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x2f5573 });
+    expect(wallById.get('isaac-entry-jamb-stub')).toMatchObject({ x1: 11.35, z1: 3.8, x2: 11.975, z2: 3.8, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x2f5573 });
     expect(wallById.get('rosie-closet-west')).toMatchObject({ x1: 17.6, z1: 0.0, x2: 17.6, z2: 2.0, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x42a88c });
 
     for (const interiorId of [
@@ -130,6 +132,8 @@ describe('tier3LayoutSpec — Envelope, 6 Non-Overlapping Rooms, Stairway Thresh
       'pantry-back-divider',
       'isaac-closet-east',
       'rosie-isaac-divider',
+      'isaac-entry-west',
+      'isaac-entry-jamb-stub',
       'rosie-closet-west',
     ]) {
       expect(wallById.get(interiorId)?.exteriorFace).toBeUndefined();

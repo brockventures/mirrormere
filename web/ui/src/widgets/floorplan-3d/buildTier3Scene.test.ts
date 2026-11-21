@@ -186,7 +186,7 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
     const isaacDoor = built.shellGroup.getObjectByName('isaac-bedroom-door')!;
     expect(isaacDoor).toBeDefined();
     expect(isaacDoor.getObjectByName('isaac-bedroom-door-jamb-w')).toBeInstanceOf(Mesh);
-    expect(isaacDoor.getObjectByName('isaac-bedroom-door-jamb-e')).toBeUndefined();
+    expect(isaacDoor.getObjectByName('isaac-bedroom-door-jamb-e')).toBeInstanceOf(Mesh);
     expect(isaacDoor.getObjectByName('isaac-bedroom-door-panel')).toBeInstanceOf(Mesh);
     const isaacDoorHandle = isaacDoor.getObjectByName('isaac-bedroom-door-handle-front') as Mesh;
     expect(isaacDoorHandle).toBeInstanceOf(Mesh);
@@ -195,8 +195,8 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
     expect(isaacDoorLeaf.rotation.y).toBeCloseTo(-(75 * Math.PI) / 180, 4);
     const isaacDoorBox = new Box3().setFromObject(isaacDoor);
     expect(isaacDoorBox.min.x).toBeCloseTo(8.6, 2);
-    expect(isaacDoorBox.max.x).toBeLessThan(10.0);
-    expect(isaacDoorBox.max.z).toBeGreaterThan(6.2);
+    expect(isaacDoorBox.max.x).toBeCloseTo(11.38, 2);
+    expect(isaacDoorBox.max.z).toBeGreaterThan(6.0);
     expect(isaacDoorBox.max.z).toBeLessThan(7.0);
     expect(isaacDoorBox.max.y).toBeCloseTo(6.2, 2);
 
@@ -323,7 +323,7 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
       'kitchen-bath-west', 'hall-bath-south', 'bath-rosie-divider',
       'pantry-north-wall', 'pantry-back-divider',
       'isaac-closet-east',
-      'rosie-isaac-divider', 'rosie-closet-west',
+      'rosie-isaac-divider', 'isaac-entry-west', 'isaac-entry-jamb-stub', 'rosie-closet-west',
     ]) {
       const box = new Box3().setFromObject(built.wallsById[halfId]);
       expect(box.max.y).toBeCloseTo(2.2, 2);

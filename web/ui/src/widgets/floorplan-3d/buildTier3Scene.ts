@@ -257,8 +257,8 @@ function buildTier3BedroomDoors(
       jambs: [[11.6, 12.0, -0.4, -0.28, 'jamb-n'], [11.6, 12.0, 1.82, 2.0, 'jamb-s']] as const,
     },
     {
-      name: 'isaac-bedroom-door', hinge: [8.78, 3.8] as const, leafW: 2.9, rotY: -(75 * Math.PI) / 180, heightFt: bedroomDoorH,
-      jambs: [[8.6, 8.78, 3.6, 4.0, 'jamb-w']] as const,
+      name: 'isaac-bedroom-door', hinge: [8.78, 3.8] as const, leafW: 2.42, rotY: -(75 * Math.PI) / 180, heightFt: bedroomDoorH,
+      jambs: [[8.6, 8.78, 3.6, 4.0, 'jamb-w'], [11.2, 11.38, 3.6, 4.0, 'jamb-e']] as const,
     },
     {
       name: 'isaac-closet-door', hinge: [8.78, 7.2] as const, leafW: 2.84, rotY: 0, heightFt: closetDoorH,
