@@ -1,4 +1,4 @@
-import { Box3, Color, DataTexture, Mesh, type MeshStandardMaterial, type Object3D } from 'three';
+import { Box3, Color, CylinderGeometry, DataTexture, Mesh, type MeshStandardMaterial, type Object3D } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { buildTier2Scene, type BuiltTier2Scene, type Tier2SceneMaterials } from './buildTier2Scene';
 import { TIER2_LAYOUT_SPEC, type Tier2FixtureKey, type Tier2RoomId } from './tier2LayoutSpec';
@@ -267,6 +267,14 @@ describe('buildTier2Scene & tier2Fixtures — Floor 2 South 3D Scene, Materials,
 
     const benchMeshes = built.fixtures.westWindowBench.children.filter((c: Object3D): c is Mesh => c instanceof Mesh);
     expect(benchMeshes.some((m) => (m.material as MeshStandardMaterial).color.getHex() === 0xb8bcc2)).toBe(true);
+    const artTableTop = built.fixtures.playNookArtTable.getObjectByName('art-table-top') as Mesh;
+    expect(artTableTop).toBeInstanceOf(Mesh);
+    expect(artTableTop.geometry).toBeInstanceOf(CylinderGeometry);
+    expect((artTableTop.material as MeshStandardMaterial).color.getHex()).toBe(0x3d2b1f);
+    for (const partName of ['art-table-leg-0', 'art-chair-seat-0', 'art-chair-base-0', 'art-chair-back-0']) {
+      const part = built.fixtures.playNookArtTable.getObjectByName(partName) as Mesh;
+      expect((part.material as MeshStandardMaterial).color.getHex()).toBe(0x3d2b1f);
+    }
 
     // 2. Hallway East world-map wall art
     const hm = TIER2_LAYOUT_SPEC.fixtures.hallwayCabinetAndMap;

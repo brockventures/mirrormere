@@ -114,7 +114,7 @@ function buildLivingFixtures(c: Tier2FixtureMaterialContext, fixtures: Record<Ti
 
 function buildPlayNookFixtures(c: Tier2FixtureMaterialContext, fixtures: Record<Tier2FixtureKey, Group>, spec: Tier2LayoutSpec): void {
   const f = spec.fixtures;
-  const [warmWood, darkWood, cream, creamCush] = [c.mat('#7c5132', 0.55), c.mat('#3d2b1f', 0.58), c.mat('#ede6da', 0.85), c.mat('#f4efe6', 0.82)];
+  const [darkWood, cream, creamCush] = [c.mat('#3d2b1f', 0.58), c.mat('#ede6da', 0.85), c.mat('#f4efe6', 0.82)];
   const [pillowSage, benchCushion, gold] = [c.mat('#7d937c', 0.8), c.mat('#b8bcc2', 0.84), c.mat('#c8a253', 0.35, 0.65)];
 
   c.parts(fixtures.westWindowBench, f.westWindowBench, [
@@ -173,16 +173,18 @@ function buildPlayNookFixtures(c: Tier2FixtureMaterialContext, fixtures: Record<
   ]);
 
   const at = f.playNookArtTable;
-  c.addBox(fixtures.playNookArtTable, at.xMin + 0.55, at.xMax - 0.55, 1.48, 1.62, at.zMin + 0.12, at.zMax - 0.12, c.palette.whiteTrim, 'art-table-top');
-  for (const [li, [lx, lz]] of [[at.xMin + 0.7, at.zMin + 0.25], [at.xMax - 0.7, at.zMin + 0.25], [at.xMin + 0.7, at.zMax - 0.25], [at.xMax - 0.7, at.zMax - 0.25]].entries()) {
-    c.addCyl(fixtures.playNookArtTable, lx, 0.74, lz, 0.07, 0.06, 1.48, warmWood, `art-table-leg-${li}`);
+  const [atCx, atCz] = [(at.xMin + at.xMax) / 2, (at.zMin + at.zMax) / 2];
+  const tableR = Math.min(at.xMax - at.xMin - 1.2, at.zMax - at.zMin - 0.2) * 0.5;
+  c.addCyl(fixtures.playNookArtTable, atCx, 1.55, atCz, tableR, tableR, 0.14, darkWood, 'art-table-top', 24);
+  for (let li = 0; li < 4; li += 1) {
+    const angle = li * (Math.PI / 2) + Math.PI / 4;
+    c.addCyl(fixtures.playNookArtTable, atCx + Math.cos(angle) * tableR * 0.68, 0.74, atCz + Math.sin(angle) * tableR * 0.68, 0.07, 0.06, 1.48, darkWood, `art-table-leg-${li}`);
   }
   for (const [ci, cx0] of [at.xMin + 0.04, at.xMax - 0.78].entries()) {
-    const czMid = (at.zMin + at.zMax) / 2;
     const isWest = ci === 0;
-    c.addBox(fixtures.playNookArtTable, cx0, cx0 + 0.74, 0.92, 1.04, czMid - 0.42, czMid + 0.42, c.palette.whiteTrim, `art-chair-seat-${ci}`);
-    c.addBox(fixtures.playNookArtTable, cx0 + 0.06, cx0 + 0.68, 0, 0.92, czMid - 0.36, czMid + 0.36, warmWood, `art-chair-base-${ci}`);
-    c.addBox(fixtures.playNookArtTable, isWest ? cx0 : cx0 + 0.62, isWest ? cx0 + 0.12 : cx0 + 0.74, 1.04, at.heightFt, czMid - 0.42, czMid + 0.42, c.palette.whiteTrim, `art-chair-back-${ci}`);
+    c.addBox(fixtures.playNookArtTable, cx0, cx0 + 0.74, 0.92, 1.04, atCz - 0.42, atCz + 0.42, darkWood, `art-chair-seat-${ci}`);
+    c.addBox(fixtures.playNookArtTable, cx0 + 0.06, cx0 + 0.68, 0, 0.92, atCz - 0.36, atCz + 0.36, darkWood, `art-chair-base-${ci}`);
+    c.addBox(fixtures.playNookArtTable, isWest ? cx0 : cx0 + 0.62, isWest ? cx0 + 0.12 : cx0 + 0.74, 1.04, at.heightFt, atCz - 0.42, atCz + 0.42, darkWood, `art-chair-back-${ci}`);
   }
 
   const lp = f.paperLanternArcLamp;
