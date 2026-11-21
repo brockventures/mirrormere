@@ -162,26 +162,26 @@ function buildKitchenAndHallFixtures(c: Tier3FixtureContext, fixtures: Record<Ti
   ]);
   for (const px of [-8.8, -7.4, -1.8, -0.4, 0.8, 2.4, 4.4]) c.addBox(nk, px - 0.03, px + 0.03, 2.35, 2.72, -8.98, -8.92, c.palette.matteBlackIron, `north-lower-pull-${px}`);
 
-  // 5. East Range, Cabinets & Pyramid Chimney Hood
+  // 5. East Range, Cabinets & Pyramid Chimney Hood (shifted north to z -8.6..-4.0)
   c.boxes(fixtures.eastRangeAndHood, [
-    [3.65, 5.7, 0, 2.92, -8.4, -5.65, c.palette.whiteTrim, 'east-lower-cab-n'], [3.65, 5.7, 0, 2.92, -2.85, -0.2, c.palette.whiteTrim, 'east-lower-cab-s'],
-    [3.6, 5.7, 2.92, 3.06, -8.4, -5.65, quartz, 'east-top-n'], [3.6, 5.7, 2.92, 3.06, -2.85, -0.2, quartz, 'east-top-s'],
-    [5.60, 5.7, 3.06, 4.45, -8.4, -0.2, subway, 'east-subway-backsplash'], [4.6, 5.7, 4.45, 6.20, -8.4, -5.9, c.palette.whiteTrim, 'east-upper-cab-n'],
-    [4.6, 5.7, 4.45, 6.20, -2.6, -0.2, c.palette.whiteTrim, 'east-upper-cab-s'], [3.35, 5.7, 0, 3.08, -5.65, -2.85, c.palette.brushedSteel, 'double-oven-range'],
-    [3.31, 3.37, 1.78, 2.58, -5.45, -3.05, ovenGlass, 'range-upper-door'], [3.31, 3.37, 0.42, 1.48, -5.45, -3.05, ovenGlass, 'range-lower-door'],
-    [3.55, 5.45, 3.08, 3.18, -5.50, -3.00, c.palette.matteBlackIron, 'range-grates'], [3.55, 5.7, 4.70, 5.20, -5.60, -2.90, c.palette.brushedSteel, 'range-hood-canopy'],
-    [4.25, 5.7, 5.20, 5.60, -5.05, -3.45, c.palette.brushedSteel, 'range-hood-taper'], [4.75, 5.7, 5.60, 6.50, -4.75, -3.75, c.palette.brushedSteel, 'range-hood-chimney'],
+    [3.65, 5.7, 0, 2.92, -8.6, -7.0, c.palette.whiteTrim, 'east-lower-cab-n'], [3.65, 5.7, 0, 2.92, -4.2, -4.0, c.palette.whiteTrim, 'east-lower-cab-s'],
+    [3.6, 5.7, 2.92, 3.06, -8.6, -7.0, quartz, 'east-top-n'], [3.6, 5.7, 2.92, 3.06, -4.2, -4.0, quartz, 'east-top-s'],
+    [5.60, 5.7, 3.06, 4.45, -8.6, -4.0, subway, 'east-subway-backsplash'], [4.6, 5.7, 4.45, 6.20, -8.6, -7.25, c.palette.whiteTrim, 'east-upper-cab-n'],
+    [4.6, 5.7, 4.45, 6.20, -4.35, -4.0, c.palette.whiteTrim, 'east-upper-cab-s'], [3.35, 5.7, 0, 3.08, -7.0, -4.2, c.palette.brushedSteel, 'double-oven-range'],
+    [3.31, 3.37, 1.78, 2.58, -6.8, -4.4, ovenGlass, 'range-upper-door'], [3.31, 3.37, 0.42, 1.48, -6.8, -4.4, ovenGlass, 'range-lower-door'],
+    [3.55, 5.45, 3.08, 3.18, -6.85, -4.35, c.palette.matteBlackIron, 'range-grates'], [3.55, 5.7, 4.70, 5.20, -6.95, -4.25, c.palette.brushedSteel, 'range-hood-canopy'],
+    [4.25, 5.7, 5.20, 5.60, -6.4, -4.8, c.palette.brushedSteel, 'range-hood-taper'], [4.75, 5.7, 5.60, 6.50, -6.1, -5.1, c.palette.brushedSteel, 'range-hood-chimney'],
   ]);
 
-  // 6. Stainless French-Door Refrigerator + Magnets + Upper Cabinet
+  // 6. Stainless French-Door Refrigerator + Magnets + Upper Cabinet (flush with Hall Bath SW corner z -3.8..-0.5)
   const fr = fixtures.stainlessFridge;
   c.boxes(fr, [
-    [2.9, 5.7, 5.32, 6.20, 0.25, 3.55, c.palette.whiteTrim, 'fridge-upper-cabinet'], [2.82, 5.65, 0.08, 5.30, 0.35, 3.45, c.palette.brushedSteel, 'fridge-body'],
-    [2.78, 2.84, 1.72, 1.78, 0.35, 3.45, c.palette.matteBlackIron, 'fridge-freezer-seam'], [2.78, 2.84, 1.78, 5.28, 1.87, 1.93, c.palette.matteBlackIron, 'fridge-center-seam'],
-    [2.72, 2.80, 2.55, 4.45, 1.62, 1.70, c.palette.matteBlackIron, 'fridge-handle-n'], [2.72, 2.80, 2.55, 4.45, 2.10, 2.18, c.palette.matteBlackIron, 'fridge-handle-s'],
-    [2.72, 2.80, 1.38, 1.46, 1.0, 2.8, c.palette.matteBlackIron, 'fridge-freezer-handle'],
+    [2.9, 5.7, 5.32, 6.20, -3.80, -0.50, c.palette.whiteTrim, 'fridge-upper-cabinet'], [2.82, 5.65, 0.08, 5.30, -3.70, -0.60, c.palette.brushedSteel, 'fridge-body'],
+    [2.78, 2.84, 1.72, 1.78, -3.70, -0.60, c.palette.matteBlackIron, 'fridge-freezer-seam'], [2.78, 2.84, 1.78, 5.28, -2.18, -2.12, c.palette.matteBlackIron, 'fridge-center-seam'],
+    [2.72, 2.80, 2.55, 4.45, -2.43, -2.35, c.palette.matteBlackIron, 'fridge-handle-n'], [2.72, 2.80, 2.55, 4.45, -1.95, -1.87, c.palette.matteBlackIron, 'fridge-handle-s'],
+    [2.72, 2.80, 1.38, 1.46, -3.05, -1.25, c.palette.matteBlackIron, 'fridge-freezer-handle'],
   ]);
-  for (const [mi, [my, mz, col]] of ([[4.6, 0.9, '#e63946'], [4.2, 1.25, '#457b9d'], [3.8, 0.85, '#f4a261'], [4.4, 2.7, '#2a9d8f'], [3.9, 2.95, '#e9c46a']] as const).entries()) {
+  for (const [mi, [my, mz, col]] of ([[4.6, -3.15, '#e63946'], [4.2, -2.80, '#457b9d'], [3.8, -3.20, '#f4a261'], [4.4, -1.35, '#2a9d8f'], [3.9, -1.10, '#e9c46a']] as const).entries()) {
     c.addBox(fr, 2.79, 2.83, my, my + 0.22, mz, mz + 0.18, c.mat(col, 0.6), `fridge-magnet-${mi}`);
   }
 
@@ -212,15 +212,18 @@ function buildKitchenAndHallFixtures(c: Tier3FixtureContext, fixtures: Record<Ti
     [1.67, 4.23, 3.47, 3.82, 10.55, 10.59, c.mat('#355978', 0.72), 'harbor-art-water'],
   ]);
 
-  // 9. Tall White Hall Pantry (rotated 90 deg, west-facing shaker doors & pulls, flush against east back wall)
+  // 9. Tall White Hall Pantry (z 4.0..10.8, x 6.1..8.4, 4 tall white shaker doors & matte-black pulls facing WEST)
   const tp = fixtures.tallWhitePantry;
+  const seamMat = c.mat('#cbd5e1', 0.78);
   c.boxes(tp, [
-    [6.28, 8.43, 0, 6.2, 4.46, 7.74, c.palette.whiteTrim, 'pantry-body'],
-    [6.18, 6.28, 0.18, 2.85, 4.54, 6.04, c.palette.whiteTrim, 'pantry-door-ln'], [6.18, 6.28, 0.18, 2.85, 6.16, 7.66, c.palette.whiteTrim, 'pantry-door-ls'],
-    [6.18, 6.28, 2.98, 6.02, 4.54, 6.04, c.palette.whiteTrim, 'pantry-door-un'], [6.18, 6.28, 2.98, 6.02, 6.16, 7.66, c.palette.whiteTrim, 'pantry-door-us'],
+    [6.26, 8.40, 0, 6.2, 4.00, 10.78, c.palette.whiteTrim, 'pantry-body'],
+    [6.16, 6.26, 0.16, 6.04, 4.06, 5.66, c.palette.whiteTrim, 'pantry-door-0'], [6.16, 6.26, 0.16, 6.04, 5.72, 7.32, c.palette.whiteTrim, 'pantry-door-1'],
+    [6.16, 6.26, 0.16, 6.04, 7.46, 9.06, c.palette.whiteTrim, 'pantry-door-2'], [6.16, 6.26, 0.16, 6.04, 9.12, 10.72, c.palette.whiteTrim, 'pantry-door-3'],
+    [6.22, 6.26, 0.16, 6.04, 5.67, 5.71, seamMat, 'pantry-seam-0'], [6.22, 6.26, 0.16, 6.04, 7.36, 7.42, seamMat, 'pantry-seam-1'],
+    [6.22, 6.26, 0.16, 6.04, 9.07, 9.11, seamMat, 'pantry-seam-2'],
   ]);
-  for (const [pi, [y0, y1, pz]] of [[1.95, 2.70, 5.88], [1.95, 2.70, 6.32], [3.15, 4.15, 5.88], [3.15, 4.15, 6.32]].entries()) {
-    c.addBox(tp, 6.11, 6.18, y0, y1, pz - 0.03, pz + 0.03, c.palette.matteBlackIron, `pantry-pull-${pi}`);
+  for (const [pi, pz] of [5.53, 5.85, 8.93, 9.25].entries()) {
+    c.addBox(tp, 6.10, 6.16, 2.55, 3.55, pz - 0.03, pz + 0.03, c.palette.matteBlackIron, `pantry-pull-${pi}`);
   }
 }
 
@@ -293,19 +296,19 @@ function buildRosieFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3Fixtur
     [0.96, 1, 0.54, 0.90, 0.05, 0.47, c.palette.whiteTrim], [0.96, 1, 0.54, 0.90, 0.53, 0.95, c.palette.whiteTrim],
   ]);
 
-  // 17. Framed South Closet (bypass white sliding doors + shelf/rod interior) + Dollhouse + Cube Shelf
+  // 17. Framed South Closet (sliding white doors x 17.7..23.3 at z 0.0..0.2 inside alcove x 17.6..23.5, z 0.0..2.0) + Dollhouse + Cube Shelf
   const rc = fixtures.rosieClosetAndDollhouse;
   c.boxes(rc, [
-    [18.40, 22.30, 4.26, 4.36, -1.90, -1.62, c.palette.whiteTrim, 'rosie-closet-track'], [18.42, 20.42, 0, 4.26, -1.86, -1.76, c.palette.whiteTrim, 'rosie-closet-door-w'],
-    [20.28, 22.28, 0, 4.26, -1.73, -1.63, c.palette.whiteTrim, 'rosie-closet-door-e'], [18.58, 18.66, 1.90, 2.28, -1.89, -1.85, c.palette.matteBlackIron, 'rosie-closet-pull-w'],
-    [22.04, 22.12, 1.90, 2.28, -1.76, -1.72, c.palette.matteBlackIron, 'rosie-closet-pull-e'], [17.62, 23.18, 3.55, 3.66, -0.90, 0.28, c.palette.whiteTrim, 'rosie-closet-shelf'],
-    [17.64, 23.16, 3.22, 3.28, -0.46, -0.40, c.palette.brushedSteel, 'rosie-closet-rod'], [14.82, 15.78, 0, 2.05, -0.95, 0.28, c.palette.whiteTrim, 'rosie-cube-shelf'],
-    [14.88, 15.26, 0.15, 0.95, -0.99, 0.15, c.mat('#e6b97a', 0.8), 'rosie-cube-bin-1'], [15.34, 15.72, 0.15, 0.95, -0.99, 0.15, c.mat('#88b8c9', 0.8), 'rosie-cube-bin-2'],
-    [15.88, 17.18, 0, 3.65, -0.95, 0.28, c.palette.whiteTrim, 'rosie-dollhouse-body'], [15.98, 17.08, 0.25, 3.45, -0.98, -0.10, c.mat('#f6ebe1', 0.78), 'rosie-dollhouse-interior'],
-    [15.80, 17.22, 3.65, 4.32, -1.00, 0.30, c.mat('#e0919c', 0.72), 'rosie-dollhouse-roof'],
+    [17.76, 23.28, 4.26, 4.36, 0.00, 0.24, c.palette.whiteTrim, 'rosie-closet-track'], [17.78, 20.62, 0, 4.26, 0.02, 0.11, c.palette.whiteTrim, 'rosie-closet-door-w'],
+    [20.44, 23.28, 0, 4.26, 0.13, 0.22, c.palette.whiteTrim, 'rosie-closet-door-e'], [17.95, 18.03, 1.90, 2.28, 0.00, 0.03, c.palette.matteBlackIron, 'rosie-closet-pull-w'],
+    [23.03, 23.11, 1.90, 2.28, 0.11, 0.14, c.palette.matteBlackIron, 'rosie-closet-pull-e'], [17.80, 23.24, 3.55, 3.66, 0.68, 1.80, c.palette.whiteTrim, 'rosie-closet-shelf'],
+    [17.80, 23.24, 3.22, 3.28, 1.06, 1.12, c.palette.brushedSteel, 'rosie-closet-rod'], [14.82, 15.78, 0, 2.05, 0.60, 1.80, c.palette.whiteTrim, 'rosie-cube-shelf'],
+    [14.88, 15.26, 0.15, 0.95, 0.56, 1.68, c.mat('#e6b97a', 0.8), 'rosie-cube-bin-1'], [15.34, 15.72, 0.15, 0.95, 0.56, 1.68, c.mat('#88b8c9', 0.8), 'rosie-cube-bin-2'],
+    [15.88, 17.18, 0, 3.65, 0.60, 1.80, c.palette.whiteTrim, 'rosie-dollhouse-body'], [15.98, 17.08, 0.25, 3.45, 0.57, 1.42, c.mat('#f6ebe1', 0.78), 'rosie-dollhouse-interior'],
+    [15.80, 17.22, 3.65, 4.32, 0.55, 1.82, c.mat('#e0919c', 0.72), 'rosie-dollhouse-roof'],
   ]);
   for (const [ci, col] of ['#e0919c', '#f4efe6', '#88b8c9', '#e6b97a'].entries()) {
-    c.addBox(rc, 18.25 + ci * 1.15, 18.97 + ci * 1.15, 1.55, 3.22, -0.78, -0.08, c.mat(col, 0.82), `rosie-closet-clothes-${ci}`);
+    c.addBox(rc, 18.25 + ci * 1.15, 18.97 + ci * 1.15, 1.55, 3.22, 0.74, 1.44, c.mat(col, 0.82), `rosie-closet-clothes-${ci}`);
   }
 }
 
@@ -335,20 +338,20 @@ function buildIsaacFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3Fixtur
     c.addBox(cr, sx - 0.04, sx + 0.04, 0.82, 3.16, 10.52, 10.62, darkWalnut, `crib-slat-s-${i}`);
   }
 
-  // 19. Walnut 6-Drawer Dresser + Framed Art + Stainless Diaper Pail + Striped Hamper
+  // 19. Walnut 6-Drawer Dresser + Framed Art + Stainless Diaper Pail + Striped Hamper (aligned south of z 2.0 divider)
   const id = fixtures.isaacWalnutDresser;
   c.boxes(id, [
-    [14.2, 18.0, 0.14, 2.86, 0.84, 2.58, darkWalnut, 'isaac-walnut-dresser'], [14.8, 17.4, 2.86, 3.16, 1.05, 2.38, cream, 'isaac-changing-pad'],
-    [15.0, 17.2, 3.35, 4.35, 0.82, 0.92, darkWalnut, 'isaac-dresser-art-frame'], [15.14, 17.06, 3.49, 4.21, 0.90, 0.95, cream, 'isaac-dresser-art-mat'],
-    [18.25, 19.15, 0, 1.95, 1.05, 2.25, cream, 'isaac-striped-hamper'], [18.23, 19.17, 0.72, 1.18, 1.03, 2.27, stripeNavy, 'isaac-hamper-stripe'],
+    [14.2, 18.0, 0.14, 2.86, 2.24, 3.98, darkWalnut, 'isaac-walnut-dresser'], [14.8, 17.4, 2.86, 3.16, 2.45, 3.78, cream, 'isaac-changing-pad'],
+    [17.45, 17.95, 2.86, 3.58, 2.34, 2.44, darkWalnut, 'isaac-dresser-art-frame'], [17.52, 17.88, 2.93, 3.51, 2.42, 2.46, cream, 'isaac-dresser-art-mat'],
+    [18.25, 19.15, 0, 1.95, 2.45, 3.65, cream, 'isaac-striped-hamper'], [18.23, 19.17, 0.72, 1.18, 2.43, 3.67, stripeNavy, 'isaac-hamper-stripe'],
   ]);
-  c.addCyl(id, 13.55, 1.05, 1.68, 0.44, 0.42, 2.1, c.palette.brushedSteel, 'isaac-diaper-pail');
+  c.addCyl(id, 13.55, 1.05, 3.08, 0.44, 0.42, 2.1, c.palette.brushedSteel, 'isaac-diaper-pail');
 
   // 20. Gray Nursery Glider Armchair (45 deg facing SW) + Yellow Pillow + Round Mustard-Yellow Ottoman
   const ig = fixtures.isaacGliderAndOttoman;
   const glider = new Group();
   glider.name = 'isaac-glider-chair';
-  glider.position.set(21.48, 0, 2.54);
+  glider.position.set(21.48, 0, 3.76);
   glider.rotation.y = -Math.PI / 4;
   c.boxes(glider, [
     [-1.02, 1.02, 0, 0.36, -1.00, 1.00, darkWalnut, 'isaac-glider-base'], [-1.10, 1.10, 0.36, 1.38, -1.05, 1.05, gliderGray, 'isaac-glider-seat'],
@@ -356,7 +359,7 @@ function buildIsaacFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3Fixtur
     [0.76, 1.10, 1.38, 2.18, -0.38, 0.98, gliderGray, 'isaac-glider-arm-s'], [-0.54, 0.54, 1.42, 2.25, -0.36, -0.02, mustard, 'isaac-glider-yellow-pillow'],
   ]);
   ig.add(glider);
-  c.addCyl(ig, 20.26, 0.66, 3.76, 0.64, 0.62, 1.32, mustard, 'isaac-tufted-ottoman');
+  c.addCyl(ig, 20.26, 0.66, 4.98, 0.64, 0.62, 1.32, mustard, 'isaac-tufted-ottoman');
 
   // 21. Olive-Green Foldable Floor Play Couch + 22. Cream Star-Patterned Floor Play Mat
   c.parts(fixtures.isaacPlayCouch, f.isaacPlayCouch, [
@@ -367,15 +370,15 @@ function buildIsaacFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3Fixtur
   const starMat = c.trackMat(new MeshStandardMaterial({ map: c.trackTex(createStarPlayMatTexture()), roughness: 0.9, metalness: 0.02 }));
   c.addBox(fixtures.isaacStarPlayMat, sm.xMin, sm.xMax, 0, sm.heightFt, sm.zMin, sm.zMax, starMat, 'isaac-star-play-mat');
 
-  // Isaac's West/SW Framed Reach-In Closet (white door at x 11.8, z 4.8..8.0 + interior shelf & rod)
+  // Isaac's SW Framed Reach-In Closet (white door on z 7.2 facing north into entry vestibule, backed by navy east wall at x 11.8)
   const ic = new Group();
   ic.name = 'isaac-closet';
   c.boxes(ic, [
-    [11.73, 11.87, 0, 4.30, 4.84, 7.96, c.palette.whiteTrim, 'isaac-closet-door'], [11.62, 11.98, 4.26, 4.36, 4.80, 8.00, c.palette.whiteTrim, 'isaac-closet-header'],
-    [11.87, 11.95, 2.04, 2.22, 7.58, 7.76, c.palette.matteBlackIron, 'isaac-closet-handle'], [8.80, 10.10, 3.55, 3.66, 4.42, 10.70, c.palette.whiteTrim, 'isaac-closet-shelf'],
-    [9.42, 9.48, 3.22, 3.28, 4.46, 10.66, c.palette.brushedSteel, 'isaac-closet-rod'], [8.86, 9.86, 0, 0.92, 9.20, 10.50, c.mat('#c8b698', 0.84), 'isaac-closet-bin'],
+    [9.00, 11.40, 0, 4.30, 6.98, 7.38, c.palette.whiteTrim, 'isaac-closet-door'], [8.94, 11.46, 4.26, 4.36, 6.94, 7.40, c.palette.whiteTrim, 'isaac-closet-header'],
+    [11.08, 11.24, 2.04, 2.22, 6.92, 6.98, c.palette.matteBlackIron, 'isaac-closet-handle'], [8.80, 10.10, 3.55, 3.66, 7.42, 10.72, c.palette.whiteTrim, 'isaac-closet-shelf'],
+    [9.42, 9.48, 3.22, 3.28, 7.44, 10.70, c.palette.brushedSteel, 'isaac-closet-rod'], [8.86, 9.86, 0, 0.92, 9.35, 10.65, c.mat('#c8b698', 0.84), 'isaac-closet-bin'],
   ]);
-  for (const [ci, col] of ['#2f5573', '#d9a992', '#5e6b4c'].entries()) c.addBox(ic, 9.10, 9.80, 1.55, 3.22, 5.05 + ci * 1.35, 5.87 + ci * 1.35, c.mat(col, 0.82), `isaac-closet-clothes-${ci}`);
+  for (const [ci, col] of ['#2f5573', '#d9a992', '#5e6b4c'].entries()) c.addBox(ic, 9.10, 9.80, 1.55, 3.22, 7.65 + ci * 0.85, 8.30 + ci * 0.85, c.mat(col, 0.82), `isaac-closet-clothes-${ci}`);
   root.add(ic);
 }
 

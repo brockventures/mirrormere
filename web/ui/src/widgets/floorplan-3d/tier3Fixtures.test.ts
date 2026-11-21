@@ -65,14 +65,20 @@ describe('tier3Fixtures — Floor 3 3D Fixtures (Nook, Kitchen, Hall Bath, Rosie
     expect(built.fixtures.hearthWallDisplay.getObjectByName('hearth-display-screen')).toBeInstanceOf(Mesh);
     expect(built.fixtures.hearthWallDisplay.getObjectByName('nook-fig-canopy-main')).toBeInstanceOf(Mesh);
 
-    // Kitchen & Upper Hall: DW left of sink, range hood rising to 6.5 ft, fridge magnets, E-W island + 3 south stools + north-east MW + west tower/trash, west-facing pantry
+    // Kitchen & Upper Hall: DW left of sink, range hood rising to 6.5 ft, fridge flush with Hall Bath SW (z <= -0.4), E-W island + 3 stools, west-facing 4-door pantry (z 4.0..10.8)
     const dwBox = new Box3().setFromObject(built.fixtures.northKitchenCounters.getObjectByName('dishwasher-front')!);
     const sinkBox = new Box3().setFromObject(built.fixtures.northKitchenCounters.getObjectByName('kitchen-sink-basin')!);
     expect(dwBox.max.x).toBeLessThan(sinkBox.min.x);
     expect(built.fixtures.northKitchenCounters.getObjectByName('sink-blue-mat')).toBeInstanceOf(Mesh);
+    const rangeBox = new Box3().setFromObject(built.fixtures.eastRangeAndHood);
+    expect(rangeBox.min.z).toBeGreaterThanOrEqual(-8.6 - 1e-4);
+    expect(rangeBox.max.z).toBeLessThanOrEqual(-4.0 + 1e-4);
     const hoodChimney = built.fixtures.eastRangeAndHood.getObjectByName('range-hood-chimney') as Mesh;
     expect(hoodChimney).toBeInstanceOf(Mesh);
     expect(new Box3().setFromObject(hoodChimney).max.y).toBeCloseTo(6.5, 2);
+    const fridgeBox = new Box3().setFromObject(built.fixtures.stainlessFridge);
+    expect(fridgeBox.min.z).toBeGreaterThanOrEqual(-3.8 - 1e-4);
+    expect(fridgeBox.max.z).toBeLessThanOrEqual(-0.4 + 1e-4);
     expect(built.fixtures.stainlessFridge.getObjectByName('fridge-magnet-0')).toBeInstanceOf(Mesh);
 
     const islandBaseBox = new Box3().setFromObject(built.fixtures.kitchenIsland.getObjectByName('island-base')!);
@@ -94,20 +100,26 @@ describe('tier3Fixtures — Floor 3 3D Fixtures (Nook, Kitchen, Hall Bath, Rosie
     expect(built.fixtures.playKitchenCorner.getObjectByName('harbor-art-frame')).toBeInstanceOf(Mesh);
 
     const pantryBodyBox = new Box3().setFromObject(built.fixtures.tallWhitePantry.getObjectByName('pantry-body')!);
-    const pantryDoorBox = new Box3().setFromObject(built.fixtures.tallWhitePantry.getObjectByName('pantry-door-ln')!);
+    const pantryDoorBox = new Box3().setFromObject(built.fixtures.tallWhitePantry.getObjectByName('pantry-door-0')!);
     const pantryPullBox = new Box3().setFromObject(built.fixtures.tallWhitePantry.getObjectByName('pantry-pull-0')!);
+    expect(pantryBodyBox.min.x).toBeGreaterThanOrEqual(6.1);
+    expect(pantryBodyBox.max.x).toBeLessThanOrEqual(8.45);
+    expect(pantryBodyBox.min.z).toBeGreaterThanOrEqual(3.98);
+    expect(pantryBodyBox.max.z).toBeLessThanOrEqual(10.8);
     expect(pantryDoorBox.max.x).toBeLessThanOrEqual(pantryBodyBox.min.x + 1e-4);
     expect(pantryPullBox.max.x).toBeLessThanOrEqual(pantryDoorBox.min.x + 1e-4);
-    expect(built.fixtures.tallWhitePantry.getObjectByName('pantry-door-us')).toBeInstanceOf(Mesh);
+    expect(built.fixtures.tallWhitePantry.getObjectByName('pantry-door-3')).toBeInstanceOf(Mesh);
     expect(built.fixtures.tallWhitePantry.getObjectByName('pantry-pull-3')).toBeInstanceOf(Mesh);
 
-    // Hall Bath: tub curtain, round mirror, 3-globe vanity light, toilet art
+    // Hall Bath: tub curtain, round mirror, 3-globe vanity light, toilet art cleanly north of z = -0.6
     expect(built.fixtures.hallBathTub.getObjectByName('hall-shower-curtain')).toBeInstanceOf(Mesh);
     expect(built.fixtures.hallBathVanity.getObjectByName('hall-vanity-mirror')).toBeInstanceOf(Mesh);
     expect(built.fixtures.hallBathVanity.getObjectByName('hall-vanity-globe-2')).toBeInstanceOf(Mesh);
+    const toiletBox = new Box3().setFromObject(built.fixtures.hallBathToilet);
+    expect(toiletBox.max.z).toBeLessThanOrEqual(-0.6 + 1e-4);
     expect(built.fixtures.hallBathToilet.getObjectByName('hall-bath-art-print')).toBeInstanceOf(Mesh);
 
-    // Rosie's Room: rainbow arches, round textured rug, framed south closet sliding doors & interior, dollhouse west of closet wall
+    // Rosie's Room: rainbow arches, round textured rug, framed south closet sliding doors (x 17.7..23.3, z 0.0..0.2) & interior, dollhouse west of closet wall
     expect(built.fixtures.rosieRainbowAndMap.getObjectByName('rosie-rainbow-arch-0')).toBeInstanceOf(Mesh);
     expect(built.fixtures.rosieRainbowAndMap.getObjectByName('rosie-rainbow-arch-2')).toBeInstanceOf(Mesh);
     const rosieRug = built.fixtures.rosieRoundRug.getObjectByName('rosie-round-rug-disc') as Mesh;
@@ -117,24 +129,30 @@ describe('tier3Fixtures — Floor 3 3D Fixtures (Nook, Kitchen, Hall Bath, Rosie
     const rosieDoorW = new Box3().setFromObject(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-closet-door-w')!);
     const rosieDoorE = new Box3().setFromObject(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-closet-door-e')!);
     const rosieDollhouse = new Box3().setFromObject(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-dollhouse-roof')!);
-    expect(rosieDoorW.min.x).toBeGreaterThanOrEqual(18.4);
-    expect(rosieDoorE.max.x).toBeLessThanOrEqual(22.3);
-    expect(rosieDoorW.min.z).toBeLessThan(-1.6);
-    expect(rosieDollhouse.max.x).toBeLessThanOrEqual(17.25);
+    expect(rosieDoorW.min.x).toBeGreaterThanOrEqual(17.7);
+    expect(rosieDoorE.max.x).toBeLessThanOrEqual(23.3);
+    expect(rosieDoorW.min.z).toBeGreaterThanOrEqual(0.0);
+    expect(rosieDoorE.max.z).toBeLessThanOrEqual(0.25);
+    expect(rosieDollhouse.max.x).toBeLessThanOrEqual(17.3);
+    expect(rosieDollhouse.max.z).toBeLessThanOrEqual(1.85);
     expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-closet-shelf')).toBeInstanceOf(Mesh);
     expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-closet-rod')).toBeInstanceOf(Mesh);
 
-    // Isaac's Room: rectangular slatted crib (~4.4 x 2.4 ft), 45-deg SW-facing glider + ottoman, west/SW closet door & interior, star play mat
+    // Isaac's Room: rectangular slatted crib (~4.4 x 2.4 ft), dresser & glider inside z 2.0..11.0, north-facing closet door on z 7.2 & interior, star play mat
     const cribBox = new Box3().setFromObject(built.fixtures.isaacWoodCrib);
     expect(cribBox.max.x - cribBox.min.x).toBeCloseTo(4.32, 1);
     expect(cribBox.max.z - cribBox.min.z).toBeCloseTo(2.32, 1);
     expect(built.fixtures.isaacWoodCrib.getObjectByName('crib-slat-e-5')).toBeInstanceOf(Mesh);
     expect(built.fixtures.isaacWoodCrib.getObjectByName('crib-slat-n-9')).toBeInstanceOf(Mesh);
+    const isaacDresserBox = new Box3().setFromObject(built.fixtures.isaacWalnutDresser);
+    expect(isaacDresserBox.min.z).toBeGreaterThanOrEqual(2.0);
+    expect(isaacDresserBox.max.z).toBeLessThanOrEqual(4.2);
     expect(built.fixtures.isaacWalnutDresser.getObjectByName('isaac-diaper-pail')).toBeInstanceOf(Mesh);
     const gliderChair = built.fixtures.isaacGliderAndOttoman.getObjectByName('isaac-glider-chair')!;
     expect(gliderChair).toBeDefined();
     expect(gliderChair.rotation.y).toBeCloseTo(-Math.PI / 4, 4);
     const chairBox = new Box3().setFromObject(gliderChair);
+    expect(chairBox.min.z).toBeGreaterThanOrEqual(2.0);
     const ottomanMesh = built.fixtures.isaacGliderAndOttoman.getObjectByName('isaac-tufted-ottoman') as Mesh;
     const ottomanBox = new Box3().setFromObject(ottomanMesh);
     expect(ottomanMesh).toBeInstanceOf(Mesh);
@@ -144,8 +162,10 @@ describe('tier3Fixtures — Floor 3 3D Fixtures (Nook, Kitchen, Hall Bath, Rosie
     expect(starMat).toBeInstanceOf(Mesh);
     expect((starMat.material as MeshStandardMaterial).map).toBeInstanceOf(DataTexture);
     const isaacClosetDoor = new Box3().setFromObject(built.root.getObjectByName('isaac-closet-door')!);
-    expect(isaacClosetDoor.min.z).toBeGreaterThanOrEqual(4.8);
-    expect(isaacClosetDoor.max.z).toBeLessThanOrEqual(8.0);
+    expect(isaacClosetDoor.min.x).toBeGreaterThanOrEqual(8.6);
+    expect(isaacClosetDoor.max.x).toBeLessThanOrEqual(11.8);
+    expect(isaacClosetDoor.min.z).toBeLessThan(7.2);
+    expect(isaacClosetDoor.max.z).toBeGreaterThan(7.2);
     expect(built.root.getObjectByName('isaac-closet-shelf')).toBeInstanceOf(Mesh);
     expect(built.root.getObjectByName('isaac-closet-rod')).toBeInstanceOf(Mesh);
 
