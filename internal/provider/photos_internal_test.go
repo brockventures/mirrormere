@@ -562,6 +562,32 @@ func TestPhotos_InternalHelpers(t *testing.T) {
 		if got := resolveSnapshotAlbumURL(nil); got != "" {
 			t.Errorf("got %q, want empty", got)
 		}
+		shareOnly := []*albumState{
+			{cfg: AlbumSource{Source: PhotoSourceShareURL, ResolvedURL: "https://photos.app.goo.gl/secret-share"}},
+		}
+		if got := resolveSnapshotAlbumURL(shareOnly); got != "" {
+			t.Errorf("share_url album leaked AlbumURL: got %q, want empty", got)
+		}
+		emberOnly := []*albumState{
+			{cfg: AlbumSource{Source: PhotoSourceEmberBridge, ResolvedURL: "https://photos.app.goo.gl/ember-only"}},
+		}
+		if got := resolveSnapshotAlbumURL(emberOnly); got != "https://photos.app.goo.gl/ember-only" {
+			t.Errorf("ember_bridge album URL = %q, want %q", got, "https://photos.app.goo.gl/ember-only")
+		}
+		mixed := []*albumState{
+			{cfg: AlbumSource{Source: PhotoSourceShareURL, ResolvedURL: "https://photos.app.goo.gl/secret-share"}},
+			{cfg: AlbumSource{Source: PhotoSourceEmberBridge, ResolvedURL: "https://photos.app.goo.gl/ember-mixed"}},
+		}
+		if got := resolveSnapshotAlbumURL(mixed); got != "https://photos.app.goo.gl/ember-mixed" {
+			t.Errorf("mixed album URL = %q, want %q", got, "https://photos.app.goo.gl/ember-mixed")
+		}
+		emptyEmberAndShare := []*albumState{
+			{cfg: AlbumSource{Source: PhotoSourceEmberBridge, ResolvedURL: ""}},
+			{cfg: AlbumSource{Source: PhotoSourceShareURL, ResolvedURL: "https://photos.app.goo.gl/secret-share"}},
+		}
+		if got := resolveSnapshotAlbumURL(emptyEmberAndShare); got != "" {
+			t.Errorf("empty ember + share_url leaked AlbumURL: got %q, want empty", got)
+		}
 	})
 
 	t.Run("peekWindowLocked edge cases", func(t *testing.T) {

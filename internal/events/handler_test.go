@@ -249,3 +249,188 @@ func TestHandler_SlowConsumerDisconnect(t *testing.T) {
 	}
 	close(blockCh)
 }
+
+type deadlineFlusher struct {
+	*flushingRecorder
+
+	dlMu        sync.Mutex
+	deadlines   []time.Time
+	deadlineErr error
+	flushErr    error
+	failFlushAt int
+	flushCount  int
+}
+
+func (d *deadlineFlusher) SetWriteDeadline(t time.Time) error {
+	d.dlMu.Lock()
+	defer d.dlMu.Unlock()
+	d.deadlines = append(d.deadlines, t)
+	return d.deadlineErr
+}
+
+func (d *deadlineFlusher) FlushError() error {
+	d.dlMu.Lock()
+	d.flushCount++
+	cnt := d.flushCount
+	failAt := d.failFlushAt
+	err := d.flushErr
+	d.dlMu.Unlock()
+	if failAt > 0 && cnt >= failAt {
+		return err
+	}
+	d.Flush()
+	return nil
+}
+
+func (d *deadlineFlusher) recordedDeadlines() []time.Time {
+	d.dlMu.Lock()
+	defer d.dlMu.Unlock()
+	out := make([]time.Time, len(d.deadlines))
+	copy(out, d.deadlines)
+	return out
+}
+
+func TestHandler_BoundedWriteDeadline(t *testing.T) {
+	t.Parallel()
+	hub := NewHub(HubConfig{HeartbeatInterval: 15 * time.Millisecond}, nil, nil)
+	defer hub.Close()
+
+	rec := &deadlineFlusher{flushingRecorder: newFlushingRecorder()}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		Handler(hub).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/events", nil).WithContext(ctx))
+	}()
+
+	rec.wait(2) // initial header flush + hydration flush
+	hub.Publish(EventStyleReload, []byte(`{"file":"custom.css"}`))
+	rec.wait(2) // live event + heartbeat ping
+	cancel()
+	<-done
+
+	deadlines := rec.recordedDeadlines()
+	if len(deadlines) < 4 {
+		t.Fatalf("expected at least 4 bounded write deadlines (init, batch, event, ping), got %d", len(deadlines))
+	}
+	for i, dl := range deadlines {
+		if dl.IsZero() {
+			t.Errorf("deadline[%d] was zero (unbounded), expected bounded 10s deadline", i)
+		}
+		rem := time.Until(dl)
+		if rem > defaultSSEWriteTimeout+time.Second || rem < 0 {
+			t.Errorf("deadline[%d] remaining=%v out of expected (0, %v]", i, rem, defaultSSEWriteTimeout)
+		}
+	}
+}
+
+func TestHandler_FlushAndDeadlineErrors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("initial_flush_error_exits", func(t *testing.T) {
+		t.Parallel()
+		hub := NewHub(HubConfig{}, nil, nil)
+		defer hub.Close()
+		rec := &deadlineFlusher{
+			flushingRecorder: newFlushingRecorder(),
+			deadlineErr:      errors.New("deadline failed"),
+			flushErr:         errors.New("i/o timeout"),
+			failFlushAt:      1,
+		}
+		Handler(hub).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/events", nil))
+		hub.mu.RLock()
+		n := len(hub.subscribers)
+		hub.mu.RUnlock()
+		if n != 0 {
+			t.Fatalf("expected subscriber cleaned up on initial flush error, got %d", n)
+		}
+	})
+
+	t.Run("heartbeat_flush_error_exits", func(t *testing.T) {
+		t.Parallel()
+		hub := NewHub(HubConfig{HeartbeatInterval: 10 * time.Millisecond}, nil, nil)
+		defer hub.Close()
+		rec := &deadlineFlusher{
+			flushingRecorder: newFlushingRecorder(),
+			flushErr:         errors.New("i/o timeout"),
+			failFlushAt:      3, // fail on first ping after header+hydration flushes
+		}
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			Handler(hub).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/events", nil))
+		}()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatal("handler did not exit on heartbeat flush error")
+		}
+	})
+
+	t.Run("nil_response_controller_fallback", func(t *testing.T) {
+		t.Parallel()
+		rec := newFlushingRecorder()
+		setSSEWriteDeadline(nil, defaultSSEWriteTimeout, nil)
+		if !flushSSE(nil, rec) {
+			t.Fatal("expected flushSSE(nil, flusher) to succeed")
+		}
+	})
+}
+
+func TestHandler_MaxConcurrentSubscribers(t *testing.T) {
+	t.Parallel()
+	hub := NewHub(HubConfig{HeartbeatInterval: time.Hour}, nil, nil)
+	defer hub.Close()
+
+	h := newHandler(hub, defaultSSEWriteTimeout, 2)
+
+	ctx1, cancel1 := context.WithCancel(context.Background())
+	defer cancel1()
+	rec1 := newFlushingRecorder()
+	done1 := make(chan struct{})
+	go func() {
+		defer close(done1)
+		h.ServeHTTP(rec1, httptest.NewRequest(http.MethodGet, "/api/events", nil).WithContext(ctx1))
+	}()
+	rec1.wait(2)
+
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	defer cancel2()
+	rec2 := newFlushingRecorder()
+	done2 := make(chan struct{})
+	go func() {
+		defer close(done2)
+		h.ServeHTTP(rec2, httptest.NewRequest(http.MethodGet, "/api/events", nil).WithContext(ctx2))
+	}()
+	rec2.wait(2)
+
+	// 3rd subscriber must be rejected with 503 Service Unavailable
+	rec3 := newFlushingRecorder()
+	h.ServeHTTP(rec3, httptest.NewRequest(http.MethodGet, "/api/events", nil))
+	if rec3.Code != http.StatusServiceUnavailable {
+		t.Fatalf("3rd subscriber status = %d, want %d", rec3.Code, http.StatusServiceUnavailable)
+	}
+
+	// Disconnect 1st subscriber; new subscriber should now succeed
+	cancel1()
+	<-done1
+
+	ctx4, cancel4 := context.WithCancel(context.Background())
+	rec4 := newFlushingRecorder()
+	done4 := make(chan struct{})
+	go func() {
+		defer close(done4)
+		h.ServeHTTP(rec4, httptest.NewRequest(http.MethodGet, "/api/events", nil).WithContext(ctx4))
+	}()
+	rec4.wait(2)
+	if rec4.Code != http.StatusOK {
+		t.Fatalf("4th subscriber after disconnect status = %d, want %d", rec4.Code, http.StatusOK)
+	}
+
+	cancel4()
+	cancel2()
+	<-done4
+	<-done2
+}

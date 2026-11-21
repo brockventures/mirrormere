@@ -23,13 +23,16 @@ RUN --mount=type=bind,source=go.mod,target=go.mod \
 
 # Copy Go source tree and compile minimal static Linux executable
 ARG TARGETOS TARGETARCH
+ARG GO_COVER=0
 COPY --link go.mod go.sum ./
 COPY --link cmd/ ./cmd/
 COPY --link internal/ ./internal/
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
+    COVER_FLAGS=""; \
+    if [ "$GO_COVER" = "1" ]; then COVER_FLAGS="-cover -covermode=atomic"; fi; \
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -cover -covermode=atomic -trimpath -ldflags="-s -w -extldflags '-static'" -o /app/server ./cmd/server
+    go build $COVER_FLAGS -trimpath -ldflags="-s -w -extldflags '-static'" -o /app/server ./cmd/server
 
 # Runtime stage: minimal hardened Alpine 3.24 environment via mirror.gcr.io
 FROM mirror.gcr.io/library/alpine:3.24

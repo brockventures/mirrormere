@@ -27,8 +27,15 @@ type EdgeTimings struct {
 	UtteranceSilenceSec float64
 }
 
+const (
+	maxTrackedNodeIDs = 16
+	overflowNodeID    = "other"
+)
+
 // Metrics encapsulates Prometheus collectors for the voice pipeline with bounded cardinality.
 type Metrics struct {
+	mu               sync.Mutex
+	seenNodes        map[string]struct{}
 	stageDuration    *prometheus.HistogramVec
 	ambientRMS       *prometheus.GaugeVec
 	lastSeen         *prometheus.GaugeVec
@@ -57,6 +64,9 @@ func newMetrics(reg prometheus.Registerer) *Metrics {
 	factory := promauto.With(reg)
 
 	m := &Metrics{
+		seenNodes: map[string]struct{}{
+			"cockpit": {},
+		},
 		stageDuration: factory.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Namespace: "mirrormere",
@@ -160,6 +170,23 @@ func newMetrics(reg prometheus.Registerer) *Metrics {
 	return m
 }
 
+func (m *Metrics) boundNodeID(nodeID string) string {
+	sanitized := SanitizeNodeID(nodeID)
+	if sanitized == "unknown" {
+		return sanitized
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.seenNodes[sanitized]; ok {
+		return sanitized
+	}
+	if len(m.seenNodes) >= maxTrackedNodeIDs {
+		return overflowNodeID
+	}
+	m.seenNodes[sanitized] = struct{}{}
+	return sanitized
+}
+
 func validBoundedFloat(v, minVal, maxVal float64) bool {
 	return !math.IsNaN(v) && !math.IsInf(v, 0) && v >= minVal && v <= maxVal
 }
@@ -172,7 +199,7 @@ func (m *Metrics) RecordStageDuration(nodeID, stage, status string, durationSec 
 	if !validBoundedFloat(durationSec, 0, 300.0) {
 		return
 	}
-	m.stageDuration.WithLabelValues(SanitizeNodeID(nodeID), stage, status).Observe(durationSec)
+	m.stageDuration.WithLabelValues(m.boundNodeID(nodeID), stage, status).Observe(durationSec)
 }
 
 // RecordAmbientRMS updates the ambient RMS level gauge for a node.
@@ -183,7 +210,7 @@ func (m *Metrics) RecordAmbientRMS(nodeID string, rmsDBFS float64) {
 	if !validBoundedFloat(rmsDBFS, math.Inf(-1), math.Inf(1)) {
 		return
 	}
-	m.ambientRMS.WithLabelValues(SanitizeNodeID(nodeID)).Set(rmsDBFS)
+	m.ambientRMS.WithLabelValues(m.boundNodeID(nodeID)).Set(rmsDBFS)
 }
 
 // RecordEdgeHeartbeat records client heartbeat liveness timestamp.
@@ -191,7 +218,7 @@ func (m *Metrics) RecordEdgeHeartbeat(nodeID string) {
 	if m == nil || m.lastSeen == nil {
 		return
 	}
-	m.lastSeen.WithLabelValues(SanitizeNodeID(nodeID)).Set(float64(time.Now().Unix()))
+	m.lastSeen.WithLabelValues(m.boundNodeID(nodeID)).Set(float64(time.Now().Unix()))
 }
 
 // RecordFalseWakes increments the false wake counter by count with bounding.
@@ -202,7 +229,7 @@ func (m *Metrics) RecordFalseWakes(nodeID string, count int) {
 	if count > 1000 {
 		count = 1000
 	}
-	m.falseWakes.WithLabelValues(SanitizeNodeID(nodeID)).Add(float64(count))
+	m.falseWakes.WithLabelValues(m.boundNodeID(nodeID)).Add(float64(count))
 }
 
 // RecordPlaybackDuration records audio playback duration on the edge.
@@ -213,7 +240,7 @@ func (m *Metrics) RecordPlaybackDuration(nodeID string, durationSec float64) {
 	if durationSec <= 0 || !validBoundedFloat(durationSec, 0, 120.0) {
 		return
 	}
-	m.playbackDuration.WithLabelValues(SanitizeNodeID(nodeID)).Observe(durationSec)
+	m.playbackDuration.WithLabelValues(m.boundNodeID(nodeID)).Observe(durationSec)
 }
 
 // RecordTurn increments the interaction turn counter.
@@ -221,7 +248,7 @@ func (m *Metrics) RecordTurn(nodeID, status string) {
 	if m == nil || m.turnsTotal == nil {
 		return
 	}
-	m.turnsTotal.WithLabelValues(SanitizeNodeID(nodeID), status).Inc()
+	m.turnsTotal.WithLabelValues(m.boundNodeID(nodeID), status).Inc()
 }
 
 // RecordError increments the error counter for a specific stage.
@@ -229,7 +256,7 @@ func (m *Metrics) RecordError(nodeID, stage, errType string) {
 	if m == nil || m.errorsTotal == nil {
 		return
 	}
-	m.errorsTotal.WithLabelValues(SanitizeNodeID(nodeID), stage, errType).Inc()
+	m.errorsTotal.WithLabelValues(m.boundNodeID(nodeID), stage, errType).Inc()
 }
 
 // RecordSTTRTF records Whisper Real-Time Factor.
@@ -243,7 +270,7 @@ func (m *Metrics) RecordSTTRTF(nodeID, engine string, rtf float64) {
 	if engine == "" {
 		engine = "unknown"
 	}
-	m.sttRTF.WithLabelValues(SanitizeNodeID(nodeID), engine).Set(rtf)
+	m.sttRTF.WithLabelValues(m.boundNodeID(nodeID), engine).Set(rtf)
 }
 
 // RecordTTSCPS records Kokoro characters-per-second synthesis rate.
@@ -257,5 +284,5 @@ func (m *Metrics) RecordTTSCPS(nodeID, voice string, cps float64) {
 	if voice == "" {
 		voice = "unknown"
 	}
-	m.ttsCPS.WithLabelValues(SanitizeNodeID(nodeID), voice).Set(cps)
+	m.ttsCPS.WithLabelValues(m.boundNodeID(nodeID), voice).Set(cps)
 }

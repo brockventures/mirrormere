@@ -211,9 +211,6 @@ func resolveSnapshotAlbumURL(albums []*albumState) string {
 			return a.cfg.ResolvedURL
 		}
 	}
-	if len(albums) > 0 {
-		return albums[0].cfg.ResolvedURL
-	}
 	return ""
 }
 

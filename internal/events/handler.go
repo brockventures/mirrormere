@@ -4,13 +4,26 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
+const (
+	defaultSSEWriteTimeout   = 10 * time.Second
+	defaultMaxSSESubscribers = 64
+)
+
+var sseSubscribeMu sync.Mutex
+
 // Handler constructs an http.Handler serving GET /api/events for SSE clients.
 func Handler(hub *Hub) http.Handler {
+	return newHandler(hub, defaultSSEWriteTimeout, defaultMaxSSESubscribers)
+}
+
+func newHandler(hub *Hub, writeTimeout time.Duration, maxSubs int) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 1. CORS Preflight
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -35,40 +48,95 @@ func Handler(hub *Hub) http.Handler {
 			return
 		}
 
-		// 3. Response Headers
+		// 3. Enforce concurrent subscriber cap and subscribe BEFORE snapshot/replay to eliminate race window (Issue #199)
+		ch, unsubscribe, allowed := subscribeWithLimit(r.Context(), hub, maxSubs)
+		if !allowed {
+			http.Error(w, "too many concurrent subscribers", http.StatusServiceUnavailable)
+			return
+		}
+		defer unsubscribe()
+
+		// 4. Response Headers
 		w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-cache, no-transform")
 		w.Header().Set("Connection", "keep-alive")
 		w.Header().Set("X-Accel-Buffering", "no")
 
-		// 4. Disable write deadline for persistent streaming
+		// 5. Establish bounded per-write deadline to prevent slow/stalled clients from pinning sockets
 		rc := http.NewResponseController(w)
-		if err := rc.SetWriteDeadline(time.Time{}); err != nil && !errors.Is(err, http.ErrNotSupported) {
-			hub.logger.Debug("failed to disable response write deadline", "error", err)
-		}
-
+		setSSEWriteDeadline(rc, writeTimeout, hub.logger)
 		w.WriteHeader(http.StatusOK)
-		flusher.Flush()
-
-		// 5. Subscribe to live stream BEFORE snapshot/replay to eliminate race window (Issue #199)
-		ch, unsubscribe := hub.Subscribe(r.Context())
-		defer unsubscribe()
+		if !flushSSE(rc, flusher) {
+			return
+		}
 
 		// 6. Initial Hydration vs Replay
 		lastEventID := resolveLastEventID(r)
 		initialBatch, seenReplayIDs := prepareInitialEvents(hub, lastEventID)
 
 		// 7. Flush initial batch (hydration or replay)
-		for _, evt := range initialBatch {
-			if _, err := w.Write(evt.Format()); err != nil {
-				return
-			}
+		if !writeInitialBatch(w, rc, flusher, initialBatch, writeTimeout, hub.logger) {
+			return
 		}
-		flusher.Flush()
 
 		// 8-10. Live Stream & Keep-alive SSE Loop
-		streamSSELoop(r.Context(), w, flusher, ch, hub.cfg.HeartbeatInterval, seenReplayIDs)
+		streamSSELoop(r.Context(), w, rc, flusher, ch, hub.cfg.HeartbeatInterval, writeTimeout, hub.logger, seenReplayIDs)
 	})
+}
+
+func subscribeWithLimit(ctx context.Context, hub *Hub, maxSubs int) (<-chan *Event, func(), bool) {
+	sseSubscribeMu.Lock()
+	defer sseSubscribeMu.Unlock()
+	if maxSubs > 0 {
+		hub.mu.RLock()
+		count := len(hub.subscribers)
+		hub.mu.RUnlock()
+		if count >= maxSubs {
+			return nil, nil, false
+		}
+	}
+	ch, unsub := hub.Subscribe(ctx)
+	return ch, unsub, true
+}
+
+func setSSEWriteDeadline(rc *http.ResponseController, timeout time.Duration, logger *slog.Logger) {
+	if rc == nil || timeout <= 0 {
+		return
+	}
+	if err := rc.SetWriteDeadline(time.Now().Add(timeout)); err != nil && !errors.Is(err, http.ErrNotSupported) {
+		if logger != nil {
+			logger.Debug("failed to set response write deadline", "error", err)
+		}
+	}
+}
+
+func flushSSE(rc *http.ResponseController, flusher http.Flusher) bool {
+	if rc != nil {
+		if err := rc.Flush(); err != nil && !errors.Is(err, http.ErrNotSupported) {
+			return false
+		}
+		return true
+	}
+	flusher.Flush()
+	return true
+}
+
+func writeInitialBatch(w io.Writer, rc *http.ResponseController, flusher http.Flusher, batch []*Event, writeTimeout time.Duration, logger *slog.Logger) bool {
+	setSSEWriteDeadline(rc, writeTimeout, logger)
+	for _, evt := range batch {
+		if _, err := w.Write(evt.Format()); err != nil {
+			return false
+		}
+	}
+	return flushSSE(rc, flusher)
+}
+
+func writeAndFlushSSE(w io.Writer, rc *http.ResponseController, flusher http.Flusher, data []byte, writeTimeout time.Duration, logger *slog.Logger) bool {
+	setSSEWriteDeadline(rc, writeTimeout, logger)
+	if _, err := w.Write(data); err != nil {
+		return false
+	}
+	return flushSSE(rc, flusher)
 }
 
 func resolveLastEventID(r *http.Request) string {
@@ -115,7 +183,7 @@ func drainSSEQueue(ctx context.Context, ch <-chan *Event, deliver func(*Event) b
 	}
 }
 
-func streamSSELoop(ctx context.Context, w io.Writer, flusher http.Flusher, ch <-chan *Event, heartbeat time.Duration, seenReplayIDs map[string]struct{}) {
+func streamSSELoop(ctx context.Context, w io.Writer, rc *http.ResponseController, flusher http.Flusher, ch <-chan *Event, heartbeat, writeTimeout time.Duration, logger *slog.Logger, seenReplayIDs map[string]struct{}) {
 	ticker := time.NewTicker(heartbeat)
 	defer ticker.Stop()
 
@@ -126,11 +194,7 @@ func streamSSELoop(ctx context.Context, w io.Writer, flusher http.Flusher, ch <-
 			}
 			seenReplayIDs = nil
 		}
-		if _, err := w.Write(evt.Format()); err != nil {
-			return false
-		}
-		flusher.Flush()
-		return true
+		return writeAndFlushSSE(w, rc, flusher, evt.Format(), writeTimeout, logger)
 	}
 
 	if !drainSSEQueue(ctx, ch, deliverEvent) {
@@ -146,10 +210,9 @@ func streamSSELoop(ctx context.Context, w io.Writer, flusher http.Flusher, ch <-
 				return
 			}
 		case t := <-ticker.C:
-			if _, err := w.Write(FormatPing(t)); err != nil {
+			if !writeAndFlushSSE(w, rc, flusher, FormatPing(t), writeTimeout, logger) {
 				return
 			}
-			flusher.Flush()
 		}
 	}
 }

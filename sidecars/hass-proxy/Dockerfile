@@ -12,11 +12,14 @@ RUN --mount=type=bind,source=go.mod,target=go.mod \
 
 # Copy source tree and compile minimal static Linux executable
 ARG TARGETOS TARGETARCH
+ARG GO_COVER=0
 COPY --link . .
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
+    COVER_FLAGS=""; \
+    if [ "$GO_COVER" = "1" ]; then COVER_FLAGS="-cover -covermode=atomic"; fi; \
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -cover -covermode=atomic -trimpath -ldflags="-s -w -extldflags '-static'" -o /app/hass-proxy ./sidecars/hass-proxy
+    go build $COVER_FLAGS -trimpath -ldflags="-s -w -extldflags '-static'" -o /app/hass-proxy ./sidecars/hass-proxy
 
 # Runtime stage: minimal hardened Alpine 3.24 environment
 FROM alpine:3.24

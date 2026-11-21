@@ -79,8 +79,8 @@ func TestPhotosProvider_FetchExtraction(t *testing.T) {
 			if snap.AlbumName != tc.wantAlbum || snap.TotalPhotos != tc.wantTotal || len(snap.Photos) != tc.wantPhotos {
 				t.Fatalf("got album=%q total=%d photos=%d; want %q, %d, %d", snap.AlbumName, snap.TotalPhotos, len(snap.Photos), tc.wantAlbum, tc.wantTotal, tc.wantPhotos)
 			}
-			if snap.AlbumURL != ts.URL {
-				t.Errorf("album URL = %q, want %q", snap.AlbumURL, ts.URL)
+			if snap.AlbumURL != "" {
+				t.Errorf("album URL = %q, want empty for share_url album", snap.AlbumURL)
 			}
 			photoMap := make(map[string]provider.PhotoItem, len(snap.Photos))
 			for _, item := range snap.Photos {

@@ -728,11 +728,17 @@ func (h *Hub) synthesizeAndEmitReply(
 
 // --- Default STT Client ---
 
+const (
+	defaultWyomingTimeout  = 30 * time.Second
+	maxWyomingSectionBytes = 1 << 20 // 1 MiB
+)
+
 // DefaultSTTClient supports both Wyoming TCP protocol and HTTP Whisper endpoints.
 type DefaultSTTClient struct {
-	rawURL     string
-	isWyoming  bool
-	httpClient *http.Client
+	rawURL         string
+	isWyoming      bool
+	wyomingTimeout time.Duration
+	httpClient     *http.Client
 }
 
 // NewDefaultSTTClient constructs an STTClient based on target URL scheme.
@@ -740,8 +746,9 @@ func NewDefaultSTTClient(rawURL string) STTClient {
 	trimmed := strings.TrimSpace(rawURL)
 	isWyoming := strings.HasPrefix(trimmed, "tcp://") || strings.HasPrefix(trimmed, "wyoming://")
 	return &DefaultSTTClient{
-		rawURL:    trimmed,
-		isWyoming: isWyoming,
+		rawURL:         trimmed,
+		isWyoming:      isWyoming,
+		wyomingTimeout: defaultWyomingTimeout,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -760,13 +767,78 @@ func (c *DefaultSTTClient) Transcribe(ctx context.Context, wavData []byte) (stri
 	return c.transcribeHTTP(ctx, wavData)
 }
 
+func wyomingDeadline(ctx context.Context, timeout time.Duration) time.Time {
+	deadline := time.Now().Add(timeout)
+	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
+		return ctxDeadline
+	}
+	return deadline
+}
+
+func readWyomingTranscript(ctx context.Context, conn net.Conn, timeout time.Duration) (string, error) {
+	reader := bufio.NewReader(conn)
+	for {
+		if err := conn.SetDeadline(wyomingDeadline(ctx, timeout)); err != nil {
+			return "", fmt.Errorf("wyoming set deadline failed: %w", err)
+		}
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			return "", fmt.Errorf("wyoming read failed: %w", err)
+		}
+		var header struct {
+			Type          string `json:"type"`
+			DataLength    int    `json:"data_length"`
+			PayloadLength int    `json:"payload_length"`
+		}
+		if err := json.Unmarshal(line, &header); err != nil {
+			continue
+		}
+		if header.DataLength < 0 || header.DataLength > maxWyomingSectionBytes {
+			return "", fmt.Errorf("wyoming data_length %d out of bounds (max %d)", header.DataLength, maxWyomingSectionBytes)
+		}
+		if header.PayloadLength < 0 || header.PayloadLength > maxWyomingSectionBytes {
+			return "", fmt.Errorf("wyoming payload_length %d out of bounds (max %d)", header.PayloadLength, maxWyomingSectionBytes)
+		}
+
+		var dataBytes []byte
+		if header.DataLength > 0 {
+			dataBytes = make([]byte, header.DataLength)
+			if _, err := io.ReadFull(reader, dataBytes); err != nil {
+				return "", err
+			}
+		}
+		if header.PayloadLength > 0 {
+			if _, err := io.CopyN(io.Discard, reader, int64(header.PayloadLength)); err != nil {
+				return "", err
+			}
+		}
+
+		if header.Type == "transcript" {
+			var result struct {
+				Text string `json:"text"`
+			}
+			if err := json.Unmarshal(dataBytes, &result); err == nil {
+				return strings.TrimSpace(result.Text), nil
+			}
+			return strings.TrimSpace(string(dataBytes)), nil
+		}
+	}
+}
+
 func (c *DefaultSTTClient) transcribeWyoming(ctx context.Context, wavData []byte) (string, error) {
 	addr := c.rawURL
 	addr = strings.TrimPrefix(addr, "tcp://")
 	addr = strings.TrimPrefix(addr, "wyoming://")
 
+	timeout := c.wyomingTimeout
+	if timeout <= 0 {
+		timeout = defaultWyomingTimeout
+	}
+	wyomingCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	d := net.Dialer{Timeout: 5 * time.Second}
-	conn, err := d.DialContext(ctx, "tcp", addr)
+	conn, err := d.DialContext(wyomingCtx, "tcp", addr)
 	if err != nil {
 		return "", fmt.Errorf("wyoming dial failed: %w", err)
 	}
@@ -774,7 +846,7 @@ func (c *DefaultSTTClient) transcribeWyoming(ctx context.Context, wavData []byte
 	defer closer.Close()
 
 	// Watch context cancellation
-	stopCancelWatch := context.AfterFunc(ctx, func() {
+	stopCancelWatch := context.AfterFunc(wyomingCtx, func() {
 		_ = closer.Close()
 	})
 	defer stopCancelWatch()
@@ -798,50 +870,14 @@ func (c *DefaultSTTClient) transcribeWyoming(ctx context.Context, wavData []byte
 	stopData := `{"timestamp":null}`
 	fmt.Fprintf(&buf, "{\"type\":\"audio-stop\",\"data_length\":%d}\n%s", len(stopData), stopData)
 
+	if err := conn.SetDeadline(wyomingDeadline(wyomingCtx, timeout)); err != nil {
+		return "", fmt.Errorf("wyoming set deadline failed: %w", err)
+	}
 	if _, err := conn.Write(buf.Bytes()); err != nil {
 		return "", err
 	}
 
-	// 5. Read response events until transcript is received
-	reader := bufio.NewReader(conn)
-	for {
-		line, err := reader.ReadBytes('\n')
-		if err != nil {
-			return "", fmt.Errorf("wyoming read failed: %w", err)
-		}
-		var header struct {
-			Type          string `json:"type"`
-			DataLength    int    `json:"data_length"`
-			PayloadLength int    `json:"payload_length"`
-		}
-		if err := json.Unmarshal(line, &header); err != nil {
-			continue
-		}
-
-		var dataBytes []byte
-		if header.DataLength > 0 {
-			dataBytes = make([]byte, header.DataLength)
-			if _, err := io.ReadFull(reader, dataBytes); err != nil {
-				return "", err
-			}
-		}
-		if header.PayloadLength > 0 {
-			payloadBytes := make([]byte, header.PayloadLength)
-			if _, err := io.ReadFull(reader, payloadBytes); err != nil {
-				return "", err
-			}
-		}
-
-		if header.Type == "transcript" {
-			var result struct {
-				Text string `json:"text"`
-			}
-			if err := json.Unmarshal(dataBytes, &result); err == nil {
-				return strings.TrimSpace(result.Text), nil
-			}
-			return strings.TrimSpace(string(dataBytes)), nil
-		}
-	}
+	return readWyomingTranscript(wyomingCtx, conn, timeout)
 }
 
 func (c *DefaultSTTClient) transcribeHTTP(ctx context.Context, wavData []byte) (string, error) {

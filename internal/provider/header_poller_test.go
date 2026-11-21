@@ -231,3 +231,100 @@ func TestProviderCoordinator_HeaderWeatherPoller_Lifecycle(t *testing.T) {
 		t.Fatalf("Shutdown failed: %v", err)
 	}
 }
+
+func TestHeaderWeatherPoller_StopCancelsInFlightAndPreventsStaleOverwrite(t *testing.T) {
+	t.Parallel()
+
+	oldReqEntered := make(chan struct{}, 1)
+	oldReqCanceled := make(chan struct{}, 1)
+	newReqDone := make(chan struct{}, 1)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		lat := r.URL.Query().Get("latitude")
+		if strings.HasPrefix(lat, "10.0") {
+			select {
+			case oldReqEntered <- struct{}{}:
+			default:
+			}
+			<-r.Context().Done()
+			select {
+			case oldReqCanceled <- struct{}{}:
+			default:
+			}
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"current":{"temperature_2m":55.5,"weather_code":3,"is_day":1}}`))
+		select {
+		case newReqDone <- struct{}{}:
+		default:
+		}
+	}))
+	defer ts.Close()
+
+	sink := &mockHeaderSink{}
+	broadcaster := &mockBroadcaster{}
+	poller := provider.NewHeaderWeatherPoller(provider.HeaderWeatherPollerConfig{
+		Client:      ts.Client(),
+		BaseURL:     ts.URL,
+		Broadcaster: broadcaster,
+		StateSink:   sink,
+	})
+
+	poller.Start(context.Background(), mkHeaderCfg(10.0, 20.0, "imperial", new(900)), "UTC")
+	select {
+	case <-oldReqEntered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for initial slow request to start")
+	}
+
+	// Reload config while old request is in flight: stopLocked must cancel & await the old goroutine.
+	poller.UpdateConfig(context.Background(), mkHeaderCfg(51.5, -0.1, "metric", new(900)), "Europe/London")
+
+	select {
+	case <-oldReqCanceled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected old in-flight fetch context to be canceled on UpdateConfig")
+	}
+	select {
+	case <-newReqDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for reloaded config fetch")
+	}
+
+	// Wait briefly for sink write to settle
+	if _, ok := broadcaster.waitForPublish(2 * time.Second); !ok {
+		t.Fatal("expected header.update publish for reloaded config")
+	}
+	got := sink.GetWeather()
+	if got == nil || got.Temperature != 55.5 || got.Units != "C" {
+		t.Fatalf("unexpected sink weather after reload: %+v", got)
+	}
+
+	// Disabling weather clears config and stops cleanly
+	poller.UpdateConfig(context.Background(), nil, "UTC")
+	hw, err := poller.FetchOnce(context.Background())
+	if err != nil || hw != nil {
+		t.Fatalf("expected (nil, nil) after disabling weather, got (%+v, %v)", hw, err)
+	}
+
+	// Verify canceled context prevents writing state even if HTTP succeeded before ctx check
+	tsFast := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"current":{"temperature_2m":99.0,"weather_code":0,"is_day":1}}`))
+	}))
+	defer tsFast.Close()
+
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	poller2 := provider.NewHeaderWeatherPoller(provider.HeaderWeatherPollerConfig{
+		Client:    tsFast.Client(),
+		BaseURL:   tsFast.URL,
+		StateSink: sink,
+	})
+	poller2.Start(context.Background(), mkHeaderCfg(37.8, -122.2, "imperial", new(900)), "UTC")
+	poller2.Stop()
+	if _, err := poller2.FetchOnce(canceledCtx); err == nil {
+		t.Fatal("expected error from FetchOnce with canceled context")
+	}
+}

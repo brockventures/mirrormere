@@ -51,7 +51,8 @@ type HeaderWeatherPoller struct {
 	mu         sync.Mutex
 	weatherCfg *config.HeaderWeatherConfig
 	timezone   string
-	stopCh     chan struct{}
+	cancel     context.CancelFunc
+	wg         sync.WaitGroup
 	running    bool
 }
 
@@ -94,18 +95,24 @@ func (p *HeaderWeatherPoller) Start(ctx context.Context, weatherCfg *config.Head
 	}
 
 	if weatherCfg == nil {
+		p.weatherCfg = nil
 		return
 	}
 
-	p.weatherCfg = weatherCfg
-	p.timezone = timezone
-	if p.timezone == "" {
-		p.timezone = "UTC"
+	cfgCopy := *weatherCfg
+	tz := timezone
+	if tz == "" {
+		tz = "UTC"
 	}
-	p.stopCh = make(chan struct{})
-	p.running = true
+	p.weatherCfg = &cfgCopy
+	p.timezone = tz
 
-	go p.pollLoop(ctx, weatherCfg, p.stopCh)
+	runCtx, cancel := context.WithCancel(ctx)
+	p.cancel = cancel
+	p.running = true
+	p.wg.Add(1)
+
+	go p.pollLoop(runCtx, &cfgCopy, tz)
 }
 
 // Stop cleanly terminates the background poller loop.
@@ -119,7 +126,9 @@ func (p *HeaderWeatherPoller) stopLocked() {
 	if !p.running {
 		return
 	}
-	close(p.stopCh)
+	p.cancel()
+	p.wg.Wait()
+	p.cancel = nil
 	p.running = false
 }
 
@@ -128,9 +137,11 @@ func (p *HeaderWeatherPoller) UpdateConfig(ctx context.Context, weatherCfg *conf
 	p.Start(ctx, weatherCfg, timezone)
 }
 
-func (p *HeaderWeatherPoller) pollLoop(ctx context.Context, weatherCfg *config.HeaderWeatherConfig, stopCh <-chan struct{}) {
+func (p *HeaderWeatherPoller) pollLoop(ctx context.Context, weatherCfg *config.HeaderWeatherConfig, timezone string) {
+	defer p.wg.Done()
+
 	// Execute immediate initial fetch
-	if _, err := p.FetchOnce(ctx); err != nil {
+	if _, err := p.fetchWithConfig(ctx, weatherCfg, timezone); err != nil && ctx.Err() == nil {
 		p.logger.Warn("initial header weather fetch failed", "error", err)
 	}
 
@@ -145,10 +156,8 @@ func (p *HeaderWeatherPoller) pollLoop(ctx context.Context, weatherCfg *config.H
 		select {
 		case <-ctx.Done():
 			return
-		case <-stopCh:
-			return
 		case <-ticker.C:
-			if _, err := p.FetchOnce(ctx); err != nil {
+			if _, err := p.fetchWithConfig(ctx, weatherCfg, timezone); err != nil && ctx.Err() == nil {
 				p.logger.Warn("periodic header weather fetch failed", "error", err)
 			}
 		}
@@ -162,6 +171,10 @@ func (p *HeaderWeatherPoller) FetchOnce(ctx context.Context) (*events.HeaderWeat
 	tz := p.timezone
 	p.mu.Unlock()
 
+	return p.fetchWithConfig(ctx, cfg, tz)
+}
+
+func (p *HeaderWeatherPoller) fetchWithConfig(ctx context.Context, cfg *config.HeaderWeatherConfig, tz string) (*events.HeaderWeather, error) {
 	if cfg == nil {
 		return nil, nil
 	}
@@ -230,6 +243,10 @@ func (p *HeaderWeatherPoller) FetchOnce(ctx context.Context) (*events.HeaderWeat
 		Icon:        iconToken,
 		Condition:   condText,
 		Location:    loc,
+	}
+
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
 	if p.stateSink != nil {

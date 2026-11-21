@@ -334,6 +334,11 @@ func TestDefaultSTTClient_Wyoming(t *testing.T) {
 		{"raw_text_fallback", true, "{\"type\":\"transcript\",\"data_length\":23}\nraw transcript fallback", "raw transcript fallback", false},
 		{"truncated_data_length", true, "{\"type\":\"event\",\"data_length\":100}\nshort", "", true},
 		{"truncated_payload_length", true, "{\"type\":\"event\",\"payload_length\":100}\nshort", "", true},
+		{"oversized_data_length", true, fmt.Sprintf("{\"type\":\"transcript\",\"data_length\":%d}\n", maxWyomingSectionBytes+1), "", true},
+		{"negative_data_length", true, "{\"type\":\"transcript\",\"data_length\":-5}\n", "", true},
+		{"oversized_payload_length", true, fmt.Sprintf("{\"type\":\"audio-chunk\",\"payload_length\":%d}\n", maxWyomingSectionBytes+1), "", true},
+		{"negative_payload_length", true, "{\"type\":\"audio-chunk\",\"payload_length\":-1}\n", "", true},
+		{"large_payload_discarded", true, fmt.Sprintf("{\"type\":\"ping\",\"payload_length\":65536}\n%s{\"type\":\"transcript\",\"data_length\":%d}\n{\"text\":\"after payload\"}", strings.Repeat("x", 65536), len(`{"text":"after payload"}`)), "after payload", false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -352,6 +357,53 @@ func TestDefaultSTTClient_Wyoming(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDefaultSTTClient_WyomingTimeoutAndDeadline(t *testing.T) {
+	t.Parallel()
+
+	t.Run("stalled_server_hits_client_timeout", func(t *testing.T) {
+		t.Parallel()
+		release := make(chan struct{})
+		defer close(release)
+		addr := startWyomingServer(t, func(conn net.Conn, r *bufio.Reader) {
+			drainMockWyomingRequest(r)
+			<-release
+		})
+
+		client := NewDefaultSTTClient(addr).(*DefaultSTTClient)
+		client.wyomingTimeout = 80 * time.Millisecond
+
+		start := time.Now()
+		_, err := client.Transcribe(context.Background(), makeValidWAV(100))
+		if err == nil {
+			t.Fatal("expected timeout error from stalled wyoming server")
+		}
+		if elapsed := time.Since(start); elapsed > 2*time.Second {
+			t.Fatalf("stalled wyoming transcribe took too long: %v", elapsed)
+		}
+	})
+
+	t.Run("zero_timeout_defaults_and_respects_ctx_deadline", func(t *testing.T) {
+		t.Parallel()
+		release := make(chan struct{})
+		defer close(release)
+		addr := startWyomingServer(t, func(conn net.Conn, r *bufio.Reader) {
+			drainMockWyomingRequest(r)
+			<-release
+		})
+
+		client := NewDefaultSTTClient(addr).(*DefaultSTTClient)
+		client.wyomingTimeout = 0 // exercises defaultWyomingTimeout fallback
+
+		ctx, cancel := context.WithTimeout(context.Background(), 80*time.Millisecond)
+		defer cancel()
+
+		_, err := client.Transcribe(ctx, makeValidWAV(100))
+		if err == nil {
+			t.Fatal("expected error when caller context expires")
+		}
+	})
 }
 
 func TestDefaultSTTClient_HTTPAndErrors(t *testing.T) {

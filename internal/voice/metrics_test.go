@@ -148,3 +148,46 @@ func TestMetrics_CollectorsAndSafety(t *testing.T) {
 		t.Fatalf("cockpit last_seen after heartbeat=(%v,%v), want (>0, true)", val, ok)
 	}
 }
+
+func TestMetrics_NodeIDCardinalityCap(t *testing.T) {
+	t.Parallel()
+	reg := prometheus.NewRegistry()
+	m := NewMetrics(reg)
+
+	// Invalid IDs map to "unknown" without consuming tracked node slots.
+	m.RecordTurn("", "success")
+	m.RecordTurn("bad/node", "success")
+	if val, ok := metricVal(t, reg, "mirrormere_voice_turns_total", lbl("node_id", "unknown", "status", "success")); !ok || val != 2 {
+		t.Fatalf("unknown turns = (%v, %v), want (2, true)", val, ok)
+	}
+
+	// "cockpit" is pre-seeded (slot 1). Fill remaining 15 slots (total 16 tracked IDs).
+	for i := 1; i < maxTrackedNodeIDs; i++ {
+		nodeID := "edge-node-" + string(rune('a'+i-1))
+		m.RecordTurn(nodeID, "success")
+		if val, ok := metricVal(t, reg, "mirrormere_voice_turns_total", lbl("node_id", nodeID, "status", "success")); !ok || val != 1 {
+			t.Fatalf("tracked node %q turns = (%v, %v), want (1, true)", nodeID, val, ok)
+		}
+	}
+
+	// Overflow node IDs must map to "other" and not create individual series.
+	for _, extra := range []string{"overflow-1", "overflow-2", "overflow-3"} {
+		m.RecordTurn(extra, "success")
+		if _, ok := metricVal(t, reg, "mirrormere_voice_turns_total", lbl("node_id", extra, "status", "success")); ok {
+			t.Fatalf("overflow node %q unexpectedly created its own series", extra)
+		}
+	}
+	if val, ok := metricVal(t, reg, "mirrormere_voice_turns_total", lbl("node_id", overflowNodeID, "status", "success")); !ok || val != 3 {
+		t.Fatalf("overflow turns = (%v, %v), want (3, true)", val, ok)
+	}
+
+	// Previously tracked IDs remain tracked under their own label.
+	m.RecordTurn("cockpit", "success")
+	m.RecordTurn("edge-node-a", "success")
+	if val, ok := metricVal(t, reg, "mirrormere_voice_turns_total", lbl("node_id", "cockpit", "status", "success")); !ok || val != 1 {
+		t.Fatalf("cockpit turns = (%v, %v), want (1, true)", val, ok)
+	}
+	if val, ok := metricVal(t, reg, "mirrormere_voice_turns_total", lbl("node_id", "edge-node-a", "status", "success")); !ok || val != 2 {
+		t.Fatalf("edge-node-a turns = (%v, %v), want (2, true)", val, ok)
+	}
+}
