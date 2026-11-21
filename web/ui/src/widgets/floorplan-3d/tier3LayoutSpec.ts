@@ -134,10 +134,8 @@ export const TIER3_LAYOUT_SPEC: Tier3LayoutSpec = {
     },
   },
   walls: [
-    // West outer perimeter
-    { id: 'west-nook-north', x1: -20.0, z1: -11.0, x2: -20.0, z2: -1.5, heightFt: 6.6, thicknessFt: 0.45, exteriorFace: 'west' },
-    { id: 'west-nook-window-cutaway', x1: -20.0, z1: -1.5, x2: -20.0, z2: 8.5, heightFt: 1.8, thicknessFt: 0.45, exteriorFace: 'west' },
-    { id: 'west-nook-south-stub', x1: -20.0, z1: 8.5, x2: -20.0, z2: 11.0, heightFt: 4.6, thicknessFt: 0.45, exteriorFace: 'west' },
+    // West outer perimeter (continuous 6.6 ft wall so west nook window runs to full 6.0 ft header)
+    { id: 'west-nook-wall', x1: -20.0, z1: -11.0, x2: -20.0, z2: 11.0, heightFt: 6.6, thicknessFt: 0.45, exteriorFace: 'west' },
     // North outer perimeter (6.6 ft back walls)
     { id: 'north-nook-patio', x1: -20.0, z1: -11.0, x2: -9.5, z2: -11.0, heightFt: 6.6, thicknessFt: 0.45, exteriorFace: 'north' },
     { id: 'north-kitchen', x1: -9.5, z1: -11.0, x2: 6.0, z2: -11.0, heightFt: 6.6, thicknessFt: 0.45, exteriorFace: 'north' },
@@ -157,7 +155,6 @@ export const TIER3_LAYOUT_SPEC: Tier3LayoutSpec = {
     { id: 'pantry-north-wall', x1: 6.0, z1: 3.8, x2: 8.6, z2: 3.8, heightFt: 4.4, thicknessFt: 0.35 },
     { id: 'pantry-back-divider', x1: 8.6, z1: 3.8, x2: 8.6, z2: 11.0, heightFt: 4.4, thicknessFt: 0.35 },
     { id: 'isaac-closet-north', x1: 8.6, z1: 7.2, x2: 11.8, z2: 7.2, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x2f5573 },
-    { id: 'isaac-closet-east', x1: 11.8, z1: 7.2, x2: 11.8, z2: 11.0, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x2f5573 },
     { id: 'rosie-isaac-divider', x1: 11.8, z1: 2.0, x2: 23.5, z2: 2.0, heightFt: 4.6, thicknessFt: 0.35, colorHex: 0x2f5573 },
     { id: 'rosie-closet-west', x1: 17.6, z1: 0.0, x2: 17.6, z2: 2.0, heightFt: 4.4, thicknessFt: 0.35, colorHex: 0x42a88c },
   ],
@@ -176,7 +173,7 @@ export const TIER3_LAYOUT_SPEC: Tier3LayoutSpec = {
     northKitchenCounters: { id: 'northKitchenCounters', roomId: 'kitchen', label: 'North Kitchen Counters & Sink', xMin: -9.4, xMax: 5.7, zMin: -10.8, zMax: -8.4, heightFt: 6.2 },
     eastRangeAndHood: { id: 'eastRangeAndHood', roomId: 'kitchen', label: 'East Range, Oven & Vent Hood', xMin: 3.3, xMax: 5.7, zMin: -8.6, zMax: -4.0, heightFt: 6.5 },
     stainlessFridge: { id: 'stainlessFridge', roomId: 'kitchen', label: 'Stainless French-Door Refrigerator', xMin: 2.8, xMax: 5.7, zMin: -3.8, zMax: -0.5, heightFt: 6.2 },
-    kitchenIsland: { id: 'kitchenIsland', roomId: 'kitchen', label: 'Center Kitchen Island & Stools', xMin: -7.2, xMax: 2.0, zMin: -3.7, zMax: 1.8, heightFt: 3.1 },
+    kitchenIsland: { id: 'kitchenIsland', roomId: 'kitchen', label: 'Center Kitchen Island & Stools', xMin: -8.3, xMax: 0.9, zMin: -3.7, zMax: 1.8, heightFt: 3.1 },
     playKitchenCorner: { id: 'playKitchenCorner', roomId: 'kitchen', label: 'Kids Play Kitchen Corner', xMin: 0.6, xMax: 5.2, zMin: 8.2, zMax: 10.7, heightFt: 4.4 },
     // Upper Hallway (west-facing pantry flush with kitchen-hall opening, full run z 4.0..10.8)
     tallWhitePantry: { id: 'tallWhitePantry', roomId: 'upperHall', label: 'Tall White Hall Pantry Cabinet', xMin: 6.1, xMax: 8.4, zMin: 4.0, zMax: 10.8, heightFt: 6.2 },
