@@ -113,14 +113,22 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
     expect(bathWinBox.min.y).toBeCloseTo(4.2, 2);
     expect(bathWinBox.max.y).toBeCloseTo(5.8, 2);
 
-    // 4. Nook west window + roller shade valance
+    // 4. Nook west window (full height y 1.8..6.0 inside west-nook-wall cutout) + roller shade valance (y 5.7..6.02)
+    const westWall = built.wallsById['west-nook-wall'];
+    expect(westWall.getObjectByName('west-nook-wall-sill')).toBeInstanceOf(Mesh);
+    expect(westWall.getObjectByName('west-nook-wall-header')).toBeInstanceOf(Mesh);
+    const westHeaderBox = new Box3().setFromObject(westWall.getObjectByName('west-nook-wall-header')!);
+    expect(westHeaderBox.min.y).toBeCloseTo(6.0, 2);
+    expect(westHeaderBox.max.y).toBeCloseTo(6.53, 2);
     const nookWestWin = built.shellGroup.getObjectByName('nook-west-window')!;
     const nwwBox = new Box3().setFromObject(nookWestWin);
     expect(nwwBox.min.z).toBeCloseTo(-1.35, 2);
     expect(nwwBox.max.z).toBeCloseTo(8.35, 2);
     expect(nwwBox.min.y).toBeCloseTo(1.8, 2);
-    expect(nwwBox.max.y).toBeCloseTo(4.52, 2);
-    expect(nookWestWin.getObjectByName('nook-west-roller-valance')).toBeInstanceOf(Mesh);
+    expect(nwwBox.max.y).toBeCloseTo(6.02, 2);
+    const valanceBox = new Box3().setFromObject(nookWestWin.getObjectByName('nook-west-roller-valance')!);
+    expect(valanceBox.min.y).toBeCloseTo(5.7, 2);
+    expect(valanceBox.max.y).toBeCloseTo(6.02, 2);
 
     // 5. Rosie north full-height double French patio doors (y 0..6.1, no sill wall) + full-length blush-pink curtains (#d8b6bc)
     const rosieWall = built.wallsById['north-rosie-mint'];
@@ -157,6 +165,40 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
     expect(isaacCurtain).toBeInstanceOf(Mesh);
     expect((isaacCurtain.material as MeshStandardMaterial).color.getHex()).toBe(0xe2b695);
     expect(built.shellGroup.getObjectByName('isaac-east-curtain-south')).toBeInstanceOf(Mesh);
+
+    // 7. Kids' bedroom doors (white framed panel + jambs + matte-black lever handles, ~75 deg ajar inward)
+    const rosieDoor = built.shellGroup.getObjectByName('rosie-bedroom-door')!;
+    expect(rosieDoor).toBeDefined();
+    expect(rosieDoor.getObjectByName('rosie-bedroom-door-jamb-n')).toBeInstanceOf(Mesh);
+    expect(rosieDoor.getObjectByName('rosie-bedroom-door-jamb-s')).toBeInstanceOf(Mesh);
+    expect(rosieDoor.getObjectByName('rosie-bedroom-door-panel')).toBeInstanceOf(Mesh);
+    const rosieDoorHandle = rosieDoor.getObjectByName('rosie-bedroom-door-handle-front') as Mesh;
+    expect(rosieDoorHandle).toBeInstanceOf(Mesh);
+    expect(rosieDoorHandle.material).toBe(built.materials.matteBlackIron);
+    const rosieDoorLeaf = rosieDoor.getObjectByName('rosie-bedroom-door-leaf')!;
+    expect(rosieDoorLeaf.rotation.y).toBeCloseTo((15 * Math.PI) / 180, 4);
+    const rosieDoorBox = new Box3().setFromObject(rosieDoor);
+    expect(rosieDoorBox.min.z).toBeCloseTo(-0.4, 2);
+    expect(rosieDoorBox.max.z).toBeCloseTo(2.0, 2);
+    expect(rosieDoorBox.max.x).toBeGreaterThan(13.5);
+    expect(rosieDoorBox.max.y).toBeCloseTo(6.2, 2);
+
+    const isaacDoor = built.shellGroup.getObjectByName('isaac-bedroom-door')!;
+    expect(isaacDoor).toBeDefined();
+    expect(isaacDoor.getObjectByName('isaac-bedroom-door-jamb-w')).toBeInstanceOf(Mesh);
+    expect(isaacDoor.getObjectByName('isaac-bedroom-door-jamb-e')).toBeInstanceOf(Mesh);
+    expect(isaacDoor.getObjectByName('isaac-bedroom-door-panel')).toBeInstanceOf(Mesh);
+    const isaacDoorHandle = isaacDoor.getObjectByName('isaac-bedroom-door-handle-front') as Mesh;
+    expect(isaacDoorHandle).toBeInstanceOf(Mesh);
+    expect(isaacDoorHandle.material).toBe(built.materials.matteBlackIron);
+    const isaacDoorLeaf = isaacDoor.getObjectByName('isaac-bedroom-door-leaf')!;
+    expect(isaacDoorLeaf.rotation.y).toBeCloseTo(-(75 * Math.PI) / 180, 4);
+    const isaacDoorBox = new Box3().setFromObject(isaacDoor);
+    expect(isaacDoorBox.min.x).toBeCloseTo(8.6, 2);
+    expect(isaacDoorBox.max.x).toBeCloseTo(11.8, 2);
+    expect(isaacDoorBox.max.z).toBeGreaterThan(6.2);
+    expect(isaacDoorBox.max.z).toBeLessThan(7.0);
+    expect(isaacDoorBox.max.y).toBeCloseTo(6.2, 2);
 
     built.dispose();
   });
@@ -248,12 +290,12 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
   it('supports half-wall mode capping interior, closet, south perimeter, and east-isaac-navy walls to 2.2 ft while keeping north back walls at 6.6 ft and cutaways at 1.8 ft', () => {
     const built = buildTier3Scene({ wallMode: 'half' });
 
-    for (const backId of ['north-nook-patio', 'north-kitchen', 'north-hall-bath', 'north-rosie-mint', 'west-nook-north', 'east-rosie-mint']) {
+    for (const backId of ['north-nook-patio', 'north-kitchen', 'north-hall-bath', 'north-rosie-mint', 'west-nook-wall', 'east-rosie-mint']) {
       const box = new Box3().setFromObject(built.wallsById[backId]);
       expect(box.max.y).toBeCloseTo(6.6, 2);
     }
 
-    for (const cutawayId of ['west-nook-window-cutaway', 'south-isaac-cutaway']) {
+    for (const cutawayId of ['south-isaac-cutaway']) {
       const box = new Box3().setFromObject(built.wallsById[cutawayId]);
       expect(box.max.y).toBeCloseTo(1.8, 2);
     }
@@ -262,7 +304,7 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
       'south-nook-wall', 'south-kitchen-wall', 'east-isaac-navy',
       'kitchen-bath-west', 'hall-bath-south', 'bath-rosie-divider',
       'pantry-north-wall', 'pantry-back-divider',
-      'isaac-closet-north', 'isaac-closet-east',
+      'isaac-closet-north',
       'rosie-isaac-divider', 'rosie-closet-west',
     ]) {
       const box = new Box3().setFromObject(built.wallsById[halfId]);
@@ -272,8 +314,11 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
     expect(built.shellGroup.getObjectByName('isaac-east-window')).toBeUndefined();
     expect(built.shellGroup.getObjectByName('isaac-east-curtain-north')).toBeUndefined();
     expect(built.shellGroup.getObjectByName('nook-patio-door')).toBeDefined();
+    expect(built.shellGroup.getObjectByName('nook-west-window')).toBeDefined();
     expect(built.shellGroup.getObjectByName('kitchen-sink-window')).toBeDefined();
     expect(built.shellGroup.getObjectByName('rosie-north-french-doors')).toBeDefined();
+    expect(new Box3().setFromObject(built.shellGroup.getObjectByName('rosie-bedroom-door')!).max.y).toBeCloseTo(2.2, 2);
+    expect(new Box3().setFromObject(built.shellGroup.getObjectByName('isaac-bedroom-door')!).max.y).toBeCloseTo(2.2, 2);
     expect(new Box3().setFromObject(built.stairsDownGroup.getObjectByName('tier3-stair-jamb-w')!).max.y).toBeCloseTo(2.6, 2);
 
     built.dispose();

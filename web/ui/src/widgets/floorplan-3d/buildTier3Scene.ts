@@ -47,6 +47,7 @@ const WALL_APERTURES_X: Readonly<Record<string, WallApertureX>> = {
 };
 
 const WALL_APERTURES_Z: Readonly<Record<string, WallApertureZ>> = {
+  'west-nook-wall': { z0: -1.3, z1: 8.3, y0: 1.8, y1: 6.0 },
   'east-isaac-navy': { z0: 3.0, z1: 8.6, y0: 1.8, y1: 4.5 },
 };
 
@@ -56,23 +57,13 @@ function resolveWallHeightFt(wall: Tier3WallSpec, wallMode: Tier3WallMode): numb
   return isTargetWall ? Math.min(wall.heightFt, 2.2) : wall.heightFt;
 }
 
-function namedGroup(name: string): Group {
-  const g = new Group();
-  g.name = name;
-  return g;
-}
+function namedGroup(name: string): Group { const g = new Group(); g.name = name; return g; }
 
 function applyWorldSpaceFloorUVs(geom: BufferGeometry, bounds: Tier3Bounds2D): void {
-  const pos = geom.attributes.position;
-  const uv = geom.attributes.uv;
+  const [pos, uv] = [geom.attributes.position, geom.attributes.uv];
   if (!pos || !uv) return;
-  const cx = (bounds.xMin + bounds.xMax) / 2;
-  const cz = (bounds.zMin + bounds.zMax) / 2;
-  for (let i = 0; i < pos.count; i += 1) {
-    const wx = cx + pos.getX(i);
-    const wz = cz + pos.getZ(i);
-    uv.setXY(i, (wx + 20.0) / 16.0, (wz + 12.6) / 16.0);
-  }
+  const [cx, cz] = [(bounds.xMin + bounds.xMax) / 2, (bounds.zMin + bounds.zMax) / 2];
+  for (let i = 0; i < pos.count; i += 1) uv.setXY(i, (cx + pos.getX(i) + 20.0) / 16.0, (cz + pos.getZ(i) + 12.6) / 16.0);
   uv.needsUpdate = true;
 }
 
@@ -82,12 +73,8 @@ type AddBoxFn = (
 ) => Mesh;
 
 function buildWallSegment(
-  wall: Tier3WallSpec,
-  wallMode: Tier3WallMode,
-  materials: Tier3SceneMaterials,
-  accentMatCache: Map<number, MeshStandardMaterial>,
-  localMats: MeshStandardMaterial[],
-  addBox: AddBoxFn,
+  wall: Tier3WallSpec, wallMode: Tier3WallMode, materials: Tier3SceneMaterials,
+  accentMatCache: Map<number, MeshStandardMaterial>, localMats: MeshStandardMaterial[], addBox: AddBoxFn,
 ): Group {
   const wg = namedGroup(`wall-${wall.id}`);
   const wallHeight = resolveWallHeightFt(wall, wallMode);
@@ -95,11 +82,8 @@ function buildWallSegment(
 
   let wallMat = materials.officeWall;
   if (wall.colorHex !== undefined) {
-    const cached = accentMatCache.get(wall.colorHex);
-    if (cached) {
-      wallMat = cached;
-    } else {
-      wallMat = new MeshStandardMaterial({ color: wall.colorHex, roughness: 0.78, metalness: 0.04 });
+    wallMat = accentMatCache.get(wall.colorHex) ?? new MeshStandardMaterial({ color: wall.colorHex, roughness: 0.78, metalness: 0.04 });
+    if (!accentMatCache.has(wall.colorHex)) {
       accentMatCache.set(wall.colorHex, wallMat);
       localMats.push(wallMat);
     }
@@ -216,9 +200,9 @@ function buildTier3Windows(
   // 3. Hall bath frosted clerestory window on north-hall-bath (x 7.0..10.8, z -11, y 4.2..5.8)
   buildFramedWindowZ(windowsGroup, 'hall-bath-clerestory-window', 7.0, 10.8, 4.2, 5.8, -11.0, 2, materials.whiteTrim, frostedGlass, addBox);
 
-  // 4. Breakfast nook west window on west-nook-window-cutaway (x -20, z -1.3..8.3, y 1.8..4.5)
-  const nookWestWin = buildFramedWindowX(windowsGroup, 'nook-west-window', -20.0, 1.8, 4.5, -1.3, 8.3, 3, materials.whiteTrim, materials.glass, addBox);
-  addBox(nookWestWin, -19.86, -19.66, 4.18, 4.52, -1.35, 8.35, valanceMat, 'nook-west-roller-valance');
+  // 4. Breakfast nook west window on west-nook-wall (x -20, z -1.3..8.3, y 1.8..6.0)
+  const nookWestWin = buildFramedWindowX(windowsGroup, 'nook-west-window', -20.0, 1.8, 6.0, -1.3, 8.3, 3, materials.whiteTrim, materials.glass, addBox);
+  addBox(nookWestWin, -19.86, -19.66, 5.7, 6.02, -1.35, 8.35, valanceMat, 'nook-west-roller-valance');
 
   // 5. Rosie north full-height double French patio doors + full-length blush-pink curtains (#d8b6bc)
   const rosieDoors = namedGroup('rosie-north-french-doors');
@@ -257,11 +241,55 @@ function buildTier3Windows(
   shellGroup.add(windowsGroup);
 }
 
+function buildTier3BedroomDoors(
+  shellGroup: Group, wallMode: Tier3WallMode, materials: Tier3SceneMaterials,
+  localMats: MeshStandardMaterial[], addBox: AddBoxFn,
+): void {
+  const doorsGroup = namedGroup('tier3-doors');
+  const doorHeight = wallMode === 'half' ? 2.2 : 6.2;
+  const handleY = Math.min(2.85, doorHeight - 0.55);
+  const doorPanelMat = new MeshStandardMaterial({ color: 0xeeece6, roughness: 0.62, metalness: 0.03 });
+  localMats.push(doorPanelMat);
+
+  const specs = [
+    {
+      name: 'rosie-bedroom-door', hinge: [11.8, 1.82] as const, leafW: 2.1, rotY: (15 * Math.PI) / 180,
+      jambs: [[11.6, 12.0, -0.4, -0.28, 'jamb-n'], [11.6, 12.0, 1.82, 2.0, 'jamb-s']] as const,
+    },
+    {
+      name: 'isaac-bedroom-door', hinge: [8.78, 3.8] as const, leafW: 2.9, rotY: -(75 * Math.PI) / 180,
+      jambs: [[8.6, 8.78, 3.6, 4.0, 'jamb-w'], [11.68, 11.8, 3.6, 4.0, 'jamb-e']] as const,
+    },
+  ] as const;
+
+  const [stileW, railB, railT, halfD] = [0.24, 0.28, 0.22, 0.07];
+  for (const cfg of specs) {
+    const dg = namedGroup(cfg.name);
+    for (const [jx0, jx1, jz0, jz1, tag] of cfg.jambs) addBox(dg, jx0, jx1, 0, doorHeight, jz0, jz1, materials.whiteTrim, `${cfg.name}-${tag}`);
+    const leaf = namedGroup(`${cfg.name}-leaf`);
+    leaf.position.set(cfg.hinge[0], 0, cfg.hinge[1]);
+    leaf.rotation.y = cfg.rotY;
+    addBox(leaf, 0, stileW, 0, doorHeight, -halfD, halfD, materials.whiteTrim, `${cfg.name}-stile-hinge`);
+    addBox(leaf, cfg.leafW - stileW, cfg.leafW, 0, doorHeight, -halfD, halfD, materials.whiteTrim, `${cfg.name}-stile-latch`);
+    addBox(leaf, stileW, cfg.leafW - stileW, 0, railB, -halfD, halfD, materials.whiteTrim, `${cfg.name}-rail-bottom`);
+    addBox(leaf, stileW, cfg.leafW - stileW, doorHeight - railT, doorHeight, -halfD, halfD, materials.whiteTrim, `${cfg.name}-rail-top`);
+    addBox(leaf, stileW, cfg.leafW - stileW, railB, doorHeight - railT, -0.035, 0.035, doorPanelMat, `${cfg.name}-panel`);
+    if (doorHeight >= 4.0) addBox(leaf, stileW, cfg.leafW - stileW, 2.35, 2.55, -halfD, halfD, materials.whiteTrim, `${cfg.name}-rail-mid`);
+    const hx = cfg.leafW - 0.16;
+    for (const side of [-1, 1] as const) {
+      const tag = side > 0 ? 'front' : 'back';
+      const [ez0, ez1, gz0, gz1] = side > 0 ? [halfD, halfD + 0.03, halfD + 0.03, halfD + 0.09] : [-halfD - 0.03, -halfD, -halfD - 0.09, -halfD - 0.03];
+      addBox(leaf, hx - 0.05, hx + 0.05, handleY - 0.09, handleY + 0.09, ez0, ez1, materials.matteBlackIron, `${cfg.name}-escutcheon-${tag}`);
+      addBox(leaf, hx - 0.30, hx + 0.02, handleY - 0.025, handleY + 0.025, gz0, gz1, materials.matteBlackIron, `${cfg.name}-handle-${tag}`);
+    }
+    dg.add(leaf);
+    doorsGroup.add(dg);
+  }
+  shellGroup.add(doorsGroup);
+}
+
 function buildStairsDownToTier2(
-  spec: Tier3LayoutSpec,
-  wallMode: Tier3WallMode,
-  materials: Tier3SceneMaterials,
-  addBox: AddBoxFn,
+  spec: Tier3LayoutSpec, wallMode: Tier3WallMode, materials: Tier3SceneMaterials, addBox: AddBoxFn,
 ): Group {
   const st = spec.stairsDownToTier2;
   const stairsDownGroup = namedGroup('stairsDownToTier2');
@@ -274,8 +302,7 @@ function buildStairsDownToTier2(
 
   // Matte-black child safety gate (y 0..2.6) across the stair arrival doorway
   const gateGroup = namedGroup('tier3-safety-gate');
-  const gx0 = st.xMin + 0.08;
-  const gx1 = st.xMax - 0.08;
+  const [gx0, gx1] = [st.xMin + 0.08, st.xMax - 0.08];
   addBox(gateGroup, gx0, gx0 + 0.09, 0.0, 2.6, 10.92, 11.02, materials.matteBlackIron, 'safety-gate-post-w');
   addBox(gateGroup, gx1 - 0.09, gx1, 0.0, 2.6, 10.92, 11.02, materials.matteBlackIron, 'safety-gate-post-e');
   addBox(gateGroup, gx0, gx1, 2.50, 2.60, 10.92, 11.02, materials.matteBlackIron, 'safety-gate-rail-top');
@@ -287,22 +314,12 @@ function buildStairsDownToTier2(
   stairsDownGroup.add(gateGroup);
 
   // 3 descending hint treads on south side (z 11.0..12.2)
-  const treadDepth = 0.4;
   for (let i = 0; i < 3; i += 1) {
-    const tz0 = 11.0 + i * treadDepth;
-    const tz1 = tz0 + treadDepth;
-    const yTop = -0.35 - i * 0.6;
-    const tread = addBox(
-      stairsDownGroup, st.xMin + 0.05, st.xMax - 0.05, yTop - 0.11, yTop, tz0, tz1,
-      materials.woodFloor, `tier3-stair-hint-tread-${i}`,
-    );
+    const [tz0, tz1, yTop] = [11.0 + i * 0.4, 11.4 + i * 0.4, -0.35 - i * 0.6];
+    const tread = addBox(stairsDownGroup, st.xMin + 0.05, st.xMax - 0.05, yTop - 0.11, yTop, tz0, tz1, materials.woodFloor, `tier3-stair-hint-tread-${i}`);
     applyWorldSpaceFloorUVs(tread.geometry, { xMin: st.xMin + 0.05, xMax: st.xMax - 0.05, zMin: tz0, zMax: tz1 });
-    addBox(
-      stairsDownGroup, st.xMin + 0.08, st.xMax - 0.08, yTop - 0.6, yTop - 0.11, tz0, tz0 + 0.08,
-      materials.whiteTrim, `tier3-stair-hint-riser-${i}`,
-    );
+    addBox(stairsDownGroup, st.xMin + 0.08, st.xMax - 0.08, yTop - 0.6, yTop - 0.11, tz0, tz0 + 0.08, materials.whiteTrim, `tier3-stair-hint-riser-${i}`);
   }
-
   return stairsDownGroup;
 }
 
@@ -356,14 +373,9 @@ export function buildTier3Scene(options: BuildTier3SceneOptions = {}): BuiltTier
     const rGroup = namedGroup(`room-${rSpec.id}`);
     rGroup.userData = { roomId: rSpec.id, label: rSpec.label, floorMaterial: rSpec.floorMaterial };
     const floorMat = rSpec.floorMaterial === 'slate-tile' ? materials.slateTileFloor : materials.woodFloor;
-    const floorMesh = addBox(
-      rGroup, rSpec.bounds.xMin, rSpec.bounds.xMax, -0.2, 0.0, rSpec.bounds.zMin, rSpec.bounds.zMax,
-      floorMat, `floor-${rSpec.id}`,
-    );
+    const floorMesh = addBox(rGroup, rSpec.bounds.xMin, rSpec.bounds.xMax, -0.2, 0.0, rSpec.bounds.zMin, rSpec.bounds.zMax, floorMat, `floor-${rSpec.id}`);
     floorMesh.userData = { roomId: rSpec.id, label: rSpec.label, floorMaterial: rSpec.floorMaterial };
-    if (rSpec.floorMaterial === 'wood') {
-      applyWorldSpaceFloorUVs(floorMesh.geometry, rSpec.bounds);
-    }
+    if (rSpec.floorMaterial === 'wood') applyWorldSpaceFloorUVs(floorMesh.geometry, rSpec.bounds);
     roomFloors[roomId] = floorMesh;
     rooms[roomId] = rGroup;
     shellGroup.add(rGroup);
@@ -379,6 +391,7 @@ export function buildTier3Scene(options: BuildTier3SceneOptions = {}): BuiltTier
   }
   shellGroup.add(wallsGroup);
   buildTier3Windows(shellGroup, wallMode, materials, localMats, addBox);
+  buildTier3BedroomDoors(shellGroup, wallMode, materials, localMats, addBox);
 
   // Stair arrival doorway down to Floor 2 with safety gate & 3 descending hint treads
   const stairsDownGroup = buildStairsDownToTier2(spec, wallMode, materials, addBox);
@@ -405,10 +418,8 @@ export function buildTier3Scene(options: BuildTier3SceneOptions = {}): BuiltTier
   sun.shadow.camera.updateProjectionMatrix();
   lightsGroup.add(hemi, sun, sun.target);
   const roomPointSpecs: ReadonlyArray<[string, number, number, number, number]> = [
-    ['#ffe9c8', 0.85, -14.5, 0.0, 28],
-    ['#fff2dc', 0.88, -1.5, -1.0, 28],
-    ['#f5f9ff', 0.82, 9.0, -4.5, 22],
-    ['#ffe9c8', 0.85, 17.5, 0.5, 28],
+    ['#ffe9c8', 0.85, -14.5, 0.0, 28], ['#fff2dc', 0.88, -1.5, -1.0, 28],
+    ['#f5f9ff', 0.82, 9.0, -4.5, 22], ['#ffe9c8', 0.85, 17.5, 0.5, 28],
   ];
   for (const [col, inten, px, pz, dist] of roomPointSpecs) {
     const pt = new PointLight(col, inten, dist, 1.4);
@@ -426,10 +437,6 @@ export function buildTier3Scene(options: BuildTier3SceneOptions = {}): BuiltTier
   return {
     scene, group, shellGroup, rooms, roomFloors, wallsById, stairsDownGroup,
     fixtures: fixturesBuilt.fixtures, ceilingFansGroup: fixturesBuilt.ceilingFansGroup, materials,
-    dispose: () => {
-      for (const g of geometries) g.dispose();
-      fixturesBuilt.dispose();
-      materials.dispose();
-    },
+    dispose: () => { for (const g of geometries) g.dispose(); fixturesBuilt.dispose(); materials.dispose(); },
   };
 }
