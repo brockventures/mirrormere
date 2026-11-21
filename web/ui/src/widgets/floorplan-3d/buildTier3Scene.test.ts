@@ -94,13 +94,16 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
     expect(patioDoor.getObjectByName('nook-patio-valance')).toBeInstanceOf(Mesh);
     expect(patioDoor.getObjectByName('nook-patio-doormat')).toBeInstanceOf(Mesh);
 
-    // 2. Kitchen sink window
+    // 2. Kitchen sink window (shifted to x -5.0..-1.8 directly over sink)
     const kitchenWin = built.shellGroup.getObjectByName('kitchen-sink-window')!;
     const kwBox = new Box3().setFromObject(kitchenWin);
-    expect(kwBox.min.x).toBeCloseTo(-6.2, 2);
-    expect(kwBox.max.x).toBeCloseTo(-2.6, 2);
+    expect(kwBox.min.x).toBeCloseTo(-5.0, 2);
+    expect(kwBox.max.x).toBeCloseTo(-1.8, 2);
     expect(kwBox.min.y).toBeCloseTo(3.3, 2);
     expect(kwBox.max.y).toBeCloseTo(5.5, 2);
+    const kitchenSillBox = new Box3().setFromObject(built.wallsById['north-kitchen'].getObjectByName('north-kitchen-sill')!);
+    expect(kitchenSillBox.min.x).toBeCloseTo(-5.0, 2);
+    expect(kitchenSillBox.max.x).toBeCloseTo(-1.8, 2);
 
     // 3. Hall bath frosted clerestory window
     const bathWinGlass = built.shellGroup.getObjectByName('hall-bath-clerestory-window-glass') as Mesh;
@@ -181,8 +184,9 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
       expect(fg).toBeDefined();
       expect(built.rooms[TIER3_LAYOUT_SPEC.fixtures[key].roomId].getObjectByName(`fixture-${key}`)).toBe(fg);
     }
-    expect(built.ceilingFansGroup.getObjectByName('rosie-ceiling-fan')).toBeDefined();
-    expect(built.ceilingFansGroup.getObjectByName('isaac-ceiling-fan')).toBeDefined();
+    expect(built.ceilingFansGroup.children).toHaveLength(0);
+    expect(built.ceilingFansGroup.getObjectByName('rosie-ceiling-fan')).toBeUndefined();
+    expect(built.ceilingFansGroup.getObjectByName('isaac-ceiling-fan')).toBeUndefined();
 
     const tableMesh = built.fixtures.diningTableSet.getObjectByName('dining-table-top') as Mesh;
     const geomSpy = vi.spyOn(tableMesh.geometry, 'dispose');
@@ -193,5 +197,38 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
     expect(geomSpy).toHaveBeenCalled();
     expect(matSpy).toHaveBeenCalled();
     expect(floorGeomSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('supports half-wall mode capping interior, closet, south perimeter, and east-isaac-navy walls to 2.2 ft while keeping north back walls at 6.6 ft and cutaways at 1.8 ft', () => {
+    const built = buildTier3Scene({ wallMode: 'half' });
+
+    for (const backId of ['north-nook-patio', 'north-kitchen', 'north-hall-bath', 'north-rosie-mint', 'west-nook-north', 'east-rosie-mint']) {
+      const box = new Box3().setFromObject(built.wallsById[backId]);
+      expect(box.max.y).toBeCloseTo(6.6, 2);
+    }
+
+    for (const cutawayId of ['west-nook-window-cutaway', 'south-isaac-cutaway']) {
+      const box = new Box3().setFromObject(built.wallsById[cutawayId]);
+      expect(box.max.y).toBeCloseTo(1.8, 2);
+    }
+
+    for (const halfId of [
+      'south-nook-wall', 'south-kitchen-wall', 'east-isaac-navy',
+      'kitchen-bath-west', 'hall-bath-south', 'bath-rosie-divider', 'rosie-hall-west', 'rosie-isaac-divider',
+      'rosie-closet-west', 'rosie-closet-north-w', 'rosie-closet-north-e',
+      'upper-hall-south', 'pantry-closet-divider', 'pantry-south-return', 'kitchen-play-east',
+      'isaac-closet-jamb-n', 'isaac-hall-west',
+    ]) {
+      const box = new Box3().setFromObject(built.wallsById[halfId]);
+      expect(box.max.y).toBeCloseTo(2.2, 2);
+    }
+
+    expect(built.shellGroup.getObjectByName('isaac-east-window')).toBeUndefined();
+    expect(built.shellGroup.getObjectByName('isaac-east-curtain-north')).toBeUndefined();
+    expect(built.shellGroup.getObjectByName('nook-patio-door')).toBeDefined();
+    expect(built.shellGroup.getObjectByName('kitchen-sink-window')).toBeDefined();
+    expect(new Box3().setFromObject(built.stairsDownGroup.getObjectByName('tier3-stair-jamb-w')!).max.y).toBeCloseTo(2.6, 2);
+
+    built.dispose();
   });
 });

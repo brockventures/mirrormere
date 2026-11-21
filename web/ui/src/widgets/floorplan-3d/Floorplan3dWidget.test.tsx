@@ -147,14 +147,27 @@ describe('Floorplan3dWidget', () => {
     expect(root.dataset.activeTier).toBe('3');
   });
 
-  it('initializes Floor 3 directly from ?tier=3 URL query parameter', () => {
-    window.history.replaceState({}, '', '/?floorplan3d=1&tier=3&view=dollhouse&kiosk=1');
+  it('initializes Floor 3 directly from ?tier=3 and ?walls=half URL query parameters and toggles Half Walls', () => {
+    window.history.replaceState({}, '', '/?floorplan3d=1&tier=3&view=dollhouse&walls=half&kiosk=1');
     const { container } = render(<Floorplan3dWidget id="fp-t3" type="floorplan-3d" />);
     const root = container.querySelector('.fp3d-widget') as HTMLElement;
     expect(root.dataset.activeTier).toBe('3');
     expect(root.dataset.activePreset).toBe('dollhouse');
+    expect(root.dataset.wallMode).toBe('half');
     expect(screen.getByText('Hearth Tier 3 · Tier 3 Dollhouse')).toBeTruthy();
     expect(container.querySelector('[data-room-badge="isaacBedroom"]')).toBeTruthy();
+
+    const halfBtn = container.querySelector('[data-toggle="half-walls"]') as HTMLButtonElement;
+    expect(halfBtn).toBeTruthy();
+    expect(halfBtn.textContent).toBe('Half Walls');
+    expect(halfBtn.getAttribute('aria-pressed')).toBe('true');
+
+    fireEvent.click(halfBtn);
+    expect(root.dataset.wallMode).toBe('standard');
+    expect(halfBtn.getAttribute('aria-pressed')).toBe('false');
+
+    fireEvent.click(screen.getByTestId('floorplan-tier-1-btn'));
+    expect(container.querySelector('[data-toggle="half-walls"]')).toBeNull();
   });
 
   it('mounts WebGL viewport for Tier 1, Tier 2, and Tier 3 with orbit, pinch/wheel zoom, raycast room focus, and falls back cleanly on renderer throw', async () => {

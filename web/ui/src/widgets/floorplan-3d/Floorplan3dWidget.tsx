@@ -8,7 +8,7 @@ import { useWidget } from '../../store/hooks';
 import type { WidgetComponentProps } from '../registry';
 import { buildTier1Scene, type Tier1EntityMap, type Tier1EntityStateLike } from './buildTier1Scene';
 import { buildTier2Scene } from './buildTier2Scene';
-import { buildTier3Scene } from './buildTier3Scene';
+import { buildTier3Scene, type Tier3WallMode } from './buildTier3Scene';
 import {
   CAMERA_PRESETS, TIER1_FIXTURES, TIER1_HA_BINDINGS, TIER1_ROOMS,
   type CameraPresetId, type HaBindingKey, type RoomId,
@@ -78,6 +78,11 @@ function readKioskMode(): boolean {
   if (typeof window === 'undefined') return false;
   const raw = new URLSearchParams(window.location.search).get('kiosk');
   return raw === '1' || raw === 'true';
+}
+
+function readInitialWallMode(): Tier3WallMode {
+  if (typeof window === 'undefined') return 'standard';
+  return new URLSearchParams(window.location.search).get('walls') === 'half' ? 'half' : 'standard';
 }
 
 function canCreateWebgl(): boolean {
@@ -163,6 +168,7 @@ function mountWebglViewport(
   container: HTMLDivElement,
   canvas: HTMLCanvasElement,
   tier: FloorTierId,
+  wallMode: Tier3WallMode,
   onPresetSelect: (preset: CameraPresetId) => void,
   onFail: () => void,
 ): WebglHandle | null {
@@ -178,7 +184,7 @@ function mountWebglViewport(
 
   const builtTier1 = tier === 1 ? buildTier1Scene({ background: '#141922' }) : null;
   const builtTier2 = tier === 2 ? buildTier2Scene({ background: '#141922' }) : null;
-  const builtTier3 = tier === 3 ? buildTier3Scene({ background: '#141922' }) : null;
+  const builtTier3 = tier === 3 ? buildTier3Scene({ background: '#141922', wallMode }) : null;
   if (builtTier1) {
     builtTier1.lights.sun.shadow.bias = -0.0006;
     builtTier1.lights.sun.shadow.normalBias = 0.02;
@@ -278,6 +284,7 @@ export function Floorplan3dWidget({ id, type }: WidgetComponentProps) {
   const [activeTier, setActiveTier] = useState<FloorTierId>(readInitialTier);
   const [activePreset, setActivePreset] = useState<CameraPresetId>(readInitialPreset);
   const [showUpperMassing, setShowUpperMassing] = useState<boolean>(() => CAMERA_PRESETS[readInitialPreset()].showUpperMassing);
+  const [wallMode, setWallMode] = useState<Tier3WallMode>(readInitialWallMode);
   const [webglSupported, setWebglSupported] = useState<boolean>(canCreateWebgl);
   const [isKiosk] = useState<boolean>(readKioskMode);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -315,13 +322,14 @@ export function Floorplan3dWidget({ id, type }: WidgetComponentProps) {
       viewportRef.current,
       canvasRef.current,
       activeTier,
+      wallMode,
       (preset) => { setActivePreset(preset); setShowUpperMassing(false); },
       () => setWebglSupported(false),
     );
     handleRef.current = handle;
     return () => { handle?.dispose(); handleRef.current = null; };
-  }, [webglSupported, activeTier]);
-  useEffect(() => { handleRef.current?.applyPreset(activePreset, showUpperMassing); }, [activePreset, showUpperMassing, webglSupported, activeTier]);
+  }, [webglSupported, activeTier, wallMode]);
+  useEffect(() => { handleRef.current?.applyPreset(activePreset, showUpperMassing); }, [activePreset, showUpperMassing, webglSupported, activeTier, wallMode]);
   useEffect(() => { handleRef.current?.updateEntities(entities); }, [entities, webglSupported, activeTier]);
 
   const tierLabel = activeTier === 3 ? 'Hearth Tier 3' : activeTier === 2 ? 'Hearth Tier 2' : 'Hearth Tier 1';
@@ -337,6 +345,7 @@ export function Floorplan3dWidget({ id, type }: WidgetComponentProps) {
       data-active-tier={String(activeTier)}
       data-active-preset={activePreset}
       data-upper-massing={showUpperMassing ? 'true' : 'false'}
+      data-wall-mode={wallMode}
       data-kiosk={isKiosk ? 'true' : 'false'}
     >
       <div className="fp3d-viewport" ref={viewportRef}>
@@ -409,6 +418,17 @@ export function Floorplan3dWidget({ id, type }: WidgetComponentProps) {
           <button key={pill.id} type="button" className="fp3d-pill" data-preset={pill.id} data-active={activePreset === pill.id ? 'true' : 'false'} onClick={() => selectPreset(pill.id)}>{pill.label}</button>
         ))}
         <span className="fp3d-divider" aria-hidden="true" />
+        {activeTier === 3 && (
+          <button
+            type="button"
+            className="fp3d-pill"
+            data-toggle="half-walls"
+            aria-pressed={wallMode === 'half'}
+            onClick={() => setWallMode((m) => (m === 'half' ? 'standard' : 'half'))}
+          >
+            Half Walls
+          </button>
+        )}
         <button type="button" className="fp3d-pill" data-toggle="upper-massing" aria-pressed={showUpperMassing} onClick={toggleUpperMassing}>3-Tier Stack</button>
       </div>
     </div>

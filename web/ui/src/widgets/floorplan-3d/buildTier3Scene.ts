@@ -28,9 +28,12 @@ export interface BuiltTier3Scene {
   dispose: () => void;
 }
 
+export type Tier3WallMode = 'standard' | 'half';
+
 export interface BuildTier3SceneOptions {
   background?: string | null;
   spec?: Tier3LayoutSpec;
+  wallMode?: Tier3WallMode;
 }
 
 interface WallApertureX {
@@ -49,7 +52,7 @@ interface WallApertureZ {
 
 const WALL_APERTURES_X: Readonly<Record<string, WallApertureX>> = {
   'north-nook-patio': { x0: -18.5, x1: -10.5, y0: 0.0, y1: 6.1 },
-  'north-kitchen': { x0: -6.2, x1: -2.6, y0: 3.3, y1: 5.5 },
+  'north-kitchen': { x0: -5.0, x1: -1.8, y0: 3.3, y1: 5.5 },
   'north-hall-bath': { x0: 7.0, x1: 10.8, y0: 4.2, y1: 5.8 },
   'north-rosie-mint': { x0: 14.4, x1: 20.4, y0: 1.8, y1: 5.6 },
 };
@@ -57,6 +60,12 @@ const WALL_APERTURES_X: Readonly<Record<string, WallApertureX>> = {
 const WALL_APERTURES_Z: Readonly<Record<string, WallApertureZ>> = {
   'east-isaac-navy': { z0: 3.0, z1: 8.6, y0: 1.8, y1: 4.5 },
 };
+
+function resolveWallHeightFt(wall: Tier3WallSpec, wallMode: Tier3WallMode): number {
+  if (wallMode !== 'half') return wall.heightFt;
+  const isTargetWall = !wall.exteriorFace || wall.exteriorFace === 'south' || wall.id === 'east-isaac-navy';
+  return isTargetWall ? Math.min(wall.heightFt, 2.2) : wall.heightFt;
+}
 
 function namedGroup(name: string): Group {
   const g = new Group();
@@ -85,13 +94,15 @@ type AddBoxFn = (
 
 function buildWallSegment(
   wall: Tier3WallSpec,
+  wallMode: Tier3WallMode,
   materials: Tier3SceneMaterials,
   accentMatCache: Map<number, MeshStandardMaterial>,
   localMats: MeshStandardMaterial[],
   addBox: AddBoxFn,
 ): Group {
   const wg = namedGroup(`wall-${wall.id}`);
-  wg.userData = { wallId: wall.id, colorHex: wall.colorHex };
+  const wallHeight = resolveWallHeightFt(wall, wallMode);
+  wg.userData = { wallId: wall.id, colorHex: wall.colorHex, heightFt: wallHeight };
 
   let wallMat = materials.officeWall;
   if (wall.colorHex !== undefined) {
@@ -113,7 +124,7 @@ function buildWallSegment(
   const z1 = isHorizontal ? Math.max(wall.z1, wall.z2) + halfT : Math.max(wall.z1, wall.z2);
 
   const capH = 0.07;
-  const bodyTop = Math.max(0.2, wall.heightFt - capH);
+  const bodyTop = Math.max(0.2, wallHeight - capH);
   const addWallSpan = (xa: number, xb: number, ya: number, yb: number, za: number, zb: number, suffix: string): void => {
     const face = wall.exteriorFace;
     if (face === 'west' || face === 'east') {
@@ -135,7 +146,7 @@ function buildWallSegment(
 
   const apX = WALL_APERTURES_X[wall.id];
   const apZ = WALL_APERTURES_Z[wall.id];
-  if (apX && isHorizontal && apX.x0 > x0 && apX.x1 < x1) {
+  if (apX && isHorizontal && apX.x0 > x0 && apX.x1 < x1 && apX.y1 <= wallHeight) {
     addWallSpan(x0, apX.x0, 0, bodyTop, z0, z1, 'body');
     addWallSpan(apX.x1, x1, 0, bodyTop, z0, z1, 'body-east');
     if (apX.y0 > 0.05) {
@@ -144,8 +155,8 @@ function buildWallSegment(
     if (apX.y1 < bodyTop) {
       addWallSpan(apX.x0, apX.x1, apX.y1, bodyTop, z0, z1, 'header');
     }
-    addBox(wg, x0, x1, bodyTop, wall.heightFt, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
-  } else if (apZ && !isHorizontal && apZ.z0 > z0 && apZ.z1 < z1) {
+    addBox(wg, x0, x1, bodyTop, wallHeight, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
+  } else if (apZ && !isHorizontal && apZ.z0 > z0 && apZ.z1 < z1 && apZ.y1 <= wallHeight) {
     addWallSpan(x0, x1, 0, bodyTop, z0, apZ.z0, 'body');
     addWallSpan(x0, x1, 0, bodyTop, apZ.z1, z1, 'body-south');
     if (apZ.y0 > 0.05) {
@@ -154,10 +165,10 @@ function buildWallSegment(
     if (apZ.y1 < bodyTop) {
       addWallSpan(x0, x1, apZ.y1, bodyTop, apZ.z0, apZ.z1, 'header');
     }
-    addBox(wg, x0, x1, bodyTop, wall.heightFt, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
+    addBox(wg, x0, x1, bodyTop, wallHeight, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
   } else {
     addWallSpan(x0, x1, 0, bodyTop, z0, z1, 'body');
-    addBox(wg, x0, x1, bodyTop, wall.heightFt, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
+    addBox(wg, x0, x1, bodyTop, wallHeight, z0, z1, materials.whiteTrim, `${wall.id}-cap`);
   }
   return wg;
 }
@@ -200,6 +211,7 @@ function buildFramedWindowX(
 
 function buildTier3Windows(
   shellGroup: Group,
+  wallMode: Tier3WallMode,
   materials: Tier3SceneMaterials,
   localMats: MeshStandardMaterial[],
   addBox: AddBoxFn,
@@ -219,8 +231,8 @@ function buildTier3Windows(
   addBox(patioDoor, -18.7, -10.3, 5.55, 6.16, -10.74, -10.52, valanceMat, 'nook-patio-valance');
   addBox(patioDoor, -16.2, -12.8, 0.0, 0.04, -10.55, -9.35, doormatMat, 'nook-patio-doormat');
 
-  // 2. Kitchen sink window on north-kitchen (x -6.2..-2.6, z -11, y 3.3..5.5)
-  buildFramedWindowZ(windowsGroup, 'kitchen-sink-window', -6.2, -2.6, 3.3, 5.5, -11.0, 2, materials.whiteTrim, materials.glass, addBox);
+  // 2. Kitchen sink window on north-kitchen (x -5.0..-1.8, z -11, y 3.3..5.5)
+  buildFramedWindowZ(windowsGroup, 'kitchen-sink-window', -5.0, -1.8, 3.3, 5.5, -11.0, 2, materials.whiteTrim, materials.glass, addBox);
 
   // 3. Hall bath frosted clerestory window on north-hall-bath (x 7.0..10.8, z -11, y 4.2..5.8)
   buildFramedWindowZ(windowsGroup, 'hall-bath-clerestory-window', 7.0, 10.8, 4.2, 5.8, -11.0, 2, materials.whiteTrim, frostedGlass, addBox);
@@ -235,27 +247,31 @@ function buildTier3Windows(
   addBox(rosieWin, 20.15, 21.05, 1.6, 5.72, -10.74, -10.56, blushCurtainMat, 'rosie-north-curtain-east');
   addBox(rosieWin, 13.55, 21.25, 5.68, 5.75, -10.72, -10.64, materials.matteBlackIron, 'rosie-north-curtain-rod');
 
-  // 6. Isaac east window + warm peach curtains (#e2b695) on east-isaac-navy (x 23.5, z 3.0..8.6, y 1.8..4.5)
-  const isaacWin = buildFramedWindowX(windowsGroup, 'isaac-east-window', 23.5, 1.8, 4.5, 3.0, 8.6, 2, materials.whiteTrim, materials.glass, addBox);
-  addBox(isaacWin, 23.06, 23.24, 1.6, 4.58, 2.40, 3.25, peachCurtainMat, 'isaac-east-curtain-north');
-  addBox(isaacWin, 23.06, 23.24, 1.6, 4.58, 8.35, 9.20, peachCurtainMat, 'isaac-east-curtain-south');
-  addBox(isaacWin, 23.12, 23.20, 4.54, 4.61, 2.25, 9.35, materials.matteBlackIron, 'isaac-east-curtain-rod');
+  // 6. Isaac east window + warm peach curtains (#e2b695) on east-isaac-navy (omitted in half-wall mode so nothing floats above 2.2 ft)
+  if (wallMode !== 'half') {
+    const isaacWin = buildFramedWindowX(windowsGroup, 'isaac-east-window', 23.5, 1.8, 4.5, 3.0, 8.6, 2, materials.whiteTrim, materials.glass, addBox);
+    addBox(isaacWin, 23.06, 23.24, 1.6, 4.58, 2.40, 3.25, peachCurtainMat, 'isaac-east-curtain-north');
+    addBox(isaacWin, 23.06, 23.24, 1.6, 4.58, 8.35, 9.20, peachCurtainMat, 'isaac-east-curtain-south');
+    addBox(isaacWin, 23.12, 23.20, 4.54, 4.61, 2.25, 9.35, materials.matteBlackIron, 'isaac-east-curtain-rod');
+  }
 
   shellGroup.add(windowsGroup);
 }
 
 function buildStairsDownToTier2(
   spec: Tier3LayoutSpec,
+  wallMode: Tier3WallMode,
   materials: Tier3SceneMaterials,
   addBox: AddBoxFn,
 ): Group {
   const st = spec.stairsDownToTier2;
   const stairsDownGroup = namedGroup('stairsDownToTier2');
   stairsDownGroup.userData = { stepCount: 3, direction: '+z' };
+  const jambHeight = wallMode === 'half' ? 2.6 : 4.6;
 
   // White door jambs framing the open south passage (x -3.4..-0.3, z 11.0)
-  addBox(stairsDownGroup, st.xMin - 0.08, st.xMin + 0.08, 0, 4.6, 10.74, 11.26, materials.whiteTrim, 'tier3-stair-jamb-w');
-  addBox(stairsDownGroup, st.xMax - 0.08, st.xMax + 0.08, 0, 4.6, 10.74, 11.26, materials.whiteTrim, 'tier3-stair-jamb-e');
+  addBox(stairsDownGroup, st.xMin - 0.08, st.xMin + 0.08, 0, jambHeight, 10.74, 11.26, materials.whiteTrim, 'tier3-stair-jamb-w');
+  addBox(stairsDownGroup, st.xMax - 0.08, st.xMax + 0.08, 0, jambHeight, 10.74, 11.26, materials.whiteTrim, 'tier3-stair-jamb-e');
 
   // Matte-black child safety gate (y 0..2.6) across the stair arrival doorway
   const gateGroup = namedGroup('tier3-safety-gate');
@@ -293,6 +309,7 @@ function buildStairsDownToTier2(
 
 export function buildTier3Scene(options: BuildTier3SceneOptions = {}): BuiltTier3Scene {
   const spec = options.spec ?? TIER3_LAYOUT_SPEC;
+  const wallMode: Tier3WallMode = options.wallMode ?? 'standard';
   const basePalette = createTier1Materials();
   const geometries: BufferGeometry[] = [];
   const localMats: MeshStandardMaterial[] = [];
@@ -357,15 +374,15 @@ export function buildTier3Scene(options: BuildTier3SceneOptions = {}): BuiltTier
   const wallsGroup = namedGroup('tier3-walls');
   const wallsById: Record<string, Group> = {};
   for (const wall of spec.walls) {
-    const wg = buildWallSegment(wall, materials, accentMatCache, localMats, addBox);
+    const wg = buildWallSegment(wall, wallMode, materials, accentMatCache, localMats, addBox);
     wallsById[wall.id] = wg;
     wallsGroup.add(wg);
   }
   shellGroup.add(wallsGroup);
-  buildTier3Windows(shellGroup, materials, localMats, addBox);
+  buildTier3Windows(shellGroup, wallMode, materials, localMats, addBox);
 
   // Stair arrival doorway down to Floor 2 with safety gate & 3 descending hint treads
-  const stairsDownGroup = buildStairsDownToTier2(spec, materials, addBox);
+  const stairsDownGroup = buildStairsDownToTier2(spec, wallMode, materials, addBox);
   shellGroup.add(stairsDownGroup);
 
   // Fixtures
