@@ -246,25 +246,30 @@ function buildTier3BedroomDoors(
   localMats: MeshStandardMaterial[], addBox: AddBoxFn,
 ): void {
   const doorsGroup = namedGroup('tier3-doors');
-  const doorHeight = wallMode === 'half' ? 2.2 : 6.2;
-  const handleY = Math.min(2.85, doorHeight - 0.55);
+  const bedroomDoorH = wallMode === 'half' ? 2.2 : 6.2;
+  const closetDoorH = wallMode === 'half' ? 2.2 : 4.4;
   const doorPanelMat = new MeshStandardMaterial({ color: 0xeeece6, roughness: 0.62, metalness: 0.03 });
   localMats.push(doorPanelMat);
 
   const specs = [
     {
-      name: 'rosie-bedroom-door', hinge: [11.8, 1.82] as const, leafW: 2.1, rotY: (15 * Math.PI) / 180,
+      name: 'rosie-bedroom-door', hinge: [11.8, 1.82] as const, leafW: 2.1, rotY: (15 * Math.PI) / 180, heightFt: bedroomDoorH,
       jambs: [[11.6, 12.0, -0.4, -0.28, 'jamb-n'], [11.6, 12.0, 1.82, 2.0, 'jamb-s']] as const,
     },
     {
-      name: 'isaac-bedroom-door', hinge: [8.78, 3.8] as const, leafW: 2.9, rotY: -(75 * Math.PI) / 180,
-      jambs: [[8.6, 8.78, 3.6, 4.0, 'jamb-w'], [11.68, 11.8, 3.6, 4.0, 'jamb-e']] as const,
+      name: 'isaac-bedroom-door', hinge: [8.78, 3.8] as const, leafW: 2.9, rotY: -(75 * Math.PI) / 180, heightFt: bedroomDoorH,
+      jambs: [[8.6, 8.78, 3.6, 4.0, 'jamb-w']] as const,
+    },
+    {
+      name: 'isaac-closet-door', hinge: [8.78, 7.2] as const, leafW: 2.84, rotY: 0, heightFt: closetDoorH,
+      jambs: [[8.6, 8.78, 7.02, 7.38, 'jamb-w'], [11.62, 11.8, 7.02, 7.38, 'jamb-e']] as const,
     },
   ] as const;
 
   const [stileW, railB, railT, halfD] = [0.24, 0.28, 0.22, 0.07];
   for (const cfg of specs) {
-    const dg = namedGroup(cfg.name);
+    const [dg, doorHeight] = [namedGroup(cfg.name), cfg.heightFt];
+    const handleY = Math.min(2.85, doorHeight - 0.55);
     for (const [jx0, jx1, jz0, jz1, tag] of cfg.jambs) addBox(dg, jx0, jx1, 0, doorHeight, jz0, jz1, materials.whiteTrim, `${cfg.name}-${tag}`);
     const leaf = namedGroup(`${cfg.name}-leaf`);
     leaf.position.set(cfg.hinge[0], 0, cfg.hinge[1]);

@@ -186,7 +186,7 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
     const isaacDoor = built.shellGroup.getObjectByName('isaac-bedroom-door')!;
     expect(isaacDoor).toBeDefined();
     expect(isaacDoor.getObjectByName('isaac-bedroom-door-jamb-w')).toBeInstanceOf(Mesh);
-    expect(isaacDoor.getObjectByName('isaac-bedroom-door-jamb-e')).toBeInstanceOf(Mesh);
+    expect(isaacDoor.getObjectByName('isaac-bedroom-door-jamb-e')).toBeUndefined();
     expect(isaacDoor.getObjectByName('isaac-bedroom-door-panel')).toBeInstanceOf(Mesh);
     const isaacDoorHandle = isaacDoor.getObjectByName('isaac-bedroom-door-handle-front') as Mesh;
     expect(isaacDoorHandle).toBeInstanceOf(Mesh);
@@ -195,10 +195,28 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
     expect(isaacDoorLeaf.rotation.y).toBeCloseTo(-(75 * Math.PI) / 180, 4);
     const isaacDoorBox = new Box3().setFromObject(isaacDoor);
     expect(isaacDoorBox.min.x).toBeCloseTo(8.6, 2);
-    expect(isaacDoorBox.max.x).toBeCloseTo(11.8, 2);
+    expect(isaacDoorBox.max.x).toBeLessThan(10.0);
     expect(isaacDoorBox.max.z).toBeGreaterThan(6.2);
     expect(isaacDoorBox.max.z).toBeLessThan(7.0);
     expect(isaacDoorBox.max.y).toBeCloseTo(6.2, 2);
+
+    // North-facing Isaac closet door (z = 7.2, x = 8.6..11.8, closed, 4.4 ft tall)
+    const isaacClosetDoor = built.shellGroup.getObjectByName('isaac-closet-door')!;
+    expect(isaacClosetDoor).toBeDefined();
+    expect(isaacClosetDoor.getObjectByName('isaac-closet-door-jamb-w')).toBeInstanceOf(Mesh);
+    expect(isaacClosetDoor.getObjectByName('isaac-closet-door-jamb-e')).toBeInstanceOf(Mesh);
+    expect(isaacClosetDoor.getObjectByName('isaac-closet-door-panel')).toBeInstanceOf(Mesh);
+    const isaacClosetHandle = isaacClosetDoor.getObjectByName('isaac-closet-door-handle-front') as Mesh;
+    expect(isaacClosetHandle).toBeInstanceOf(Mesh);
+    expect(isaacClosetHandle.material).toBe(built.materials.matteBlackIron);
+    const isaacClosetLeaf = isaacClosetDoor.getObjectByName('isaac-closet-door-leaf')!;
+    expect(isaacClosetLeaf.rotation.y).toBeCloseTo(0, 4);
+    const isaacClosetBox = new Box3().setFromObject(isaacClosetDoor);
+    expect(isaacClosetBox.min.x).toBeCloseTo(8.6, 2);
+    expect(isaacClosetBox.max.x).toBeCloseTo(11.8, 2);
+    expect(isaacClosetBox.min.z).toBeCloseTo(7.02, 2);
+    expect(isaacClosetBox.max.z).toBeCloseTo(7.38, 2);
+    expect(isaacClosetBox.max.y).toBeCloseTo(4.4, 2);
 
     built.dispose();
   });
@@ -304,7 +322,7 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
       'south-nook-wall', 'south-kitchen-wall', 'east-isaac-navy',
       'kitchen-bath-west', 'hall-bath-south', 'bath-rosie-divider',
       'pantry-north-wall', 'pantry-back-divider',
-      'isaac-closet-north',
+      'isaac-closet-east',
       'rosie-isaac-divider', 'rosie-closet-west',
     ]) {
       const box = new Box3().setFromObject(built.wallsById[halfId]);
@@ -319,6 +337,7 @@ describe('buildTier3Scene — Floor 3 North 3D Scene, Materials, Windows, Safety
     expect(built.shellGroup.getObjectByName('rosie-north-french-doors')).toBeDefined();
     expect(new Box3().setFromObject(built.shellGroup.getObjectByName('rosie-bedroom-door')!).max.y).toBeCloseTo(2.2, 2);
     expect(new Box3().setFromObject(built.shellGroup.getObjectByName('isaac-bedroom-door')!).max.y).toBeCloseTo(2.2, 2);
+    expect(new Box3().setFromObject(built.shellGroup.getObjectByName('isaac-closet-door')!).max.y).toBeCloseTo(2.2, 2);
     expect(new Box3().setFromObject(built.stairsDownGroup.getObjectByName('tier3-stair-jamb-w')!).max.y).toBeCloseTo(2.6, 2);
 
     built.dispose();
