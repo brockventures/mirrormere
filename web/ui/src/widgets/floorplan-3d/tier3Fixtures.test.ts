@@ -43,7 +43,7 @@ describe('tier3Fixtures — Floor 3 3D Fixtures (Nook, Kitchen, Hall Bath, Rosie
     palette.dispose();
   });
 
-  it('builds signature Nook, Kitchen, Hall Bath, Rosie, and Isaac fixtures plus both bedroom ceiling fans', () => {
+  it('builds signature Nook, Kitchen, Hall Bath, Rosie, and Isaac fixtures with zero ceiling fans', () => {
     const palette = createTier1Materials();
     const built = buildTier3Fixtures(palette);
 
@@ -107,27 +107,53 @@ describe('tier3Fixtures — Floor 3 3D Fixtures (Nook, Kitchen, Hall Bath, Rosie
     expect(built.fixtures.hallBathVanity.getObjectByName('hall-vanity-globe-2')).toBeInstanceOf(Mesh);
     expect(built.fixtures.hallBathToilet.getObjectByName('hall-bath-art-print')).toBeInstanceOf(Mesh);
 
-    // Rosie's Room: rainbow arches, round textured rug, dollhouse
+    // Rosie's Room: rainbow arches, round textured rug, framed south closet sliding doors & interior, dollhouse west of closet wall
     expect(built.fixtures.rosieRainbowAndMap.getObjectByName('rosie-rainbow-arch-0')).toBeInstanceOf(Mesh);
     expect(built.fixtures.rosieRainbowAndMap.getObjectByName('rosie-rainbow-arch-2')).toBeInstanceOf(Mesh);
     const rosieRug = built.fixtures.rosieRoundRug.getObjectByName('rosie-round-rug-disc') as Mesh;
     expect(rosieRug).toBeInstanceOf(Mesh);
     expect(rosieRug.geometry).toBeInstanceOf(CylinderGeometry);
     expect((rosieRug.material as MeshStandardMaterial).map).toBeInstanceOf(DataTexture);
-    expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-dollhouse-roof')).toBeInstanceOf(Mesh);
+    const rosieDoorW = new Box3().setFromObject(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-closet-door-w')!);
+    const rosieDoorE = new Box3().setFromObject(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-closet-door-e')!);
+    const rosieDollhouse = new Box3().setFromObject(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-dollhouse-roof')!);
+    expect(rosieDoorW.min.x).toBeGreaterThanOrEqual(18.4);
+    expect(rosieDoorE.max.x).toBeLessThanOrEqual(22.3);
+    expect(rosieDoorW.min.z).toBeLessThan(-1.6);
+    expect(rosieDollhouse.max.x).toBeLessThanOrEqual(17.25);
+    expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-closet-shelf')).toBeInstanceOf(Mesh);
+    expect(built.fixtures.rosieClosetAndDollhouse.getObjectByName('rosie-closet-rod')).toBeInstanceOf(Mesh);
 
-    // Isaac's Room: slatted crib, diaper pail, glider + ottoman, star play mat
+    // Isaac's Room: rectangular slatted crib (~4.4 x 2.4 ft), 45-deg SW-facing glider + ottoman, west/SW closet door & interior, star play mat
+    const cribBox = new Box3().setFromObject(built.fixtures.isaacWoodCrib);
+    expect(cribBox.max.x - cribBox.min.x).toBeCloseTo(4.32, 1);
+    expect(cribBox.max.z - cribBox.min.z).toBeCloseTo(2.32, 1);
     expect(built.fixtures.isaacWoodCrib.getObjectByName('crib-slat-e-5')).toBeInstanceOf(Mesh);
+    expect(built.fixtures.isaacWoodCrib.getObjectByName('crib-slat-n-9')).toBeInstanceOf(Mesh);
     expect(built.fixtures.isaacWalnutDresser.getObjectByName('isaac-diaper-pail')).toBeInstanceOf(Mesh);
-    expect(built.fixtures.isaacGliderAndOttoman.getObjectByName('isaac-tufted-ottoman')).toBeInstanceOf(Mesh);
+    const gliderChair = built.fixtures.isaacGliderAndOttoman.getObjectByName('isaac-glider-chair')!;
+    expect(gliderChair).toBeDefined();
+    expect(gliderChair.rotation.y).toBeCloseTo(-Math.PI / 4, 4);
+    const chairBox = new Box3().setFromObject(gliderChair);
+    const ottomanMesh = built.fixtures.isaacGliderAndOttoman.getObjectByName('isaac-tufted-ottoman') as Mesh;
+    const ottomanBox = new Box3().setFromObject(ottomanMesh);
+    expect(ottomanMesh).toBeInstanceOf(Mesh);
+    expect((ottomanBox.min.x + ottomanBox.max.x) / 2).toBeLessThan((chairBox.min.x + chairBox.max.x) / 2);
+    expect((ottomanBox.min.z + ottomanBox.max.z) / 2).toBeGreaterThan((chairBox.min.z + chairBox.max.z) / 2);
     const starMat = built.fixtures.isaacStarPlayMat.getObjectByName('isaac-star-play-mat') as Mesh;
     expect(starMat).toBeInstanceOf(Mesh);
     expect((starMat.material as MeshStandardMaterial).map).toBeInstanceOf(DataTexture);
+    const isaacClosetDoor = new Box3().setFromObject(built.root.getObjectByName('isaac-closet-door')!);
+    expect(isaacClosetDoor.min.z).toBeGreaterThanOrEqual(4.8);
+    expect(isaacClosetDoor.max.z).toBeLessThanOrEqual(8.0);
+    expect(built.root.getObjectByName('isaac-closet-shelf')).toBeInstanceOf(Mesh);
+    expect(built.root.getObjectByName('isaac-closet-rod')).toBeInstanceOf(Mesh);
 
-    // Ceiling fans in Rosie's and Isaac's bedrooms
+    // Ceiling fans removed from Floor 3
     expect(built.ceilingFansGroup.name).toBe('tier3-ceiling-fans');
-    expect(built.ceilingFansGroup.getObjectByName('rosie-ceiling-fan')).toBeDefined();
-    expect(built.ceilingFansGroup.getObjectByName('isaac-ceiling-fan')).toBeDefined();
+    expect(built.ceilingFansGroup.children).toHaveLength(0);
+    expect(built.ceilingFansGroup.getObjectByName('rosie-ceiling-fan')).toBeUndefined();
+    expect(built.ceilingFansGroup.getObjectByName('isaac-ceiling-fan')).toBeUndefined();
 
     built.dispose();
     palette.dispose();

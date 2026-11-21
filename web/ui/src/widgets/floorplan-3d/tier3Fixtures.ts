@@ -293,36 +293,46 @@ function buildRosieFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3Fixtur
     [0.96, 1, 0.54, 0.90, 0.05, 0.47, c.palette.whiteTrim], [0.96, 1, 0.54, 0.90, 0.53, 0.95, c.palette.whiteTrim],
   ]);
 
-  // 17. Sliding Closet Doors + Tall White Wooden Dollhouse + Low Cube Toy Shelf
-  c.boxes(fixtures.rosieClosetAndDollhouse, [
-    [19.0, 21.15, 0, 4.45, 0.06, 0.24, c.palette.whiteTrim, 'rosie-closet-door-w'], [21.05, 23.18, 0, 4.45, -0.04, 0.14, c.palette.whiteTrim, 'rosie-closet-door-e'],
-    [16.5, 18.7, 0, 3.65, -0.95, 0.25, c.palette.whiteTrim, 'rosie-dollhouse-body'], [16.65, 18.55, 0.25, 3.45, -0.98, -0.10, c.mat('#f6ebe1', 0.78), 'rosie-dollhouse-interior'],
-    [16.4, 18.8, 3.65, 4.35, -1.0, 0.28, c.mat('#e0919c', 0.72), 'rosie-dollhouse-roof'], [14.85, 16.35, 0, 2.05, -0.98, 0.25, c.palette.whiteTrim, 'rosie-cube-shelf'],
-    [14.95, 15.55, 0.15, 0.95, -1.02, 0.15, c.mat('#e6b97a', 0.8), 'rosie-cube-bin-1'], [15.65, 16.25, 0.15, 0.95, -1.02, 0.15, c.mat('#88b8c9', 0.8), 'rosie-cube-bin-2'],
+  // 17. Framed South Closet (bypass white sliding doors + shelf/rod interior) + Dollhouse + Cube Shelf
+  const rc = fixtures.rosieClosetAndDollhouse;
+  c.boxes(rc, [
+    [18.40, 22.30, 4.26, 4.36, -1.90, -1.62, c.palette.whiteTrim, 'rosie-closet-track'], [18.42, 20.42, 0, 4.26, -1.86, -1.76, c.palette.whiteTrim, 'rosie-closet-door-w'],
+    [20.28, 22.28, 0, 4.26, -1.73, -1.63, c.palette.whiteTrim, 'rosie-closet-door-e'], [18.58, 18.66, 1.90, 2.28, -1.89, -1.85, c.palette.matteBlackIron, 'rosie-closet-pull-w'],
+    [22.04, 22.12, 1.90, 2.28, -1.76, -1.72, c.palette.matteBlackIron, 'rosie-closet-pull-e'], [17.62, 23.18, 3.55, 3.66, -0.90, 0.28, c.palette.whiteTrim, 'rosie-closet-shelf'],
+    [17.64, 23.16, 3.22, 3.28, -0.46, -0.40, c.palette.brushedSteel, 'rosie-closet-rod'], [14.82, 15.78, 0, 2.05, -0.95, 0.28, c.palette.whiteTrim, 'rosie-cube-shelf'],
+    [14.88, 15.26, 0.15, 0.95, -0.99, 0.15, c.mat('#e6b97a', 0.8), 'rosie-cube-bin-1'], [15.34, 15.72, 0.15, 0.95, -0.99, 0.15, c.mat('#88b8c9', 0.8), 'rosie-cube-bin-2'],
+    [15.88, 17.18, 0, 3.65, -0.95, 0.28, c.palette.whiteTrim, 'rosie-dollhouse-body'], [15.98, 17.08, 0.25, 3.45, -0.98, -0.10, c.mat('#f6ebe1', 0.78), 'rosie-dollhouse-interior'],
+    [15.80, 17.22, 3.65, 4.32, -1.00, 0.30, c.mat('#e0919c', 0.72), 'rosie-dollhouse-roof'],
   ]);
+  for (const [ci, col] of ['#e0919c', '#f4efe6', '#88b8c9', '#e6b97a'].entries()) {
+    c.addBox(rc, 18.25 + ci * 1.15, 18.97 + ci * 1.15, 1.55, 3.22, -0.78, -0.08, c.mat(col, 0.82), `rosie-closet-clothes-${ci}`);
+  }
 }
 
-function buildIsaacFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3FixtureKey, Group>, spec: Tier3LayoutSpec): void {
+function buildIsaacFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3FixtureKey, Group>, spec: Tier3LayoutSpec, root: Group): void {
   const f = spec.fixtures;
   const [darkWalnut, cream, gliderGray, mustard, olive, stripeNavy] = [
     c.mat('#4d3221', 0.56), c.mat('#f4efe6', 0.82), c.mat('#8c949e', 0.82),
     c.mat('#c9a23f', 0.8), c.mat('#5e6b4c', 0.86), c.mat('#2f5573', 0.8),
   ];
 
-  // 18. Dark Wood Slatted Crib + Small Wooden Bookcase
+  // 18. Dark Wood Slatted Rectangular Crib (~2.4 ft deep x ~4.4 ft long)
   const cr = fixtures.isaacWoodCrib;
   c.boxes(cr, [
-    [12.15, 13.5, 0, 2.75, 5.45, 6.45, darkWalnut, 'isaac-small-bookcase'], [12.35, 13.35, 1.5, 2.45, 5.55, 6.35, c.mat('#d9a992', 0.75), 'isaac-bookcase-books'],
-    [12.15, 15.25, 0.58, 0.82, 6.65, 10.15, darkWalnut, 'crib-platform'], [12.28, 15.12, 0.82, 1.38, 6.78, 10.02, cream, 'crib-mattress'],
-    [12.18, 15.22, 3.16, 3.34, 6.68, 6.82, darkWalnut, 'crib-rail-n'], [12.18, 15.22, 3.16, 3.34, 9.98, 10.12, darkWalnut, 'crib-rail-s'],
-    [12.18, 12.32, 3.16, 3.34, 6.68, 10.12, darkWalnut, 'crib-rail-w'], [15.08, 15.22, 3.16, 3.34, 6.68, 10.12, darkWalnut, 'crib-rail-e'],
+    [12.14, 16.46, 0.58, 0.82, 8.34, 10.66, darkWalnut, 'crib-platform'], [12.28, 16.32, 0.82, 1.36, 8.48, 10.52, cream, 'crib-mattress'],
+    [12.18, 16.42, 3.16, 3.34, 8.36, 8.50, darkWalnut, 'crib-rail-n'], [12.18, 16.42, 3.16, 3.34, 10.50, 10.64, darkWalnut, 'crib-rail-s'],
+    [12.18, 12.32, 3.16, 3.34, 8.36, 10.64, darkWalnut, 'crib-rail-w'], [16.28, 16.42, 3.16, 3.34, 8.36, 10.64, darkWalnut, 'crib-rail-e'],
   ]);
-  for (const [pi, [px, pz]] of [[12.22, 6.72], [15.18, 6.72], [12.22, 10.08], [15.18, 10.08]].entries()) {
-    c.addBox(cr, px - 0.08, px + 0.08, 0, 3.38, pz - 0.08, pz + 0.08, darkWalnut, `crib-post-${pi}`);
-  }
+  for (const [pi, [px, pz]] of [[12.22, 8.42], [16.38, 8.42], [12.22, 10.58], [16.38, 10.58]].entries()) c.addBox(cr, px - 0.08, px + 0.08, 0, 3.38, pz - 0.08, pz + 0.08, darkWalnut, `crib-post-${pi}`);
   for (let i = 0; i < 6; i += 1) {
-    const sz = 7.05 + i * 0.54;
-    c.addBox(cr, 15.10, 15.20, 0.82, 3.16, sz - 0.04, sz + 0.04, darkWalnut, `crib-slat-e-${i}`);
+    const sz = 8.65 + i * 0.34;
+    c.addBox(cr, 12.20, 12.30, 0.82, 3.16, sz - 0.04, sz + 0.04, darkWalnut, `crib-slat-w-${i}`);
+    c.addBox(cr, 16.30, 16.40, 0.82, 3.16, sz - 0.04, sz + 0.04, darkWalnut, `crib-slat-e-${i}`);
+  }
+  for (let i = 0; i < 10; i += 1) {
+    const sx = 12.60 + i * 0.38;
+    c.addBox(cr, sx - 0.04, sx + 0.04, 0.82, 3.16, 8.38, 8.48, darkWalnut, `crib-slat-n-${i}`);
+    c.addBox(cr, sx - 0.04, sx + 0.04, 0.82, 3.16, 10.52, 10.62, darkWalnut, `crib-slat-s-${i}`);
   }
 
   // 19. Walnut 6-Drawer Dresser + Framed Art + Stainless Diaper Pail + Striped Hamper
@@ -334,46 +344,43 @@ function buildIsaacFixtures(c: Tier3FixtureContext, fixtures: Record<Tier3Fixtur
   ]);
   c.addCyl(id, 13.55, 1.05, 1.68, 0.44, 0.42, 2.1, c.palette.brushedSteel, 'isaac-diaper-pail');
 
-  // 20. Gray Nursery Glider Armchair + Yellow Pillow + Round Mustard-Yellow Ottoman
+  // 20. Gray Nursery Glider Armchair (45 deg facing SW) + Yellow Pillow + Round Mustard-Yellow Ottoman
   const ig = fixtures.isaacGliderAndOttoman;
-  c.boxes(ig, [
-    [19.9, 22.9, 0, 0.36, 1.1, 3.3, darkWalnut, 'isaac-glider-base'], [19.8, 23.0, 0.36, 1.38, 1.05, 3.35, gliderGray, 'isaac-glider-seat'],
-    [21.8, 23.0, 1.38, 3.08, 1.05, 3.35, gliderGray, 'isaac-glider-back'], [19.85, 22.0, 1.38, 2.18, 1.05, 1.45, gliderGray, 'isaac-glider-arm-n'],
-    [19.85, 22.0, 1.38, 2.18, 2.95, 3.35, gliderGray, 'isaac-glider-arm-s'], [21.0, 21.75, 1.42, 2.25, 1.65, 2.75, mustard, 'isaac-glider-yellow-pillow'],
+  const glider = new Group();
+  glider.name = 'isaac-glider-chair';
+  glider.position.set(21.48, 0, 2.54);
+  glider.rotation.y = -Math.PI / 4;
+  c.boxes(glider, [
+    [-1.02, 1.02, 0, 0.36, -1.00, 1.00, darkWalnut, 'isaac-glider-base'], [-1.10, 1.10, 0.36, 1.38, -1.05, 1.05, gliderGray, 'isaac-glider-seat'],
+    [-1.10, 1.10, 1.38, 3.08, -1.05, -0.38, gliderGray, 'isaac-glider-back'], [-1.10, -0.76, 1.38, 2.18, -0.38, 0.98, gliderGray, 'isaac-glider-arm-n'],
+    [0.76, 1.10, 1.38, 2.18, -0.38, 0.98, gliderGray, 'isaac-glider-arm-s'], [-0.54, 0.54, 1.42, 2.25, -0.36, -0.02, mustard, 'isaac-glider-yellow-pillow'],
   ]);
-  c.addCyl(ig, 20.7, 0.68, 4.05, 0.72, 0.70, 1.32, mustard, 'isaac-tufted-ottoman');
+  ig.add(glider);
+  c.addCyl(ig, 20.26, 0.66, 3.76, 0.64, 0.62, 1.32, mustard, 'isaac-tufted-ottoman');
 
-  // 21. Olive-Green Foldable Floor Play Couch
+  // 21. Olive-Green Foldable Floor Play Couch + 22. Cream Star-Patterned Floor Play Mat
   c.parts(fixtures.isaacPlayCouch, f.isaacPlayCouch, [
     [0, 1, 0, 0.26, 0, 1, olive], [0, 1, 0.27, 0.52, 0.02, 0.98, olive], [0.02, 0.98, 0.52, 0.98, 0.62, 0.98, olive],
     [0.02, 0.16, 0.52, 0.84, 0.06, 0.62, olive], [0.84, 0.98, 0.52, 0.84, 0.06, 0.62, olive],
   ]);
-
-  // 22. Cream Star-Patterned Floor Play Mat
   const sm = f.isaacStarPlayMat;
   const starMat = c.trackMat(new MeshStandardMaterial({ map: c.trackTex(createStarPlayMatTexture()), roughness: 0.9, metalness: 0.02 }));
   c.addBox(fixtures.isaacStarPlayMat, sm.xMin, sm.xMax, 0, sm.heightFt, sm.zMin, sm.zMax, starMat, 'isaac-star-play-mat');
-}
 
-function addCeilingFan(parent: Group, name: string, cx: number, y: number, cz: number, c: Tier3FixtureContext): void {
-  const fan = new Group();
-  fan.name = name;
-  c.addCyl(fan, cx, y - 0.18, cz, 0.14, 0.14, 0.36, c.palette.whiteTrim, `${name}-rod`, 12);
-  c.addCyl(fan, cx, y - 0.44, cz, 0.42, 0.38, 0.24, c.palette.whiteTrim, `${name}-hub`, 16);
-  c.addSphere(fan, cx, y - 0.62, cz, 0.22, c.mat('#fff5d6', 0.22), `${name}-light`);
-  for (let b = 0; b < 4; b += 1) {
-    const angle = (b * Math.PI) / 2 + Math.PI / 4;
-    c.addMesh(fan, new BoxGeometry(2.1, 0.05, 0.42), c.palette.whiteTrim, cx + Math.cos(angle) * 1.15, y - 0.44, cz + Math.sin(angle) * 1.15, `${name}-blade-${b}`).rotation.y = -angle;
-  }
-  parent.add(fan);
+  // Isaac's West/SW Framed Reach-In Closet (white door at x 11.8, z 4.8..8.0 + interior shelf & rod)
+  const ic = new Group();
+  ic.name = 'isaac-closet';
+  c.boxes(ic, [
+    [11.73, 11.87, 0, 4.30, 4.84, 7.96, c.palette.whiteTrim, 'isaac-closet-door'], [11.62, 11.98, 4.26, 4.36, 4.80, 8.00, c.palette.whiteTrim, 'isaac-closet-header'],
+    [11.87, 11.95, 2.04, 2.22, 7.58, 7.76, c.palette.matteBlackIron, 'isaac-closet-handle'], [8.80, 10.10, 3.55, 3.66, 4.42, 10.70, c.palette.whiteTrim, 'isaac-closet-shelf'],
+    [9.42, 9.48, 3.22, 3.28, 4.46, 10.66, c.palette.brushedSteel, 'isaac-closet-rod'], [8.86, 9.86, 0, 0.92, 9.20, 10.50, c.mat('#c8b698', 0.84), 'isaac-closet-bin'],
+  ]);
+  for (const [ci, col] of ['#2f5573', '#d9a992', '#5e6b4c'].entries()) c.addBox(ic, 9.10, 9.80, 1.55, 3.22, 5.05 + ci * 1.35, 5.87 + ci * 1.35, c.mat(col, 0.82), `isaac-closet-clothes-${ci}`);
+  root.add(ic);
 }
 
 export function buildTier3Fixtures(palette: Tier1MaterialPalette, spec: Tier3LayoutSpec = TIER3_LAYOUT_SPEC): Tier3FixturesBuildResult {
-  const geometries: BufferGeometry[] = [];
-  const localMats: MeshStandardMaterial[] = [];
-  const localTexs: DataTexture[] = [];
-  const cache = new Map<string, MeshStandardMaterial>();
-
+  const [geometries, localMats, localTexs, cache] = [[] as BufferGeometry[], [] as MeshStandardMaterial[], [] as DataTexture[], new Map<string, MeshStandardMaterial>()];
   const trackMat = (m: MeshStandardMaterial): MeshStandardMaterial => { localMats.push(m); return m; };
   const trackTex = (t: DataTexture): DataTexture => { localTexs.push(t); return t; };
   const mat = (color: string | number, roughness = 0.72, metalness = 0.06, opacity = 1): MeshStandardMaterial => {
@@ -396,24 +403,17 @@ export function buildTier3Fixtures(palette: Tier1MaterialPalette, spec: Tier3Lay
   };
   const addBox: Tier3FixtureContext['addBox'] = (p, x0, x1, y0, y1, z0, z1, m, name) =>
     trackMesh(p, new BoxGeometry(Math.max(0.02, x1 - x0), Math.max(0.02, y1 - y0), Math.max(0.02, z1 - z0)), m, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, name);
-  const boxes: Tier3FixtureContext['boxes'] = (p, items) => {
-    for (const [x0, x1, y0, y1, z0, z1, m, name] of items) addBox(p, x0, x1, y0, y1, z0, z1, m, name);
-  };
-  const addCyl: Tier3FixtureContext['addCyl'] = (p, cx, cy, cz, rT, rB, h, m, name, segs = 20) =>
-    trackMesh(p, new CylinderGeometry(rT, rB, h, segs), m, cx, cy, cz, name);
-  const addSphere: Tier3FixtureContext['addSphere'] = (p, cx, cy, cz, r, m, name) =>
-    trackMesh(p, new SphereGeometry(r, 16, 12), m, cx, cy, cz, name);
+  const boxes: Tier3FixtureContext['boxes'] = (p, items) => { for (const [x0, x1, y0, y1, z0, z1, m, name] of items) addBox(p, x0, x1, y0, y1, z0, z1, m, name); };
+  const addCyl: Tier3FixtureContext['addCyl'] = (p, cx, cy, cz, rT, rB, h, m, name, segs = 20) => trackMesh(p, new CylinderGeometry(rT, rB, h, segs), m, cx, cy, cz, name);
+  const addSphere: Tier3FixtureContext['addSphere'] = (p, cx, cy, cz, r, m, name) => trackMesh(p, new SphereGeometry(r, 16, 12), m, cx, cy, cz, name);
   const parts: Tier3FixtureContext['parts'] = (p, s, items) => {
     const [dx, dy, dz] = [s.xMax - s.xMin, s.heightFt, s.zMax - s.zMin];
-    for (const [ux0, ux1, uy0, uy1, uz0, uz1, m] of items) {
-      addBox(p, s.xMin + dx * ux0, s.xMin + dx * ux1, dy * uy0, dy * uy1, s.zMin + dz * uz0, s.zMin + dz * uz1, m);
-    }
+    for (const [ux0, ux1, uy0, uy1, uz0, uz1, m] of items) addBox(p, s.xMin + dx * ux0, s.xMin + dx * ux1, dy * uy0, dy * uy1, s.zMin + dz * uz0, s.zMin + dz * uz1, m);
   };
 
   const ctx: Tier3FixtureContext = { palette, mat, trackMat, trackTex, addMesh: trackMesh, addBox, boxes, addCyl, addSphere, parts };
   const root = new Group();
   root.name = 'tier3-fixtures';
-
   const fixtures = {} as Record<Tier3FixtureKey, Group>;
   for (const key of Object.keys(spec.fixtures) as Tier3FixtureKey[]) {
     const fSpec = spec.fixtures[key];
@@ -423,23 +423,18 @@ export function buildTier3Fixtures(palette: Tier1MaterialPalette, spec: Tier3Lay
     fixtures[key] = g;
     root.add(g);
   }
-
   buildNookFixtures(ctx, fixtures, spec);
   buildKitchenAndHallFixtures(ctx, fixtures);
   buildHallBathFixtures(ctx, fixtures, spec);
   buildRosieFixtures(ctx, fixtures, spec);
-  buildIsaacFixtures(ctx, fixtures, spec);
+  buildIsaacFixtures(ctx, fixtures, spec, root);
 
   const ceilingFansGroup = new Group();
   ceilingFansGroup.name = 'tier3-ceiling-fans';
-  addCeilingFan(ceilingFansGroup, 'rosie-ceiling-fan', 17.65, 6.25, -5.25, ctx);
-  addCeilingFan(ceilingFansGroup, 'isaac-ceiling-fan', 17.65, 6.25, 5.75, ctx);
   root.add(ceilingFansGroup);
 
   return {
-    root,
-    fixtures,
-    ceilingFansGroup,
+    root, fixtures, ceilingFansGroup,
     dispose: () => {
       for (const g of geometries) g.dispose();
       for (const m of localMats) m.dispose();
